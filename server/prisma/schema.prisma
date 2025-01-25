@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Role Table
+model Role {
+  role_id        Int      @id @default(autoincrement()) // Primary key
+  name           String   @unique                      // Role name (unique)
+  users          User[]   @relation("RoleToUser")      // One-to-Many relationship with User
+}
+
+// User Table
+model User {
+  user_id        Int      @id @default(autoincrement()) // Primary key
+  name           String   @db.VarChar(255)             // User's name
+  email          String   @unique                      // User's email (unique)
+  mobileNo       String   @db.VarChar(15)              // Mobile number
+  password       String                                // Hashed password
+  roleId         Int                                    // Foreign key to Role table
+  role           Role     @relation("RoleToUser", fields: [roleId], references: [role_id]) // Role reference
+  created_on     DateTime @default(now())              // Timestamp for user creation
+  created_by     String?                                // Who created the user
+  modify_on      DateTime @updatedAt                   // Auto-update timestamp
+  modify_by      String?                                // Who modified the user
+  notifications  Notification[]                        // One-to-Many relationship with Notification
+}
+
+// Notification Table
+model Notification {
+  notification_id        Int      @id @default(autoincrement()) // Primary key
+  notification_message   String   @db.VarChar(225)             // Notification message
+  notification_url       String
+  userId                 Int      // Foreign key to User table
+  user                   User     @relation(fields: [userId], references: [user_id]) // Reference to User
+  created_on             DateTime @default(now())             // Timestamp for notification creation
+  created_by             String                                  // Who created the notification
+  modify_by              String?                                 // Who modified the notification (Optional)
+  modify_on             DateTime?                               // Timestamp of last modification (Optional)
+}
+
+// Banner Table - New Model
+model Banner { 
+  id          Int      @id @default(autoincrement())  // Primary key
+  bannerUrl   String                                  // URL of the banner
+  bannerName  String                                  // Name or title of the banner
+  created_on  DateTime @default(now())                // Timestamp for banner creation
+  created_by  String                                  // Who created the banner
+  modify_on   DateTime? @updatedAt                    // Auto-updated timestamp on modification
+  modify_by   String?                                 // Who modified the banner
+}
