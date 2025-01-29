@@ -34,22 +34,24 @@ model User {
 model Notification {
   notification_id        Int      @id @default(autoincrement()) // Primary key
   notification_message   String   @db.VarChar(225)             // Notification message
-  notification_url       String
-  userId                 Int      // Foreign key to User table
+  notification_url       String                                  // URL or file location
+  public_id              String?                                // Cloudinary public ID (nullable for URLs)
+  userId                 Int                                    // Foreign key to User table
   user                   User     @relation(fields: [userId], references: [user_id]) // Reference to User
-  created_on             DateTime @default(now())             // Timestamp for notification creation
+  created_on             DateTime @default(now())               // Timestamp for notification creation
   created_by             String                                  // Who created the notification
   modify_by              String?                                 // Who modified the notification (Optional)
-  modify_on             DateTime?                               // Timestamp of last modification (Optional)
+  modify_on              DateTime?                              // Timestamp of last modification (Optional)
+}
+model Banner {
+  id             Int      @id @default(autoincrement())
+  bannerUrl      String
+  bannerName     String
+  bannerPosition Int
+  created_on     DateTime @default(now())
+  created_by     String
+  modify_on      DateTime?
+  modify_by      String?
+  publicId       String
 }
 
-// Banner Table - New Model
-model Banner { 
-  id          Int      @id @default(autoincrement())  // Primary key
-  bannerUrl   String                                  // URL of the banner
-  bannerName  String                                  // Name or title of the banner
-  created_on  DateTime @default(now())                // Timestamp for banner creation
-  created_by  String                                  // Who created the banner
-  modify_on   DateTime? @updatedAt                    // Auto-updated timestamp on modification
-  modify_by   String?                                 // Who modified the banner
-}

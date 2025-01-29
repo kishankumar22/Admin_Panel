@@ -1,3 +1,5 @@
+// components/Addnotifications.tsx
+
 import { useState } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
@@ -12,6 +14,7 @@ const Addnotifications = () => {
   const [isUploading, setIsUploading] = useState<boolean>(false); // Track file upload status
   const [isValidUrl, setIsValidUrl] = useState<boolean>(true); // Validate URL input
   const [editingId, setEditingId] = useState<number | null>(null); // Tracks the notification being edited
+  const [isUpdating, setIsUpdating] = useState<boolean>(false); // Track if updating
 
   const { user } = useAuth();
   const { notifications, addNotification: addNotificationContext, editNotification, deleteNotification } =
@@ -19,6 +22,7 @@ const Addnotifications = () => {
 
   const userId = user?.user_id;
   const createdBy = user?.name || 'admin';
+  const modify_by = user?.name; // Get modify_by from user context
 
   // Validate URL format
   const validateUrl = (url: string) => {
@@ -40,17 +44,17 @@ const Addnotifications = () => {
     }
 
     if (!userId || !createdBy) {
-            toast.error('User data is missing. Please log in again.');
+      toast.error('User  data is missing. Please log in again.');
       return;
     }
 
     if (inputType === 'url' && (!url || !isValidUrl)) {
-      toast.error('Please enter a notification message');
+      toast.error('Please enter a valid URL');
       return;
     }
 
     if (inputType === 'file' && !file) {
-      toast.success('Please select a file.');
+      toast.error('Please select a file.');
       return;
     }
 
@@ -84,7 +88,7 @@ const Addnotifications = () => {
       await deleteNotification(id);
       toast.success('Notification deleted successfully!');
     } catch (error) {
-      toast.success('Failed to delete notification');
+      toast.error('Failed to delete notification');
     }
   };
 
@@ -96,8 +100,10 @@ const Addnotifications = () => {
   };
 
   const handleSaveNotification = async (id: number) => {
+    setIsUpdating(true); // Set updating state to true
     const formData = new FormData();
     formData.append('notification_message', addNotification);
+    formData.append('modify_by', modify_by || 'admin'); // Add modify_by to formData
 
     if (inputType === 'url') {
       formData.append('url', url);
@@ -114,6 +120,8 @@ const Addnotifications = () => {
       toast.success('Notification updated successfully!');
     } catch (error) {
       toast.error('Failed to update notification');
+    } finally {
+      setIsUpdating(false); // Reset updating state
     }
   };
 
@@ -124,8 +132,18 @@ const Addnotifications = () => {
     setFile(null);
   };
 
+  // Function to format date as DD-MM-YYYY
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   return (
-    <><ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+    <>
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <Breadcrumb pageName="Add Notification" />
 
       <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded-lg shadow-md">
@@ -172,9 +190,9 @@ const Addnotifications = () => {
             <button
               className="px-3 py-1 text-white bg-green-500 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300"
               onClick={() => handleSaveNotification(editingId)}
-              disabled={isUploading || (inputType === 'url' && !isValidUrl)}
+              disabled={isUploading || isUpdating || (inputType === 'url' && !isValidUrl)}
             >
-              Save
+              {isUpdating ? 'Updating...' : 'Save'}
             </button>
             <button
               className="px-3 py-1 text-white bg-red-500 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300"
@@ -203,7 +221,7 @@ const Addnotifications = () => {
               <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Message</th>
               <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">URL</th>
               <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Created By</th>
-              <th className="py-1 px-12 border-b text-left text-gray-600 text-xs">Created on</th>
+              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Created on</th>
               <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Modify by</th>
               <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Modify On</th>
               <th className="py-1 px-12 border-b text-left text-gray-600 text-xs">Action</th>
@@ -230,17 +248,12 @@ const Addnotifications = () => {
                 </td>
                 <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.created_by}</td>
                 <td className="py-1 px-2 border-b text-black-2 text-xs">
-                    {new Date(notification.created_on).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'numeric', // 'short' for abbreviated month names
-                      day: 'numeric',
-                      hour:'numeric',
-                      minute:'2-digit',
-                      second:'numeric'
-                    })}
+                  {formatDate(notification.created_on)}
                 </td>
                 <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.modify_by}</td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.modify_on}</td>
+                <td className="py-1 px-2 border-b text-black-2 text-xs">
+                  {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
+                </td>
                 <td className="py-1 px-2 border-b text-black-2 text-xs">
                   <button
                     className={`text-white w-16 bg-green-500 px-2 py-1 rounded hover:bg-green-600 text-xs mr-1 ${

@@ -4,150 +4,214 @@ const cloudinary = require('../config/cloudinaryConfig');
 const { PrismaClient } = require('@prisma/client');
 
 const router = express.Router();
-const prismaClient = new PrismaClient();
+const prisma = new PrismaClient();
 
-// Configure Multer to store files in memory instead of the file system
-const storage = multer.memoryStorage(); // Store file in memory
-const upload = multer({ storage }); // Use memory storage in Multer
+// Configure Multer for in-memory file storage
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
-// Route to upload file and save banner details to database
-router.post('/upload', upload.single('file'), async (req, res) => {
-  try {
-    const { bannerName, created_by } = req.body; // Extract banner name and created_by from request body
-    const file = req.file; // Get the file object from Multer
-
-    if (!file || !bannerName || !created_by) {
-      return res.status(400).json({ message: 'File, banner name, and created_by are required' });
-    }
-
-    // Upload file to Cloudinary directly from memory
-    const uploadResult = await cloudinary.uploader.upload_stream(
-      { folder: 'banners' }, // Cloudinary folder name
-      async (error, result) => {
-        if (error) {
-          console.error('Cloudinary Upload Error:', error);
-          return res.status(500).json({ message: 'Error uploading file to Cloudinary', error });
-        }
-
-        // Save banner details to the database
-        const newBanner = await prismaClient.banner.create({
-          data: {
-            bannerName, // Use the banner name from the request
-            bannerUrl: result.secure_url, // Save the Cloudinary URL in the database
-            created_by, // Save the created_by field in the database
-          },
-        });
-
-        // Send success response
-        res.status(201).json({
-          message: 'Banner uploaded and saved successfully',
-          banner: newBanner,
-        });
-      }
-    );
-
-    // Write the file buffer to the Cloudinary uploader stream
-    uploadResult.end(file.buffer); // Pass the in-memory file buffer to Cloudinary
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error uploading banner', error });
-  }
-});
-
-// Route to fetch all banners
+// Fetch all banners
 router.get('/banners', async (req, res) => {
   try {
-    const banners = await prismaClient.banner.findMany();
+    const banners = await prisma.banner.findMany({
+      orderBy: {
+        bannerPosition: 'asc',
+      },
+    });
     res.status(200).json(banners);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching banners:', error);
     res.status(500).json({ message: 'Error fetching banners', error });
   }
 });
 
+// Upload banner
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const { bannerName, created_by, bannerPosition } = req.body;
+    const file = req.file;
 
-// Route to update a banner
+    if (!file || !bannerName || !created_by || bannerPosition === undefined) {
+      return res.status(400).json({ message: 'File, banner name, created_by, and banner position are required.' });
+    }
+
+    // Validate bannerPosition >= 1
+    if (parseInt(bannerPosition) < 1) {
+      return res.status(400).json({ message: 'Banner position must be 1 or greater.' });
+    }
+
+    // Check if bannerPosition is already used
+    const existingBanner = await prisma.banner.findFirst({
+      where: { bannerPosition: parseInt(bannerPosition) },
+    });
+
+    if (existingBanner) {
+      return res.status(400).json({ message: `Banner position ${bannerPosition} is already in use. Please delete the existing banner before adding a new one.` });
+    }
+
+    // Upload file to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: 'banners' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      stream.end(file.buffer);
+    });
+
+    // Save banner to database
+    const newBanner = await prisma.banner.create({
+      data: {
+        bannerName,
+        bannerUrl: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        bannerPosition: parseInt(bannerPosition),
+        created_by,
+      },
+    });
+
+    res.status(201).json({ message: 'Banner uploaded successfully!', banner: newBanner });
+  } catch (error) {
+    console.error('Error uploading banner:', error);
+    res.status(500).json({ message: 'Error uploading banner', error });
+  }
+});
+
+// Update banner
 router.put('/update/:id', upload.single('file'), async (req, res) => {
   try {
-    const { id } = req.params; // Get the banner ID from the route parameters
-    const { bannerName } = req.body; // Extract bannerName from the request body
-    const file = req.file; // Get the file (if provided)
+    const { id } = req.params;
+    const { bannerName, modify_by, bannerPosition } = req.body;
+    const file = req.file;
 
-    // Check if the banner exists
-    const existingBanner = await prismaClient.banner.findUnique({
+    // Fetch the existing banner
+    const existingBanner = await prisma.banner.findUnique({
       where: { id: parseInt(id) },
     });
 
     if (!existingBanner) {
-      return res.status(404).json({ message: 'Banner not found' });
+      return res.status(404).json({ message: 'Banner not found.' });
+    }
+
+    // Validate bannerPosition >= 1
+    if (bannerPosition && parseInt(bannerPosition) < 1) {
+      return res.status(400).json({ message: 'Banner position must be 1 or greater.' });
+    }
+
+    // Check if bannerPosition is already used by another banner
+    if (bannerPosition && parseInt(bannerPosition) !== existingBanner.bannerPosition) {
+      const positionInUse = await prisma.banner.findFirst({
+        where: { bannerPosition: parseInt(bannerPosition) },
+      });
+
+      if (positionInUse) {
+        return res.status(400).json({
+          message: `Banner position ${bannerPosition} is already in use. Please delete the existing banner before assigning this position.`,
+        });
+      }
     }
 
     let bannerUrl = existingBanner.bannerUrl;
 
-    // If a new file is provided, upload it to Cloudinary
+    // If a new file is uploaded, upload it to Cloudinary
     if (file) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           { folder: 'banners' },
           (error, result) => {
-            if (error) {
-              console.error('Cloudinary Upload Error:', error);
-              return reject(error);
-            }
+            if (error) return reject(error);
             resolve(result);
           }
         );
         stream.end(file.buffer);
       });
 
-      bannerUrl = uploadResult.secure_url; // Use the new URL from Cloudinary
+      bannerUrl = uploadResult.secure_url;
+
+      // Delete the old file from Cloudinary
+      await cloudinary.uploader.destroy(existingBanner.publicId);
     }
 
     // Update the banner in the database
-    const updatedBanner = await prismaClient.banner.update({
+    const updatedBanner = await prisma.banner.update({
       where: { id: parseInt(id) },
       data: {
-        bannerName: bannerName || existingBanner.bannerName, // Update bannerName if provided
-        bannerUrl, // Use the new or existing bannerUrl
+        bannerName: bannerName || existingBanner.bannerName,
+        bannerUrl,
+        bannerPosition: bannerPosition
+          ? parseInt(bannerPosition)
+          : existingBanner.bannerPosition,
+        modify_by,
+        modify_on: new Date(), // Explicitly update modify_on
       },
     });
 
-    res.status(200).json({
-      message: 'Banner updated successfully',
-      banner: updatedBanner,
-    });
+    res.status(200).json({ message: 'Banner updated successfully!', banner: updatedBanner });
   } catch (error) {
-    console.error('Error updating bannerc:', error);
+    console.error('Error updating banner:', error);
     res.status(500).json({ message: 'Error updating banner', error });
   }
 });
 
-// Route to delete a banner
+// Delete banner
 router.delete('/delete/:id', async (req, res) => {
   try {
-    const { id } = req.params; // Get the banner ID from the route parameters
+    const { id } = req.params;
 
-    // Check if the banner exists
-    const existingBanner = await prismaClient.banner.findUnique({
+    const existingBanner = await prisma.banner.findUnique({
       where: { id: parseInt(id) },
     });
 
     if (!existingBanner) {
-      return res.status(404).json({ message: 'Banner not found' });
+      return res.status(404).json({ message: 'Banner not found.' });
     }
 
-    // Delete the banner from the database
-    await prismaClient.banner.delete({
+    await cloudinary.uploader.destroy(existingBanner.publicId);
+
+    await prisma.banner.delete({
       where: { id: parseInt(id) },
     });
 
-    res.status(200).json({ message: 'Banner deleted successfully' });
+    res.status(200).json({ message: 'Banner deleted successfully.' });
   } catch (error) {
     console.error('Error deleting banner:', error);
-    res.status(500).json({ message: 'Error deleting banner', error });
+    res.status(500).json({ message: 'Error deleting banner.', error });
   }
 });
 
+// Swap banner positions
+router.post('/swap/:oldId/:newId', async (req, res) => {
+  const { oldId, newId } = req.params;
 
+  try {
+    const oldBanner = await prisma.banner.findUnique({ where: { id: parseInt(oldId) } });
+    const newBanner = await prisma.banner.findUnique({ where: { id: parseInt(newId) } });
+
+    if (!oldBanner || !newBanner) {
+      return res.status(404).json({ message: 'One or both banners not found.' });
+    }
+
+    // Swap positions
+    const oldPosition = oldBanner.bannerPosition;
+    const newPosition = newBanner.bannerPosition;
+
+    await prisma.banner.update({
+      where: { id: parseInt(oldId) },
+      data: { bannerPosition: newPosition },
+    });
+
+    await prisma.banner.update({
+      where: { id: parseInt(newId) },
+      data: { bannerPosition: oldPosition },
+    });
+
+    res.status(200).json({ message: 'Banner positions swapped successfully.' });
+  } catch (error) {
+    console.error('Error swapping banner positions:', error);
+    res.status(500).json({ message: 'Error swapping banner positions.', error });
+  }
+});
 
 module.exports = router;

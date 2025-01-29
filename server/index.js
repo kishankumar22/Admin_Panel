@@ -9,6 +9,7 @@ const formRoutes = require('./routes/formRoutes');
 
 // const { createUser } = require('./controllers/controller');
 
+
 dotenv.config(); // Load environment variables
 
 const app = express();
@@ -19,6 +20,7 @@ app.use(express.json());
 app.use(cors()); // Enable CORS
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
 // createUser()
+
 
 // Use the login routes
 app.use('/auth', loginRoutes); // Correctly set up the route for login
@@ -34,7 +36,7 @@ app.get('/', (req, res) => {
 });
 
 // Use the notification router for all routes under `/notifications`
-app.use('/notifications', notificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 // Routes
 app.use('/api/banner', bannerRoutes);
 

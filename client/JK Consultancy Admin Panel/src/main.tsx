@@ -8,14 +8,17 @@ import './css/satoshi.css';
 import 'jsvectormap/dist/css/jsvectormap.css';
 import 'flatpickr/dist/flatpickr.min.css';
 import { NotificationProvider } from './context/NotificationContext';
+import { BannerProvider } from './context/BannerContext';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <AuthProvider>
+    <BannerProvider>
     <NotificationProvider>
 
       <BrowserRouter>
          <App />
       </BrowserRouter>
     </NotificationProvider>
+    </BannerProvider>
   </AuthProvider>
 ); 
