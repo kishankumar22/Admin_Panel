@@ -19,8 +19,9 @@ import Alerts from './pages/UiElements/Alerts';
 import Buttons from './pages/UiElements/Buttons';
 import DefaultLayout from './layout/DefaultLayout';
 import ProtectedRoute from '../src/components/ProtectedRoute';
-import Addnotifications from './pages/Addnotifications';
-import AddBanner from './pages/AddBanner';
+import Addnotifications from './services/Addnotifications';
+import AddBanner from './services/AddBanner';
+import AddPicInGallery from './services/AddGallery';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -93,6 +94,15 @@ function App() {
                       <>
                         <PageTitle title="Add Banner" />
                         <AddBanner />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/addpicingallery"
+                    element={
+                      <>
+                        <PageTitle title="Add  Pic in gallery" />
+                        <AddPicInGallery />
                       </>
                     }
                   />

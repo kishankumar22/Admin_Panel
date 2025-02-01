@@ -9,16 +9,18 @@ import 'jsvectormap/dist/css/jsvectormap.css';
 import 'flatpickr/dist/flatpickr.min.css';
 import { NotificationProvider } from './context/NotificationContext';
 import { BannerProvider } from './context/BannerContext';
+import{GalleryProvider} from'./context/GalleryContext'
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <AuthProvider>
     <BannerProvider>
+    <GalleryProvider>
     <NotificationProvider>
-
       <BrowserRouter>
          <App />
       </BrowserRouter>
     </NotificationProvider>
+    </GalleryProvider>
     </BannerProvider>
   </AuthProvider>
 ); 

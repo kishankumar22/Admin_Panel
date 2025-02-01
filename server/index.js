@@ -4,10 +4,12 @@ const cors = require('cors'); // Import CORS
 const loginRoutes = require('./routes/loginRoutes'); // Correctly import the login routes
 const notificationRoutes = require('./routes/notificationRoutes');
 const bodyParser = require('body-parser');
-const bannerRoutes = require('./routes/bannerRoutes');
 const formRoutes = require('./routes/formRoutes');
 
+const bannerRoutes=require('./routes/bannerRoutes')
+const galleryRoutes=require('./routes/galleryRoutes')
 // const { createUser } = require('./controllers/controller');
+// createUser()
 
 
 dotenv.config(); // Load environment variables
@@ -19,7 +21,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(cors()); // Enable CORS
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
-// createUser()
 
 
 // Use the login routes
@@ -37,8 +38,9 @@ app.get('/', (req, res) => {
 
 // Use the notification router for all routes under `/notifications`
 app.use('/api/notifications', notificationRoutes);
-// Routes
-app.use('/api/banner', bannerRoutes);
+app.use('/api',bannerRoutes)
+app.use('/api',galleryRoutes)
+// Routes 
 
 // Start the server
 app.listen(PORT, () => {

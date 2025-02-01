@@ -53,5 +53,17 @@ model Banner {
   modify_on      DateTime?
   modify_by      String?
   publicId       String
+  IsVisible       Boolean  @default(true) // New field added
 }
-
+model Gallery {
+  id             Int      @id @default(autoincrement())
+  galleryUrl     String
+  galleryName    String
+  galleryPosition Int
+  created_on     DateTime @default(now())
+  created_by     String
+  modify_on      DateTime?
+  modify_by      String?
+  publicId       String
+  IsVisible       Boolean  @default(true) // New field added
+}

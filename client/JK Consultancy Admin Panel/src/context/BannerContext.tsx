@@ -12,6 +12,7 @@ interface Banner {
   created_on: string;
   modify_by?: string;
   modify_on?: string;
+  IsVisible: boolean; // Include IsVisible in the Banner interface
 }
 
 interface BannerContextType {
@@ -20,7 +21,7 @@ interface BannerContextType {
   uploadBanner: (file: File, bannerName: string, bannerPosition: string, createdBy: string) => Promise<void>;
   deleteBanner: (id: number) => Promise<void>;
   updateBanner: (id: number, bannerName: string, bannerPosition: string, file?: File, modifyBy?: string) => Promise<void>;
-  swapImage: (selectedBannerId: number, newBannerId: number) => Promise<void>;
+  toggleVisibility: (id: number, modifyBy: string) => Promise<void>; // New function for toggling visibility
 }
 
 const BannerContext = createContext<BannerContextType | undefined>(undefined);
@@ -30,7 +31,7 @@ export const BannerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const fetchBanners = async () => {
     try {
-      const res = await axiosInstance.get<Banner[]>('/banner/banners');
+      const res = await axiosInstance.get<Banner[]>('/banners');
       setBanners(res.data);
     } catch (error) {
       console.error(error);
@@ -58,6 +59,7 @@ export const BannerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const deleteBanner = async (id: number) => {
+    console.log('Deleting banner with ID:', id); // Debugging
     try {
       await axiosInstance.delete(`/banner/delete/${id}`);
       toast.success('Banner deleted successfully!');
@@ -91,14 +93,14 @@ export const BannerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const swapImage = async (selectedBannerId: number, newBannerId: number) => {
+  const toggleVisibility = async (id: number, modifyBy: string) => {
     try {
-      await axiosInstance.post(`/banner/swap/${selectedBannerId}/${newBannerId}`);
-      toast.success('Banner position swapped successfully!');
+      await axiosInstance.put(`/banner/toggle-visibility/${id}`, { modify_by: modifyBy });
+      toast.success('Banner visibility updated successfully!');
       fetchBanners();
     } catch (error) {
       console.error(error);
-      toast.error('Error swapping banner position');
+      toast.error('Error updating banner visibility');
     }
   };
 
@@ -107,13 +109,13 @@ export const BannerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <BannerContext.Provider value={{ banners, fetchBanners, uploadBanner, deleteBanner, updateBanner, swapImage }}>
+    <BannerContext.Provider value={{ banners, fetchBanners, uploadBanner, deleteBanner, updateBanner, toggleVisibility }}>
       {children}
     </BannerContext.Provider>
   );
 };
 
-export const useBanner = () => {
+export const useBanner = ()=> {
   const context = useContext(BannerContext);
   if (!context) {
     throw new Error('useBanner must be used within a BannerProvider');
