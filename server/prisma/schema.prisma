@@ -67,3 +67,30 @@ model Gallery {
   publicId       String
   IsVisible       Boolean  @default(true) // New field added
 }
+
+model ImportantLinks {
+  id            Int      @id @default(autoincrement())
+  LOGOUrl      String   // Logo ki URL store hogi
+  linksUrl     String   // User jo link dega wo store hoga
+  logoName     String   //  
+  logoPosition Int      // 
+  created_on   DateTime @default(now())
+  created_by   String
+  modify_on    DateTime?
+  modify_by    String?
+  publicId     String  
+  IsVisible    Boolean  @default(true) // Visibility toggle ke liye
+}
+
+model Faculty {
+  id             Int      @id @default(autoincrement())
+  faculty_name           String
+  qualification  String
+  designation    String
+  profilePicUrl  String?
+  created_on     DateTime @default(now())
+  created_by     String
+  modify_on      DateTime?
+  modify_by      String?
+  IsVisible       Boolean  @default(true) // New field added
+}

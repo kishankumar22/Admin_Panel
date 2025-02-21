@@ -14,7 +14,7 @@ interface Banner {
   modify_on?: string;
   IsVisible: boolean; // Include IsVisible in the Banner interface
 }
-
+  
 interface BannerContextType {
   banners: Banner[];
   fetchBanners: () => Promise<void>;

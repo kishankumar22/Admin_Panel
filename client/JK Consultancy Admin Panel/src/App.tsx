@@ -22,6 +22,8 @@ import ProtectedRoute from '../src/components/ProtectedRoute';
 import Addnotifications from './services/Addnotifications';
 import AddBanner from './services/AddBanner';
 import AddPicInGallery from './services/AddGallery';
+import AddImportantLinks from './services/AddImportentLinks';
+import AddFaculity from './services/AddFaculity';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -103,6 +105,24 @@ function App() {
                       <>
                         <PageTitle title="Add  Pic in gallery" />
                         <AddPicInGallery />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/addimportentlinks"
+                    element={
+                      <>
+                        <PageTitle title="Add Importent links" />
+                        <AddImportantLinks />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/addfaculity"
+                    element={
+                      <>
+                        <PageTitle title="Add Faculity" />
+                        <AddFaculity/>
                       </>
                     }
                   />

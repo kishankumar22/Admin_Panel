@@ -77,7 +77,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    fetchNotifications(); // Fetch notifications on mount
+    fetchNotifications(); // Fetch notifications on mount 
   }, []);
 
   return (

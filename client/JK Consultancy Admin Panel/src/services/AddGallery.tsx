@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { useGallery } from '../context/GalleryContext';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { Button, Modal } from "flowbite-react";
 
 const AddGallery: React.FC = () => {
   const [file, setFile] = useState<File | undefined>(undefined);
@@ -13,9 +15,11 @@ const AddGallery: React.FC = () => {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [editingGallery, setEditingGallery] = useState<any>(null);
   const [AddGalleryModel, setAddGalleryModel] = useState<boolean>(false);
+  const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
+  const [galleryIdToDelete, setGalleryIdToDelete] = useState<number | null>(null);
   const { user } = useAuth();
-  const { galleries, uploadGallery, deleteGallery, updateGallery, toggleVisibility } = useGallery();
   const createdBy = user?.name || 'admin';
+  const { galleries, uploadGallery, deleteGallery, updateGallery, toggleVisibility } = useGallery();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,6 +31,11 @@ const AddGallery: React.FC = () => {
   };
 
   const handleGalleryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (galleryName.length > 100) {
+      toast.error('Gallery name cannot exceed 100 characters');
+      return;
+    }
+ 
     setGalleryName(e.target.value);
   };
 
@@ -48,6 +57,8 @@ const AddGallery: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     await deleteGallery(id);
+    setOpenDeleteModal(false);
+    setGalleryIdToDelete(null);
   };
 
   const handleEdit = (gallery: any) => {
@@ -64,7 +75,11 @@ const AddGallery: React.FC = () => {
       toast.error('Please provide gallery name and position');
       return;
     }
-
+    if (galleryName.length > 100) {
+      toast.error('Gallery name cannot exceed 100 characters');
+      return;
+    }
+    
     await updateGallery(editingGallery.id, galleryName, galleryPosition, file, user?.name);
     resetForm();
   };
@@ -93,27 +108,27 @@ const AddGallery: React.FC = () => {
     <>
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <Breadcrumb pageName="Add Gallery" />
-      <div className="flex items-center justify-end space-x-2 p-1.5 bg-gray-100 rounded-lg shadow-md">
+      <div className="flex items-center justify-end space-x-2 p-1.5 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
         <button className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200" onClick={addGallery}>
           Upload Gallery
         </button>
       </div>
 
-      <div className="mt-6 p-3 bg-white rounded-lg shadow-md">
-        <h2 className="text-lg text-green-700 mb-2 font-bold">Uploaded Galleries</h2>
+      <div className="mt-6 p-3 bg-white dark:bg-meta-4  rounded-lg shadow-md">
+        <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Galleries</h2>
         <div className="grid grid-cols-3 gap-4">
           {galleries.map((gallery) => (
-            <div key={gallery.id} className="p-2 border rounded overflow-hidden">
+            <div key={gallery.id} className="p-2   border rounded overflow-hidden">
               <img
                 src={gallery.galleryUrl}
                 alt={gallery.galleryName}
                 className="w-full h-32 object-fit"
                 style={{ opacity: gallery.IsVisible ? 1 : 0.3 }} // Adjust opacity based on IsVisible
               />
-              <div className="text-sm mt-1 text-gray-500 ">
+              <div className="text-sm mt-1 ">
                 <b className="font-bold ">Position: {gallery.galleryPosition}</b>
               </div>
-              <div className="text-sm text-gray-700 ">
+              <div className="text-sm">
                 <p className='font-bold'>Gallery Name: <b className='font-normal'>{gallery.galleryName}</b></p>
                 <p>
                   <span className="font-bold">Created On:</span> 
@@ -136,7 +151,10 @@ const AddGallery: React.FC = () => {
                 </button>
                 <button
                   className={`w-14 text-sm rounded-md ${editingGallery?.id === gallery.id ? "bg-gray-400 text-gray-700 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600"}`}
-                  onClick={() => handleDelete(gallery.id)}
+                  onClick={() => {
+                    setGalleryIdToDelete(gallery.id);
+                    setOpenDeleteModal(true);
+                  }}
                   disabled={editingGallery?.id === gallery.id}
                 >
                   Delete
@@ -145,12 +163,12 @@ const AddGallery: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={gallery.IsVisible}
-                    onChange={() => handleToggleVisibility(gallery.id)}
+                    onChange={() => handleToggleVisibility(gallery.id )}
                     className="sr-only peer"
                   />
                   <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
                   <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                  IsVisible
+                    IsVisible
                   </span>
                 </label>
               </div>
@@ -166,8 +184,10 @@ const AddGallery: React.FC = () => {
           tabIndex={-1}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <div className="relative p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
-            <h3 className="mb-5 text-lg font-bold text-gray-500">Edit Gallery</h3>
+          <div className="relative dark:bg-meta-4 p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
+            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Gallery</h3> */}
+            <h3 className="mb-1 text-center bg-slate-300 p-1  rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Edit Galllery</h3>
+
             <p className='font-semibold p-1 '>File</p>
             <input
               type="file"
@@ -178,7 +198,7 @@ const AddGallery: React.FC = () => {
             <p className='font-semibold p-1'>Gallery Name</p>
             <input
               type="text"
-              className="flex-1 p-2 w-full  mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 p-2 w-full dark:bg-meta-4 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Gallery Name"
               onChange={handleGalleryNameChange}
               value={galleryName}
@@ -186,7 +206,7 @@ const AddGallery: React.FC = () => {
             <p className='font-semibold p-1'>Gallery Position</p>
             <input
               type="number"
-              className="flex-1 p-2 w-full  mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 p-2 w-full dark:bg-meta-4 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Gallery position"
               onChange={handlePositionChange}
               value={galleryPosition}
@@ -217,13 +237,15 @@ const AddGallery: React.FC = () => {
           tabIndex={-1}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <div className="relative p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
-            <h3 className="mb-5 text-lg font-bold text-gray-500">Add Gallery</h3>
+          <div className="relative p-4 w-full dark:bg-meta-4 max-w-md max-h-full bg-white rounded-lg shadow-md">
+            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Gallery</h3> */}
+            <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Gallery</h3>
+
             <p className="font-semibold p-1">File</p>
             <input
               type="file"
               ref={fileInputRef}
-              className="flex-1 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              className="flex-1 p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
               onChange={handleFileChange}
             />
             <div className="flex space-x-2 mt-2">
@@ -231,17 +253,17 @@ const AddGallery: React.FC = () => {
                 <p className="font-semibold p-1">Gallery Name</p>
                 <input
                   type="text"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Gallery Name"
                   onChange={handleGalleryNameChange}
                   value={galleryName}
                 />
               </div>
               <div className="w-1/3">
-                <p className="font-semibold p-1">Gallery Position</p>
+                <p className="font-semibold p-1">Gallery Position </p>
                 <input
                   type="number"
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Position"
                   onChange={handlePositionChange}
                   value={galleryPosition}
@@ -266,6 +288,27 @@ const AddGallery: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal className='ml-80 mt-60' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+        <Modal.Header />
+        <Modal.Body>
+          <div className="text-center">
+            <HiOutlineExclamationCircle className="mx-auto mb-4 h-14 w-14 text-gray-400 dark:text-gray-200" />
+            <h3 className="mb-5 text-lg font-normal text-gray-900 dark:text-gray-400">
+              Are you sure you want to delete this gallery?
+            </h3>
+            <div className="flex justify-center text-white gap-4">
+              <Button color="failure" className='bg-red-700' onClick={() => handleDelete(galleryIdToDelete!)}>
+                {"Yes, I'm sure"}
+              </Button>
+              <Button color="gray" onClick={() => setOpenDeleteModal(false)}>
+                No, cancel
+              </Button>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
     </>
   );
 };

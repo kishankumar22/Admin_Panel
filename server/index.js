@@ -7,7 +7,9 @@ const bodyParser = require('body-parser');
 const formRoutes = require('./routes/formRoutes');
 
 const bannerRoutes=require('./routes/bannerRoutes')
+const facultyRoutes=require('./routes/facultyRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
+const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes')
 // const { createUser } = require('./controllers/controller');
 // createUser()
 
@@ -40,6 +42,8 @@ app.get('/', (req, res) => {
 app.use('/api/notifications', notificationRoutes);
 app.use('/api',bannerRoutes)
 app.use('/api',galleryRoutes)
+app.use('/api',importentLogolinkRoutes)
+app.use('/api',facultyRoutes)
 // Routes 
 
 // Start the server

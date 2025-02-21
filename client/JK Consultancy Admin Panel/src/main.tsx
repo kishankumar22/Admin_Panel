@@ -10,9 +10,13 @@ import 'flatpickr/dist/flatpickr.min.css';
 import { NotificationProvider } from './context/NotificationContext';
 import { BannerProvider } from './context/BannerContext';
 import{GalleryProvider} from'./context/GalleryContext'
+import { ImportantLinksProvider } from './context/ImportantLinksContext';
+import { FacultyProvider } from './context/FacultyContext';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <AuthProvider>
+     <FacultyProvider>
+      <ImportantLinksProvider>
     <BannerProvider>
     <GalleryProvider>
     <NotificationProvider>
@@ -22,5 +26,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     </NotificationProvider>
     </GalleryProvider>
     </BannerProvider>
+    </ImportantLinksProvider>
+    </FacultyProvider>
   </AuthProvider>
 ); 

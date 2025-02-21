@@ -3,10 +3,12 @@ import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { toast, ToastContainer } from 'react-toastify';
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { Button, Modal } from "flowbite-react";
 
 const Addnotifications = () => {
   const [addNotification, setAddNotification] = useState<string>(''); // Notification message
-  const [inputType, setInputType] = useState<'url' | 'file'>('url'); // Input type: URL or File
+  const [inputType, setInputType] = useState<'url' | 'file' | 'select'>('select'); // Input type: URL, File, or Select
   const [url, setUrl] = useState<string>(''); // URL input
   const [file, setFile] = useState<File | null>(null); // File input
   const [isUploading, setIsUploading] = useState<boolean>(false); // Track file upload status
@@ -15,6 +17,8 @@ const Addnotifications = () => {
   const [isUpdating, setIsUpdating] = useState<boolean>(false); // Track if updating
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false); // Add modal visibility
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false); // Edit modal visibility
+  const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false); // Delete modal visibility
+  const [notificationIdToDelete, setNotificationIdToDelete] = useState<number | null>(null); // ID of notification to delete
 
   const { user } = useAuth();
   const { notifications, addNotification: addNotificationContext, editNotification, deleteNotification } =
@@ -48,6 +52,7 @@ const Addnotifications = () => {
     setAddNotification('');
     setUrl('');
     setFile(null);
+    setInputType('select'); // Reset input type to default
   };
 
   // Open Edit Modal and prefill data
@@ -74,9 +79,13 @@ const Addnotifications = () => {
       toast.error('Please enter a notification message');
       return;
     }
+    if(addNotification.length>100){
+      toast.error('notification message cannot exceed 100 characters');
+      return;
+    }
 
     if (!userId || !createdBy) {
-      toast.error('User data is missing. Please log in again.');
+      toast.error('User  data is missing. Please log in again.');
       return;
     }
 
@@ -130,6 +139,10 @@ const Addnotifications = () => {
 
     try {
       await editNotification(editingId, formData);
+      if(addNotification.length>50){
+        toast.error('notification message cannot exceed 100 characters');
+        return;
+      }
       toast.success('Notification updated successfully!');
       closeEditModal();
     } catch (error) {
@@ -140,10 +153,14 @@ const Addnotifications = () => {
   };
 
   // Handle Delete Notification
-  const handleDeleteNotification = async (id: number) => {
+  const handleDeleteNotification = async () => {
+    if (notificationIdToDelete === null) return;
+
     try {
-      await deleteNotification(id);
+      await deleteNotification(notificationIdToDelete);
       toast.success('Notification deleted successfully!');
+      setOpenDeleteModal(false); // Close the modal after deletion
+      setNotificationIdToDelete(null); // Reset the ID
     } catch (error) {
       toast.error('Failed to delete notification');
     }
@@ -164,42 +181,47 @@ const Addnotifications = () => {
       <Breadcrumb pageName="Add Notification" />
 
       {/* Add Notification Button */}
-
-      <div className="flex items-center justify-end space-x-2 p-1.5 bg-gray-100 rounded-lg shadow-md">
-      <button
-        className="px-4 py-2 mb-4 text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        onClick={openAddModal}
-      >
-        Add Notification
-      </button>
-      
+      <div className="flex items-center justify-end space-x-2 p-1.5 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
+        <button
+          className="px-4 py-2  text-white bg-blue-500 rounded -md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          onClick={openAddModal}
+        >
+          Add Notification
+        </button>
       </div>
 
       {/* Add Notification Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-lg font-bold mb-4">Add Notification</h2>
+        <div className="fixed inset-0 flex  items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 h-auto dark:bg-meta-4 rounded-lg shadow-lg w-96">
+            {/* <h2 className="text-lg font-bold mb-4 dark:text-meta-5"></h2> */}
+            <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Notification</h3>
+
+            <p className='font-semibold'>Notification Message</p>
             <input
               type="text"
-              className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 dark:bg-meta-4 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter notification"
               value={addNotification}
               onChange={(e) => setAddNotification(e.target.value)}
             />
+             <p className='font-semibold'>Notification type</p>
             <select
-              className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={inputType}
               onChange={(e) => setInputType(e.target.value as 'url' | 'file')}
             >
+           <option value="select">---Select---</option>
               <option value="url">URL</option>
               <option value="file">File</option>
             </select>
-
-            {inputType === 'url' && (
+  
+            {inputType === 'url' && (<>
+      
+               <p className='font-semibold'>Notification url</p>
               <input
                 type="text"
-                className={`w-full p-2 mb-4 border ${
+                className={`w-full p-2 mb-4 border dark:bg-meta-4 ${
                   isValidUrl ? 'border-gray-300' : 'border-red-500'
                 } rounded-md focus:outline-none focus:ring-2 ${
                   isValidUrl ? 'focus:ring-blue-500' : 'focus:ring-red-500'
@@ -208,14 +230,18 @@ const Addnotifications = () => {
                 value={url}
                 onChange={handleUrlChange}
               />
+                    </>
             )}
 
             {inputType === 'file' && (
+              <>
+               <p className='font-semibold'>Notification file</p>
               <input
                 type="file"
                 className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
+             </>
             )}
 
             <div className="flex justify-end space-x-2">
@@ -240,17 +266,21 @@ const Addnotifications = () => {
       {/* Edit Notification Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-lg font-bold mb-4">Edit Notification</h2>
+          <div className="bg-white p-6 rounded-lg dark:bg-meta-4 shadow-lg w-96">
+            {/* <h2 className="text-lg font-bold mb-4 dark:text-meta-5">Edit Notification</h2> */}
+            <h3 className="mb-1 text-center bg-slate-300  rounded-md text-lg font-bold dark:text-meta-5 p-1 text-blue-800">Edit Notification</h3>
+
+            <p className='font-semibold'>Notification Message</p>
             <input
               type="text"
-              className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter notification"
               value={addNotification}
               onChange={(e) => setAddNotification(e.target.value)}
             />
+             <p className='font-semibold'>Notification type</p>
             <select
-              className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={inputType}
               onChange={(e) => setInputType(e.target.value as 'url' | 'file')}
             >
@@ -259,9 +289,11 @@ const Addnotifications = () => {
             </select>
 
             {inputType === 'url' && (
+              <>
+               <p className='font-semibold'>Notification url</p>
               <input
                 type="text"
-                className={`w-full p-2 mb-4 border ${
+                className={`w-full p-2 mb-4 border dark:bg-meta-4 ${
                   isValidUrl ? 'border-gray-300' : 'border-red-500'
                 } rounded-md focus:outline-none focus:ring-2 ${
                   isValidUrl ? 'focus:ring-blue-500' : 'focus:ring-red-500'
@@ -270,14 +302,17 @@ const Addnotifications = () => {
                 value={url}
                 onChange={handleUrlChange}
               />
+                    </>
             )}
 
             {inputType === 'file' && (
+              <> <p className='font-semibold'>Notification file</p>
               <input
                 type="file"
-                className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 mb-4 border border-gray-300 rounded -md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 onChange={(e) => setFile(e.target.files?.[0] || null)}
               />
+             </>
             )}
 
             <div className="flex justify-end space-x-2">
@@ -299,67 +334,91 @@ const Addnotifications = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <Modal className='ml-80 mt-60' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+        <Modal.Header />
+        <Modal.Body>
+          <div className="text-center">
+            <HiOutlineExclamationCircle className="mx-auto mb-4 h-14 w-14 text-gray-400 dark:text-gray-200" />
+            <h3 className="mb-5 text-lg font-normal text-gray-900 dark:text-gray-400">
+              Are you sure you want to delete this notification?
+            </h3>
+            <div className="flex justify-center text-white gap-4">
+              <Button color="failure" className='bg-red-700' onClick={handleDeleteNotification}>
+                {"Yes, I'm sure"}
+              </Button>
+              <Button color="gray" onClick={() => setOpenDeleteModal(false)}>
+                No, cancel
+              </Button>
+            </div>
+          </div>
+        </Modal.Body>
+      </Modal>
+
       {/* Notifications Table */}
-      <div className="mt-6 p-4 bg-white rounded-lg shadow-md">
-        <h2 className="text-sm font-bold text-cyan-900 mb-2">Notifications</h2>
-        <table className="min-w-full bg-white border border-gray-200">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">ID</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Message</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">URL</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Created By</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Created on</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Modify by</th>
-              <th className="py-1 px-2 border-b text-left text-gray-600 text-xs">Modify On</th>
-              <th className="py-1 px-12 border-b text-left text-gray-600 text-xs">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {notifications.map((notification) => (
-              <tr key={notification.notification_id} className="hover:bg-gray-100">
-                <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.notification_id}</td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.notification_message}</td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">
-                  {notification.notification_url ? (
-                    <a
-                      href={notification.notification_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline text-xs"
-                    >
-                      Open Link
-                    </a>
-                  ) : (
-                    'No URL'
-                  )}
-                </td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.created_by}</td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">
-                  {formatDate(notification.created_on)}
-                </td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">{notification.modify_by}</td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">
-                  {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
-                </td>
-                <td className="py-1 px-2 border-b text-black-2 text-xs">
-                  <button
-                    className="text-white w-16 bg-green-500 px-2 py-1 rounded hover:bg-green-600 text-xs mr-1"
-                    onClick={() => openEditModal(notification)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="text-white w-16 bg-red-500 px-2 py-1 rounded hover:bg-red-600 text-xs"
-                    onClick={() => handleDeleteNotification(notification.notification_id)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-6 p-4 bg-white dark:bg-meta-4   rounded-lg shadow-md">
+        <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Notifications</h2>
+     <table className="min-w-full bg-white border border-gray-400 dark:bg-meta-4">
+  <thead className="bg-gray-300 dark:bg-gray-900">
+    <tr>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">ID</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Message</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">URL</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created By</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created On</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified By</th>
+      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified On</th>
+      <th className="py-2 px-3 border-b text-left pl-16 text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {notifications.map((notification) => (
+      <tr key={notification.notification_id} className="font-normal hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-200">
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_id}</td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_message}</td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 text-xs">
+          {notification.notification_url ? (
+            <a
+              href={notification.notification_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline text-xs"
+            >
+              Open Link
+            </a>
+          ) : (
+            'No URL'
+          )}
+        </td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.created_by}</td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
+          {formatDate(notification.created_on)}
+        </td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.modify_by}</td>
+        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
+          {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
+        </td>
+        <td className="py-2 px-3 border-b text-xs">
+          <button
+            className="text-white w-16 bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-200"
+            onClick={() => openEditModal(notification)}
+          >
+            Edit
+          </button>
+          <button
+            className="text-white w-16 bg-red-500 ml-2 px-2 py-1 rounded hover:bg-red-600 transition duration-200"
+            onClick={() => {
+              setNotificationIdToDelete(notification.notification_id);
+              setOpenDeleteModal(true);
+            }}
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
       </div>
     </>
   );
