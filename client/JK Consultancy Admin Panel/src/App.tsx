@@ -3,6 +3,8 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 
 import { ToastContainer } from 'react-toastify'; // Import ToastContainer
 import 'react-toastify/dist/ReactToastify.css'; // Import Toast styles
+import 'froala-editor/css/froala_editor.pkgd.min.css';
+import 'froala-editor/css/froala_style.min.css';
 
 import Loader from './common/Loader';
 import PageTitle from './components/PageTitle';
@@ -24,6 +26,7 @@ import AddBanner from './services/AddBanner';
 import AddPicInGallery from './services/AddGallery';
 import AddImportantLinks from './services/AddImportentLinks';
 import AddFaculity from './services/AddFaculity';
+import LatestPost from './services/LatestPost';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -123,6 +126,15 @@ function App() {
                       <>
                         <PageTitle title="Add Faculity" />
                         <AddFaculity/>
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/latestpost"
+                    element={
+                      <>
+                        <PageTitle title="Add latestpost" />
+                        <LatestPost/>
                       </>
                     }
                   />

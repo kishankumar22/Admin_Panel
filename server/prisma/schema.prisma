@@ -94,3 +94,14 @@ model Faculty {
   modify_by      String?
   IsVisible       Boolean  @default(true) // New field added
 }
+model LatestPost {
+  post_id      Int      @id @default(autoincrement()) // Unique identifier for the post
+  post_title   String   // Title of the post
+  post_slug    String   @unique // Slug for the post, must be unique
+  post_content String   @db.Text // Use @db.Text for large text in MySQL
+  created_by   String   // User who created the post
+  created_on   DateTime @default(now()) // Timestamp for when the post was created
+  modify_by    String?  // User who last modified the post (optional)
+  modify_on    DateTime? // Timestamp for when the post was last modified (optional)
+  isVisible    Boolean  @default(true) // Visibility status of the post
+}

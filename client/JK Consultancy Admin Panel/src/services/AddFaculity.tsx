@@ -215,7 +215,7 @@ const AddFaculty: React.FC = () => {
 
       {/* Faculty List */}
       <div className="mt-6 p-3 bg-white rounded-lg shadow-md">
-        <h2 className="text-sm font-bold text-center text-cyan-900">Faculty List</h2>
+        <h2 className="text-sm font-bold text-center p-2  text-cyan-900">Faculty List</h2>
         <div className="grid grid-cols-3 gap-4">
  {faculties.map((faculty) => (
             <div key={faculty.id} className="p-2 border rounded-md">
@@ -223,7 +223,7 @@ const AddFaculty: React.FC = () => {
                 <img
                   src={faculty.profilePicUrl}
                   alt=""
-                  className="w-full h-44 object-cover"
+                  className="w-full h-48 object-fit"
                   style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
                 />
               </p>
@@ -290,7 +290,7 @@ const AddFaculty: React.FC = () => {
 
       {/* Details Modal */}
       {openDetailsModal && selectedFaculty && (
-        <Modal show={openDetailsModal} size="md" className=" ml-60 my-20" onClose={() => setOpenDetailsModal(false)} popup>
+        <Modal show={openDetailsModal} size="md" className=" ml-60 my-20 bg-gray-3" onClose={() => setOpenDetailsModal(false)} popup>
           <Modal.Header />
           <Modal.Body>
             <div className="">
@@ -299,7 +299,8 @@ const AddFaculty: React.FC = () => {
                 alt=""
                 className="w-full h-44 object-fit"
               />
-              <h3 className=" text-lg font-bold">{selectedFaculty.faculty_name}</h3>
+            
+              <p><b>Faculty Name:</b> {selectedFaculty.faculty_name}</p>
               <p><b>Qualification:</b> {selectedFaculty.qualification}</p>
               <p><b>Designation:</b> {selectedFaculty.designation}</p>
               <p><b>Created By:</b> {selectedFaculty.created_by}</p>
@@ -307,7 +308,7 @@ const AddFaculty: React.FC = () => {
               <p><b>Modified By:</b> {selectedFaculty.modify_by}</p>
               <p><b>Modified on:</b> {selectedFaculty.modify_on}</p>
               <div className="flex justify-center mt-4">
-                <Button color="gray" onClick={() => setOpenDetailsModal(false)}>
+                <Button color="gray" className="bg-gray-300" onClick={() => setOpenDetailsModal(false)}>
                   Cancel
                 </Button>
               </div>

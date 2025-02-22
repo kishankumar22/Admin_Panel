@@ -8,6 +8,7 @@ const formRoutes = require('./routes/formRoutes');
 
 const bannerRoutes=require('./routes/bannerRoutes')
 const facultyRoutes=require('./routes/facultyRoutes')
+const latestPostRoutes=require('./routes/latestPostRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
 const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes')
 // const { createUser } = require('./controllers/controller');
@@ -44,6 +45,7 @@ app.use('/api',bannerRoutes)
 app.use('/api',galleryRoutes)
 app.use('/api',importentLogolinkRoutes)
 app.use('/api',facultyRoutes)
+app.use('/api',latestPostRoutes)
 // Routes 
 
 // Start the server
