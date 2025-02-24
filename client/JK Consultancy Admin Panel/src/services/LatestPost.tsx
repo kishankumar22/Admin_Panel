@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext'; 
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import FroalaEditor from 'react-froala-wysiwyg';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
@@ -8,32 +9,30 @@ import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
 
 const LatestPost: React.FC = () => {
+  const { user } = useAuth();
+  const createdBy = user?.name || 'admin'; 
+  const modify_by = user?.name; 
+
+
   const [content, setContent] = useState<string>('');
   const [postTitle, setPostTitle] = useState<string>('');
   const [postSlug, setPostSlug] = useState<string>('');
   const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
   const [posts, setPosts] = useState<any[]>([]);
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [postToDelete, setPostToDelete] = useState<number | null>(null);
+
+  const formRef = useRef<HTMLFormElement | null>(null); // Reference for scrolling
+
   const handleModelChange = (model: string) => {
     setContent(model);
   };
-  // Fetch posts when the component mounts
+
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  const handleToggleVisibility = async (postId: number) => {
-    try {
-      await axiosInstance.put(`/post/toggle-visibility/${postId}`);
-      toast.success('Post visibility updated successfully!');
-      fetchPosts();
-    } catch (error) {
-      console.error('Error toggling visibility:', error);
-      toast.error('Error toggling visibility');
-    }
-  };
-
-  // Function to fetch posts
   const fetchPosts = async () => {
     try {
       const response = await axiosInstance.get('/all-posts');
@@ -44,50 +43,83 @@ const LatestPost: React.FC = () => {
     }
   };
 
-  // Function to delete a post
-  const handleDeletePost = async (postId: number) => {
+  const handleToggleVisibility = async (postId: number) => {
     try {
-      await axiosInstance.delete(`/delete/${postId}`);
+      await axiosInstance.put(`/toggle-visibility/${postId}`);
+      toast.success('Post visibility updated successfully!');
+      fetchPosts();
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
+      toast.error('Error toggling visibility');
+    }
+  };
+
+  const openDeleteModal = (postId: number) => {
+    setPostToDelete(postId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setPostToDelete(null);
+  };
+
+  const confirmDeletePost = async () => {
+    if (!postToDelete) return;
+
+    try {
+      await axiosInstance.delete(`/delete/${postToDelete}`);
       toast.success('Post deleted successfully!');
-      fetchPosts(); // Refresh the posts after deletion
+      fetchPosts();
+      closeDeleteModal();
     } catch (error) {
       console.error('Error deleting post:', error);
       toast.error('Error deleting post');
     }
   };
 
-  // Function to edit a post
   const handleEditPost = (post: any) => {
-    setIsFormVisible(true); // Show the form
-    setPostTitle(post.post_title); // Pre-fill the title
-    setPostSlug(post.post_slug); // Pre-fill the slug
-    setContent(post.post_content); // Pre-fill the content
-    setEditingPostId(post.post_id); // Set the post_id being edited
+    setIsFormVisible(true);
+    setPostTitle(post.post_title);
+    setPostSlug(post.post_slug);
+    setContent(post.post_content);
+    setEditingPostId(post.post_id);
+
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
   };
 
-  // Function to handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (postTitle.length > 150) {
+      toast.error('Post title cannot exceed 150 characters.');
+      return;
+    }
+
+    if (postSlug.length > 150) {
+      toast.error('Post slug cannot exceed 150 characters.');
+      return;
+    }
+
     try {
       if (editingPostId) {
-        // Update existing post
         await axiosInstance.put(`/edit/${editingPostId}`, {
           post_title: postTitle,
           post_slug: postSlug,
           post_content: content,
-          modify_by: 'admin', // Replace with actual user
-          isVisible: 'true', // Default visibility
+          modify_by: modify_by,  // Now dynamic
+          isVisible: 'true',
         });
         toast.success('Post updated successfully!');
       } else {
-        // Add new post
         await axiosInstance.post('/add-post', {
           post_title: postTitle,
           post_slug: postSlug,
           post_content: content,
-          created_by: 'admin', // Replace with actual user
-          isVisible: 'true', // Default visibility
+          created_by: createdBy,  // Now dynamic
+          isVisible: 'true',
         });
         toast.success('Post added successfully!');
       }
@@ -96,8 +128,8 @@ const LatestPost: React.FC = () => {
       setPostTitle('');
       setPostSlug('');
       setContent('');
-      setEditingPostId(null); // Reset editing state
-      fetchPosts(); // Refresh the posts
+      setEditingPostId(null);
+      fetchPosts();
     } catch (error) {
       console.error(error);
       toast.error('Error saving post');
@@ -108,7 +140,7 @@ const LatestPost: React.FC = () => {
     <>
       <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <Breadcrumb pageName="Add Latest Post" />
-      <div className="w-full p-4 bg-white rounded-lg shadow-md">
+      <div className="w-full p-4 bg-white rounded-lg shadow-md dark:bg-gray-700">
         {!isFormVisible && (
           <button
             onClick={() => setIsFormVisible(true)}
@@ -119,18 +151,19 @@ const LatestPost: React.FC = () => {
         )}
 
         {isFormVisible && (
-          <form onSubmit={handleSubmit}>
-            <h1 className="bg-gray-200 text-center text-black rounded-md font-semibold py-2 px-4">
-              {editingPostId ? 'Edit Post' : 'Add Latest Post'}
-            </h1>
-            {/* Cancel Button */}
-            <button
-              onClick={() => setIsFormVisible(false)}
-              className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-red-600 transition duration-200 mt-4"
-            >
-              Cancel
-            </button>
-            {/* Rest of the form */}
+          <form ref={formRef} onSubmit={handleSubmit}>
+            <div className="flex justify-end items-center">
+              <h1 className="bg-gray-200 text-center text-black rounded-md font-semibold py-2 px-4 flex-grow">
+                {editingPostId ? 'Edit Post' : 'Add Latest Post'}
+              </h1>
+              <button
+                type="button"
+                onClick={() => setIsFormVisible(false)}
+                className="text-red-500 bg-gray-200 p-2 hover:bg-gray-600 rounded font-semibold ml-4"
+              >
+                X
+              </button>
+            </div>
             <div className="mb-2">
               <label htmlFor="postTitle" className="block text-sm font-medium text-gray-700 mb-1">
                 Post Title
@@ -158,93 +191,72 @@ const LatestPost: React.FC = () => {
               />
             </div>
             <h1 className="text-xl font-semibold mb-2">Content Editor</h1>
-            <FroalaEditor
-              model={content}
-              onModelChange={handleModelChange}
-              config={{
-                placeholderText: 'Edit Your Content Here!',
-                toolbarButtons: [
-                  'bold', 'italic', 'underline', 'strikeThrough', '|',
-                  'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', '|',
-                  'formatOL', 'formatUL', '|',
-                  'insertImage', 'insertFile', 'insertVideo', 'insertTable', '|',
-                  'undo', 'redo', 'html'
-                ],
-                // Configure file upload
-                imageUploadURL: 'http://localhost:3000/api/upload-file', // Endpoint for image uploads
-                fileUploadURL: 'http://localhost:3000/api/upload-file', // Endpoint for file uploads
-                imageAllowedTypes: ['jpeg', 'jpg', 'png', 'gif'],
-                fileAllowedTypes: ['*'],
-                imageMaxSize: 5 * 1024 * 1024, // 5MB max size
-                fileMaxSize: 5 * 1024 * 1024, // 5MB max size
-                // Handle upload response
-                imageUploadParams: {
-                  folder: 'LatestPost', // Upload to 'LatestPost' folder in Cloudinary
-                },
-                fileUploadParams: {
-                  folder: 'LatestPost', // Upload to 'LatestPost' folder in Cloudinary
-                },
-                // Handle upload errors
-                imageUploadMethod: 'POST',
-                fileUploadMethod: 'POST',
-                imageUploadToS3: false, // Disable S3 upload (use custom endpoint)
-                fileUploadToS3: false, // Disable S3 upload (use custom endpoint)
-              }}
-            />
-            <button
-              type="submit"
-              className="w-full bg-blue-500 text-white font-semibold py-2 rounded-md hover:bg-blue-600 transition duration-200 mt-4"
-            >
-              {editingPostId ? 'Update Post' : 'Submit'}
-            </button>
+            <FroalaEditor model={content} onModelChange={handleModelChange} />
+            <div className="flex justify-center gap-3 mt-4">
+              <button type="button" onClick={() => setIsFormVisible(false)} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg -red-600 transition duration-200">
+                Cancel
+              </button>
+              <button type="submit" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
+                {editingPostId ? 'Update Post' : 'Submit'}
+              </button>
+            </div>
           </form>
         )}
 
-        {/* Display Posts */}
-        <div className="mt-8">
+        <div className="mt-8 ">
           <h2 className="text-xl font-semibold mb-4">Latest Posts</h2>
           {posts.length > 0 ? (
             <ul>
               {posts.map((post) => (
                 <li key={post.post_id} className="mb-4 p-4 border border-gray-300 rounded-md">
-                  <h3 className="text-lg font-semibold">{post.post_title}</h3>
-                  <p className="text-gray-700">{post.post_content}</p>
+                  <div dangerouslySetInnerHTML={{ __html: post.post_content }} />
                   <p className="text-sm text-gray-500">Created by: {post.created_by}</p>
-                  {/* Delete and Edit Buttons */}
+<p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
+<p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
+<p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
                   <div className="mt-2">
-                    <button
-                      onClick={() => handleDeletePost(post.post_id)}
-                      className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2"
-                    >
+                    <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
                       Delete
                     </button>
-                    <button
-                      onClick={() => handleEditPost(post)}
-                      className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200"
-                    >
+                    <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
                       Edit
                     </button>
-                     <label className="inline-flex items-center cursor-pointer ml-4">
-                    <input
-                      type="checkbox"
-                      checked={post.isVisible}
-                      onChange={() => handleToggleVisibility(post.post_id)}
-                      className="sr-only peer"
-                    />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                      Visible
-                    </span>
-                  </label>
+                    <label className="inline-flex items-center cursor-pointer ml-4">
+                      <input
+                        type="checkbox"
+                        checked={post.isVisible}
+                        onChange={() => handleToggleVisibility(post.post_id)}
+                        className="sr-only peer"
+                      />
+                      <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
+                      <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                        Visible
+                      </span>
+                    </label>
                   </div>
                 </li>
               ))}
             </ul>
-          ) : (
-            <p>No posts found.</p>
-          )}
+          ) : <p>No posts found.</p>}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-semibold">Are you sure you want to delete this post?</h2>
+            <div className="mt-4 flex justify-end">
+              <button onClick={closeDeleteModal} className="bg-gray-300 text-black px-4 py-2 rounded-md mr-2">
+                Cancel
+              </button>
+              <button onClick={confirmDeletePost} className="bg-red-500 text-white px-4 py-2 rounded-md">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

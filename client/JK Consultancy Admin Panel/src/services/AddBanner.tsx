@@ -20,7 +20,7 @@ const AddBanner: React.FC = () => {
   const { banners, uploadBanner, deleteBanner, updateBanner, toggleVisibility } = useBanner();
   const { user } = useAuth();
   const createdBy = user?.name || 'admin';
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -239,7 +239,7 @@ const AddBanner: React.FC = () => {
           tabIndex={-1}
           className="fixed inset-0 z-50 flex items-center justify-center  bg-black bg-opacity-50"
         >
-          <div className="relative p-4 w-full max-w-md max-h-full  bg-white dark:bg-gray-700  dark:text-meta-2  dark:text-opacity-70 rounded-lg shadow-md">
+          <div className="relative p-4 w-full max-w-md max-h-full  bg-white dark:bg-gray-500  dark:text-meta-2  dark:text-opacity-70 rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Banner</h3> */}
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add banner</h3>
 

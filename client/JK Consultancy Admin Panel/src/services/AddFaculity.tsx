@@ -25,6 +25,7 @@ const AddFaculty: React.FC = () => {
   const { faculties, addFaculty, updateFaculty, deleteFaculty, toggleVisibility } = useFaculty();
   const { user } = useAuth();
   const createdBy = user?.name || "admin";
+  const modify_by = user?.name; 
 
   // Handle File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,13 +42,33 @@ const AddFaculty: React.FC = () => {
       toast.error("Please fill in all fields");
       return;
     }
+    if (!facultyName || qualification === "Select" || designation === "Select") {
+      toast.error("Please fill in all fields");
+      return;
+    }
+  
+    if (facultyName.length > 150) {
+      toast.error("Faculty name cannot exceed 150 characters");
+      return;
+    }
+  
+    if (otherQualification.length > 20) {
+      toast.error("Other qualification cannot exceed 15 characters");
+      return;
+    }
+  
+    if (otherDesignation.length > 20) {
+      toast.error("Other designation cannot exceed 15 characters");
+      return;
+    }
+  
 
     const facultyData: Omit<Faculty, "id" | "created_on" | "modify_on"> = {
       faculty_name: facultyName,
       qualification: qualification === "Other" ? otherQualification : qualification,
       designation: designation === "Other" ? otherDesignation : designation,
       created_by: editingFaculty ? editingFaculty.created_by : createdBy,
-      modify_by: createdBy,
+      modify_by: modify_by,
       IsVisible: true, // Set default visibility to true
     };
 
@@ -129,17 +150,17 @@ const AddFaculty: React.FC = () => {
 
       {/* Faculty Modal */}
       {addFacultyModel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="p-4 w-full max-w-md bg-white rounded-lg shadow-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 ">
+          <div className="p-4 w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-600">
             <h3 className="text-center bg-slate-300 p-1 rounded-md text-lg font-bold text-blue-800">
               {editingFaculty ? "Edit Faculty" : "Add Faculty"}
             </h3>
 
             {/* Faculty Name */}
-            <label className="block font-semibold p-1">Name of Faculty</label>
+            <label className="block font-semibold p-1 ">Name of Faculty</label>
             <input
               type="text"
-              className="w-full p-2 border rounded-md"
+              className="w-full p-2 border rounded-md dark:bg-gray-700"
               placeholder="Enter Faculty Name"
               value={facultyName}
               onChange={(e) => setFacultyName(e.target.value)}
@@ -148,14 +169,14 @@ const AddFaculty: React.FC = () => {
             {/* Qualification */}
             <label className="block font-semibold p-1">Qualification</label>
             <select
-              className="w-full p-2 border rounded-md"
+              className="w-full p-2 border rounded-md dark:bg-gray-700"
               value={qualification}
               onChange={(e) => {
                 setQualification(e.target.value);
                 if (e.target.value !== "Other") setOtherQualification("");
               }}
             >
-              <option>Select</option>
+              <option>---Select---</option>
               <option>M. Pharma</option>
               <option>B. Pharma</option>
               <option>Other</option>
@@ -163,7 +184,7 @@ const AddFaculty: React.FC = () => {
             {qualification === "Other" && (
               <input
                 type="text"
-                className="w-full p-2 border rounded-md mt-1"
+                className="w-full p-2 border rounded-md mt-1 "
                 placeholder="Specify Qualification"
                 value={otherQualification}
                 onChange={(e) => setOtherQualification(e.target.value)}
@@ -171,16 +192,16 @@ const AddFaculty: React.FC = () => {
             )}
 
             {/* Designation */}
-            <label className="block font-semibold p-1">Designation</label>
+            <label className="block font-semibold p-1 ">Designation</label>
             <select
-              className="w-full p-2 border rounded-md"
+              className="w-full p-2 border rounded-md dark:bg-gray-700"
               value={designation}
               onChange={(e) => {
                 setDesignation(e.target.value);
                 if (e.target.value !== "Other") setOtherDesignation("");
               }}
             >
-              <option>Select</option>
+              <option>---Select---</option>
               <option>Principal</option>
               <option>Lecturer</option>
               <option>Chairman</option>
@@ -198,7 +219,7 @@ const AddFaculty: React.FC = () => {
 
             {/* Profile Upload */}
             <label className="block font-semibold p-1">Profile</label>
-            <input type="file" ref={fileInputRef} className="w-full p-2 border rounded-md" onChange={handleFileChange} />
+            <input type="file" ref={fileInputRef} className="w-full p-2 border rounded-md dark:bg-gray-700" onChange={handleFileChange} />
 
             {/* Modal Actions */}
             <div className="flex justify-between mt-4">
@@ -214,8 +235,8 @@ const AddFaculty: React.FC = () => {
       )}
 
       {/* Faculty List */}
-      <div className="mt-6 p-3 bg-white rounded-lg shadow-md">
-        <h2 className="text-sm font-bold text-center p-2  text-cyan-900">Faculty List</h2>
+      <div className="mt-6 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
+        <h2 className="text-sm font-bold text-center p-2  text-cyan-900 dark:text-meta-5">Faculty List</h2>
         <div className="grid grid-cols-3 gap-4">
  {faculties.map((faculty) => (
             <div key={faculty.id} className="p-2 border rounded-md">

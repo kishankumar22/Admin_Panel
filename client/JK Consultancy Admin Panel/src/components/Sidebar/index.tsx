@@ -2,9 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarLinkGroup from './SidebarLinkGroup';
 import Logo from '../../images/logo/logo.svg';
-import { MdOutlineNotificationAdd } from "react-icons/md";
+import { MdOutlineNotificationAdd ,MdOutlinePostAdd} from "react-icons/md";
 import { RiImageAddFill } from "react-icons/ri";
-import { FcAddImage ,FcImageFile  } from "react-icons/fc";
+import { BiSolidImageAdd } from "react-icons/bi";
+
+import { BiImageAdd } from "react-icons/bi";
+import { CgProfile } from "react-icons/cg";
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -236,7 +239,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                     'bg-graydark dark:bg-meta-4'
                   }`}
                 >
-                    <FcAddImage />
+                   <BiSolidImageAdd />
                   Update Gallery Image
                 </NavLink>
               </li>
@@ -250,7 +253,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                     'bg-graydark dark:bg-meta-4'
                   }`}
                 >
-                    <FcImageFile  />
+                   <BiImageAdd />
                   Update Logo Image
                 </NavLink>
               </li>
@@ -264,7 +267,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                     'bg-graydark dark:bg-meta-4'
                   }`}
                 >
-                    <FcImageFile  />
+                    <CgProfile />  
                   Add Faculity
                 </NavLink>
               </li>
@@ -278,8 +281,8 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                     'bg-graydark dark:bg-meta-4'
                   }`}
                 >
-                    <FcImageFile  />
-                  Add latestpost
+                 <MdOutlinePostAdd />
+                  Add Latest Post
                 </NavLink>
               </li>
               {/* <!-- Menu Item  end here add latestpost  --> */}

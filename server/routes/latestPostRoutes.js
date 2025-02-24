@@ -8,18 +8,53 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Add New Post
+// router.post('/add-post', async (req, res) => {
+//   try {
+//     const { post_title, post_slug, post_content, created_by, isVisible } = req.body;
+
+//     if (!post_title || !post_slug || !post_content || !created_by) {
+//       return res.status(400).json({ message: 'Required fields are missing!' });
+//     }
+
+//     const post = await prisma.latestPost.create({
+//       data: {
+//         post_title,
+//         post_slug,
+//         post_content,
+//         created_by,
+//         created_on: new Date(),
+//         isVisible: isVisible === 'true',
+//       },
+//     });
+
+//     res.status(201).json({ success: true, data: post });
+//   } catch (error) {
+//     console.error('Error adding post:', error);
+//     res.status(500).json({ message: 'Error adding post' });
+//   }
+// });
 router.post('/add-post', async (req, res) => {
   try {
-    const { post_title, post_slug, post_content, created_by, isVisible } = req.body;
+    const { post_title, post_content, created_by, isVisible, post_slug } = req.body;
 
-    if (!post_title || !post_slug || !post_content || !created_by) {
+    if (!post_title || !post_content || !created_by || !post_slug) {
       return res.status(400).json({ message: 'Required fields are missing!' });
     }
+    const slugify = (post_slug) => {
+      return post_slug
+        .toLowerCase() // Convert to lowercase
+        .trim() // Remove whitespace from both ends
+        .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-'); // Replace multiple hyphens with a single hyphen
+    };
+    // Convert the provided post_slug using the slugify function
+    const converted_slug = slugify(post_slug);
 
     const post = await prisma.latestPost.create({
       data: {
         post_title,
-        post_slug,
+        post_slug: converted_slug, // Use the converted slug
         post_content,
         created_by,
         created_on: new Date(),
@@ -63,6 +98,25 @@ router.get('/all-posts', async (req, res) => {
   } catch (error) {
     console.error('Error fetching posts:', error);
     res.status(500).json({ message: 'Error fetching posts' });
+  }
+});
+
+// //fetch single slug
+router.get('/:slug', async (req, res) => {
+  try {
+    const { slug } = req.params; // Get the post_slug from the request parameters
+    const post = await prisma.latestPost.findUnique({
+      where: { post_slug: slug }, // Ensure this matches your database schema
+    });
+
+    if (post) {
+      res.status(200).json(post);
+    } else {
+      res.status(404).json({ message: 'Post not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching post:', error);
+    res.status(500).json({ message: 'Error fetching post' });
   }
 });
 
