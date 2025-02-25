@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth } from '../context/AuthContext';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import FroalaEditor from 'react-froala-wysiwyg';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
@@ -10,8 +10,8 @@ import axiosInstance from '../config';
 
 const LatestPost: React.FC = () => {
   const { user } = useAuth();
-  const createdBy = user?.name || 'admin'; 
-  const modify_by = user?.name; 
+  const createdBy = user?.name || 'admin';
+  const modify_by = user?.name;
 
 
   const [content, setContent] = useState<string>('');
@@ -153,19 +153,19 @@ const LatestPost: React.FC = () => {
         {isFormVisible && (
           <form ref={formRef} onSubmit={handleSubmit}>
             <div className="flex justify-end items-center">
-              <h1 className="bg-gray-200 text-center text-black rounded-md font-semibold py-2 px-4 flex-grow">
+              <h1 className="bg-gray-200 mb-2 dark:bg-gray-500 dark:text-sky-300 text-center text-black rounded-md font-semibold py-2 px-4 flex-grow">
                 {editingPostId ? 'Edit Post' : 'Add Latest Post'}
               </h1>
               <button
                 type="button"
                 onClick={() => setIsFormVisible(false)}
-                className="text-red-500 bg-gray-200 p-2 hover:bg-gray-600 rounded font-semibold ml-4"
+                className="text-red-500  bg-gray-200 p-2 hover:bg-gray-600 rounded font-semibold ml-4"
               >
                 X
               </button>
             </div>
             <div className="mb-2">
-              <label htmlFor="postTitle" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="postTitle" className="block text-sm font-medium dark:bg-gray-700   mb-1">
                 Post Title
               </label>
               <input
@@ -174,11 +174,11 @@ const LatestPost: React.FC = () => {
                 placeholder="Post Title"
                 value={postTitle}
                 onChange={(e) => setPostTitle(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border dark:bg-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="mb-4">
-              <label htmlFor="postSlug" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="postSlug" className="block text-sm font-medium   mb-1">
                 Post Slug
               </label>
               <input
@@ -187,13 +187,16 @@ const LatestPost: React.FC = () => {
                 placeholder="Post Slug"
                 value={postSlug}
                 onChange={(e) => setPostSlug(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 dark:bg-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <h1 className="text-xl font-semibold mb-2">Content Editor</h1>
-            <FroalaEditor model={content} onModelChange={handleModelChange} />
-            <div className="flex justify-center gap-3 mt-4">
-              <button type="button" onClick={() => setIsFormVisible(false)} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg -red-600 transition duration-200">
+            <div className='dark:bg-gray-700'>
+
+              <FroalaEditor model={content} onModelChange={handleModelChange} />
+            </div>
+            <div className="flex justify-center gap-3 mt-4 ">
+              <button type="button" onClick={() => setIsFormVisible(false)} className="bg-red-500  text-white font-semibold py-2 px-4 rounded-md hover:bg -red-600 transition duration-200">
                 Cancel
               </button>
               <button type="submit" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
@@ -208,12 +211,12 @@ const LatestPost: React.FC = () => {
           {posts.length > 0 ? (
             <ul>
               {posts.map((post) => (
-                <li key={post.post_id} className="mb-4 p-4 border border-gray-300 rounded-md">
-                  <div dangerouslySetInnerHTML={{ __html: post.post_content }} />
+                <li key={post.post_id} className="mb-4 p-4 border  border-gray-300 rounded-md">
+                  <div className='dark:bg-white p-2 rounded' dangerouslySetInnerHTML={{ __html: post.post_content }} />
                   <p className="text-sm text-gray-500">Created by: {post.created_by}</p>
-<p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
-<p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
-<p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
+                  <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
+                  <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
                   <div className="mt-2">
                     <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
                       Delete

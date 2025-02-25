@@ -102,7 +102,7 @@ router.get('/all-posts', async (req, res) => {
 });
 
 // //fetch single slug
-router.get('/:slug', async (req, res) => {
+router.get('/post/:slug', async (req, res) => {
   try {
     const { slug } = req.params; // Get the post_slug from the request parameters
     const post = await prisma.latestPost.findUnique({
