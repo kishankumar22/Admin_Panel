@@ -12,6 +12,8 @@ const DropdownUser = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { logout } = useAuth()
    const navigate = useNavigate();
+   const { user } = useAuth();
+   const username = user?.name || 'admin';
    const handleLogout = () => {
     toast.success("Log out Successful", {
       onClose: () => {
@@ -32,7 +34,7 @@ const DropdownUser = () => {
       >
         <span className="hidden text-right lg:block">
           <span className="block text-sm font-medium text-black dark:text-white">
-            Thomas Anree
+            {username}
           </span>
           <span className="block text-xs">UX Designer</span>
         </span>
