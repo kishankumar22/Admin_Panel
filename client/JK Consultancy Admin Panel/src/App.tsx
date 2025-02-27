@@ -11,14 +11,11 @@ import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
 
-import ECommerce from './pages/Dashboard/ECommerce';
-import FormElements from './pages/Form/FormElements';
-import FormLayout from './pages/Form/FormLayout';
+
+
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-import Tables from './pages/Tables';
-import Alerts from './pages/UiElements/Alerts';
-import Buttons from './pages/UiElements/Buttons';
+
 import DefaultLayout from './layout/DefaultLayout';
 import ProtectedRoute from '../src/components/ProtectedRoute';
 import Addnotifications from './services/Addnotifications';
@@ -27,6 +24,7 @@ import AddPicInGallery from './services/AddGallery';
 import AddImportantLinks from './services/AddImportentLinks';
 import AddFaculity from './services/AddFaculity';
 import LatestPost from './services/LatestPost';
+import ECommerce from './pages/Dashboard/ECommerce';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -80,10 +78,11 @@ function App() {
                     element={
                       <>
                         <PageTitle title="eCommerce" />
-                        <ECommerce />
+                        <ECommerce/>
                       </>
                     }
                   />
+                 
                   <Route
                     path="/addnotifications"
                     element={
@@ -147,33 +146,9 @@ function App() {
                       </>
                     }
                   />
-                  <Route
-                    path="/forms/form-elements"
-                    element={
-                      <>
-                        <PageTitle title="Form Elements" />
-                        <FormElements />
-                      </>
-                    }
-                  />
-                  <Route
-                    path="/forms/form-layout"
-                    element={
-                      <>
-                        <PageTitle title="Form Layout" />
-                        <FormLayout />
-                      </>
-                    }
-                  />
-                  <Route
-                    path="/tables"
-                    element={
-                      <>
-                        <PageTitle title="Tables" />
-                        <Tables />
-                      </>
-                    }
-                  />
+               
+                
+                 
                   <Route
                     path="/settings"
                     element={
@@ -183,25 +158,7 @@ function App() {
                       </>
                     }
                   />
-               
-                  <Route
-                    path="/ui/alerts"
-                    element={
-                      <>
-                        <PageTitle title="Alerts" />
-                        <Alerts />
-                      </>
-                    }
-                  />
-                  <Route
-                    path="/ui/buttons"
-                    element={
-                      <>
-                        <PageTitle title="Buttons" />
-                        <Buttons />
-                      </>
-                    }
-                  />
+          
                 </Routes>
               </DefaultLayout>
             </ProtectedRoute>

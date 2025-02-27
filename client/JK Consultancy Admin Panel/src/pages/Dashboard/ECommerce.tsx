@@ -1,6 +1,11 @@
 import React from 'react';
 import CardDataStats from '../../components/CardDataStats';
-import TableOne from '../../components/Tables/TableOne';
+import ChartOne from '../../components/Charts/ChartOne';
+import ChartThree from '../../components/Charts/ChartThree';
+import ChartTwo from '../../components/Charts/ChartTwo';
+// import ChatCard from '../../components/Chat/ChatCard';
+import MapOne from '../../components/Maps/MapOne';   
+// import TableOne from '../../components/Tables/TableOne';
 
 const ECommerce: React.FC = () => {
   return (
@@ -11,7 +16,7 @@ const ECommerce: React.FC = () => {
             className="fill-primary dark:fill-white"
             width="22"
             height="16"
-            viewBox="0 0 22 16" 
+            viewBox="0 0 22 16"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
@@ -22,7 +27,7 @@ const ECommerce: React.FC = () => {
             <path
               d="M11 10.9219C9.38438 10.9219 8.07812 9.61562 8.07812 8C8.07812 6.38438 9.38438 5.07812 11 5.07812C12.6156 5.07812 13.9219 6.38438 13.9219 8C13.9219 9.61562 12.6156 10.9219 11 10.9219ZM11 6.625C10.2437 6.625 9.625 7.24375 9.625 8C9.625 8.75625 10.2437 9.375 11 9.375C11.7563 9.375 12.375 8.75625 12.375 8C12.375 7.24375 11.7563 6.625 11 6.625Z"
               fill=""
-            />
+            />  
           </svg>
         </CardDataStats>
         <CardDataStats title="Total Profit" total="$45,2K" rate="4.35%" levelUp>
@@ -92,14 +97,16 @@ const ECommerce: React.FC = () => {
         </CardDataStats>
       </div>
 
-      {/* <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
-       
-
+      <div className="mt-4 grid grid-cols-12 gap-4 md:mt-6 md:gap-6 2xl:mt-7.5 2xl:gap-7.5">
+        <ChartOne />
+        <ChartTwo />
+        <ChartThree />
+        <MapOne />
         <div className="col-span-12 xl:col-span-8">
-          <TableOne />
+          {/* <TableOne /> */}
         </div>
-        
-      </div> */}
+        {/* <ChatCard /> */}
+      </div>
     </>
   );
 };
