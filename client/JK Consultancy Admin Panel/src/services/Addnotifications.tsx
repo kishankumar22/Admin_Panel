@@ -6,6 +6,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 
+
 const Addnotifications = () => {
   const [addNotification, setAddNotification] = useState<string>(''); // Notification message
   const [inputType, setInputType] = useState<'url' | 'file' | 'select'>('select'); // Input type: URL, File, or Select
@@ -121,6 +122,8 @@ const Addnotifications = () => {
       setIsUploading(false);
     }
   };
+
+  
 
   // Handle Save Notification (Edit)
   const handleSaveNotification = async () => {
@@ -420,6 +423,8 @@ const Addnotifications = () => {
   </tbody>
 </table>
       </div>
+      
+      
     </>
   );
 };

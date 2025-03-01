@@ -10,7 +10,9 @@ const bannerRoutes=require('./routes/bannerRoutes')
 const facultyRoutes=require('./routes/facultyRoutes')
 const latestPostRoutes=require('./routes/latestPostRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
-const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes')
+const userRoutes=require('./routes/userRoutes')
+const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
+
 // const { createUser } = require('./controllers/controller');
 // createUser()
 
@@ -18,10 +20,11 @@ const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes')
 dotenv.config(); // Load environment variables
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
+
 
 // Middleware to parse JSON requests
-app.use(express.json());
+app.use(express.json());    
 app.use(cors()); // Enable CORS
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
@@ -46,9 +49,16 @@ app.use('/api',galleryRoutes)
 app.use('/api',importentLogolinkRoutes)
 app.use('/api',facultyRoutes)
 app.use('/api',latestPostRoutes)
+app.use('/api',userRoutes)
+
 // Routes 
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// app.listen(PORT,  () => {
+//     console.log(`Server running on http://${PORT}`);
+// }); 
+// Start the server
+app.listen(PORT,  () => {
+    console.log(`Server running on http://:${PORT}`);
 });
+// app.listen(PORT, HOST, () => console.log(`Server running on http://${HOST}:${PORT}`));

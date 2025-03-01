@@ -18,6 +18,7 @@ async function createUser () {
 
   // Step 2: Check if the user already exists
   const userEmail = 'kumarkishan73001@gmail.com';
+  const Createdby = 'Administrator';
   const existingUser  = await prisma.user.findUnique({
     where: { email: userEmail },
   });
@@ -33,6 +34,8 @@ async function createUser () {
         email: userEmail,
         mobileNo: '6387478842',
         password: hashedPassword,
+        created_by:Createdby,
+        created_on: new Date(),
         roleId: role.role_id, // Associate the user with the role
       },
     });

@@ -13,9 +13,11 @@ import{GalleryProvider} from'./context/GalleryContext'
 import { ImportantLinksProvider } from './context/ImportantLinksContext';
 import { FacultyProvider } from './context/FacultyContext';
 
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <AuthProvider>
      <FacultyProvider>
+ 
       <ImportantLinksProvider>
     <BannerProvider>
     <GalleryProvider>

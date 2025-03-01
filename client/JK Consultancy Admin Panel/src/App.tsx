@@ -25,6 +25,7 @@ import AddImportantLinks from './services/AddImportentLinks';
 import AddFaculity from './services/AddFaculity';
 import LatestPost from './services/LatestPost';
 import ECommerce from './pages/Dashboard/ECommerce';
+import AddUser from './services/AddUser';
 
 function App() {
   const [loading, setLoading] = useState<boolean>(true);
@@ -155,6 +156,15 @@ function App() {
                       <>
                         <PageTitle title="Settings" />
                         <Settings />
+                      </>
+                    }
+                  />
+                  <Route
+                    path="/adduser"
+                    element={
+                      <>
+                        <PageTitle title="addNewuser" />
+                        <AddUser/>
                       </>
                     }
                   />

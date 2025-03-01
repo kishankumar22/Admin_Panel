@@ -244,6 +244,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                               Add Latest Post
                             </NavLink>
                           </li>
+                          
                           {/* <!-- Menu Item  end here add latestpost  --> */}
 
                           {/* <!-- Menu Item Profile --> */}
@@ -251,14 +252,28 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }: SidebarProps) => {
                       </div>
                       {/* <!-- Dropdown Menu End --> */}
                     </React.Fragment>
+                    
                   );
                 }}
               </SidebarLinkGroup>
-
             </ul>
           </div>
 
           {/* <!-- Others Group --> */}
+          <ul>
+          <li>
+                            <NavLink
+                              to="/adduser"
+                              className={({ isActive }) =>
+                                'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-white text-opacity-75 duration-300 ease-in-out hover:text-white ' +
+                                (isActive && '!text-white')
+                              }
+                            >
+                              <MdOutlinePostAdd />
+                              Add User
+                            </NavLink>
+                          </li>
+          </ul>
           
         </nav>
         {/* <!-- Sidebar Menu --> */}
