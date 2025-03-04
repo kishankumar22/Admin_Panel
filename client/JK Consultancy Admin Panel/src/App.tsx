@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
-import { ToastContainer } from 'react-toastify'; // Import ToastContainer
+// import { ToastContainer } from 'react-toastify'; // Import ToastContainer
 import 'react-toastify/dist/ReactToastify.css'; // Import Toast styles
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/css/froala_style.min.css';
@@ -10,12 +10,8 @@ import Loader from './common/Loader';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
-
-
-
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
-
 import DefaultLayout from './layout/DefaultLayout';
 import ProtectedRoute from '../src/components/ProtectedRoute';
 import Addnotifications from './services/Addnotifications';
@@ -44,7 +40,7 @@ function App() {
   ) : (
     <>
       {/* Global ToastContainer */}
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+      {/* <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} /> */}
 
       <Routes>
         {/* Public Routes */}

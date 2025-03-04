@@ -4,7 +4,7 @@ import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import FroalaEditor from 'react-froala-wysiwyg';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/js/plugins.pkgd.min.js';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast} from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
 
@@ -138,7 +138,6 @@ const LatestPost: React.FC = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       <Breadcrumb pageName="Add Latest Post" />
       <div className="w-full p-4 bg-white rounded-lg shadow-md dark:bg-gray-700">
         {!isFormVisible && (

@@ -33,7 +33,13 @@ const SignIn: React.FC = () => {
         navigate('/'); // Navigate to the home page
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'An error occurred. Please try again later.');
+      console.error('Login error:', error); // Log the full error object
+      if (error.response) {
+        console.log('Error response data:', error.response.data); // Log the response data
+        toast.error(error.response.data.error || 'An error occurred. Please try again later.');
+      } else {
+        toast.error('An error occurred. Please try again later.');
+      }
     }
   };
 

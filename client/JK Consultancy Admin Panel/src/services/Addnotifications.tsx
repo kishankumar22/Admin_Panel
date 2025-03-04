@@ -180,7 +180,7 @@ const Addnotifications = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+   
       <Breadcrumb pageName="Add Notification" />
 
       {/* Add Notification Button */}

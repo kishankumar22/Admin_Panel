@@ -23,9 +23,9 @@ model User {
   password       String                                // Hashed password
   roleId         Int                                    // Foreign key to Role table
   role           Role     @relation("RoleToUser", fields: [roleId], references: [role_id]) // Role reference
-  created_on     DateTime @default(now())              // Timestamp for user creation
+  created_on     DateTime?          // Timestamp for user creation
   created_by     String?                                // Who created the user
-  modify_on      DateTime @updatedAt                   // Auto-update timestamp
+  modify_on      DateTime?                   // Auto-update timestamp
   modify_by      String?                                // Who modified the user
   notifications  Notification[]                        // One-to-Many relationship with Notification
 }

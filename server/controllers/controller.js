@@ -37,6 +37,7 @@ async function createUser () {
         created_by:Createdby,
         created_on: new Date(),
         roleId: role.role_id, // Associate the user with the role
+        
       },
     });
 

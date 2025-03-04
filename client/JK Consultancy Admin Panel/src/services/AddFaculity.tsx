@@ -137,7 +137,7 @@ const AddFaculty: React.FC = () => {
 
   return (
     <>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
+     
       <Breadcrumb pageName="Add Faculty" />
       <div className="flex items-center justify-end p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
         <button
