@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 const router = express.Router();
 
 // Add a new user
-const addUser = async (req, res) => {
+const addUser  = async (req, res) => {
   const { name, email, mobileNo, password, roleId, created_by } = req.body;
 
   try {
@@ -16,7 +16,7 @@ const addUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await prisma.user.create({
+    const newUser  = await prisma.user.create({
       data: {
         name,
         email,
@@ -25,10 +25,11 @@ const addUser = async (req, res) => {
         roleId: parseInt(roleId),
         created_by: created_by || 'admin',
         created_on: new Date(),
+        // Omit modify_on to let it default to null
       },
     });
 
-    res.status(201).json({ message: 'User created successfully!', user: newUser });
+    res.status(201).json({ message: 'User  created successfully!', user: newUser  });
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({ message: 'Failed to create user, please try another email', error: error.message });

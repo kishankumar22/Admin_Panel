@@ -7,32 +7,16 @@ const prisma = new PrismaClient();
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Add New Post
-// router.post('/add-post', async (req, res) => {
-//   try {
-//     const { post_title, post_slug, post_content, created_by, isVisible } = req.body;
 
-//     if (!post_title || !post_slug || !post_content || !created_by) {
-//       return res.status(400).json({ message: 'Required fields are missing!' });
-//     }
+const slugify = (post_slug) => {
+  return post_slug
+    .toLowerCase() // Convert to lowercase
+    .trim() // Remove whitespace from both ends
+    .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-'); // Replace multiple hyphens with a single hyphen
+};
 
-//     const post = await prisma.latestPost.create({
-//       data: {
-//         post_title,
-//         post_slug,
-//         post_content,
-//         created_by,
-//         created_on: new Date(),
-//         isVisible: isVisible === 'true',
-//       },
-//     });
-
-//     res.status(201).json({ success: true, data: post });
-//   } catch (error) {
-//     console.error('Error adding post:', error);
-//     res.status(500).json({ message: 'Error adding post' });
-//   }
-// });
 router.post('/add-post', async (req, res) => {
   try {
     const { post_title, post_content, created_by, isVisible, post_slug } = req.body;
@@ -40,15 +24,7 @@ router.post('/add-post', async (req, res) => {
     if (!post_title || !post_content || !created_by || !post_slug) {
       return res.status(400).json({ message: 'Required fields are missing!' });
     }
-    const slugify = (post_slug) => {
-      return post_slug
-        .toLowerCase() // Convert to lowercase
-        .trim() // Remove whitespace from both ends
-        .replace(/[^a-z0-9 -]/g, '') // Remove special characters
-        .replace(/\s+/g, '-') // Replace spaces with hyphens
-        .replace(/-+/g, '-'); // Replace multiple hyphens with a single hyphen
-    };
-    // Convert the provided post_slug using the slugify function
+    
     const converted_slug = slugify(post_slug);
 
     const post = await prisma.latestPost.create({
@@ -68,7 +44,7 @@ router.post('/add-post', async (req, res) => {
     res.status(500).json({ message: 'Error adding post' });
   }
 });
-
+ 
 // Upload File
 router.post('/upload-file', upload.single('file'), async (req, res) => {
   try {
@@ -120,7 +96,8 @@ router.get('/post/:slug', async (req, res) => {
   }
 });
 
-// Edit Post
+
+// edit slug
 router.put('/edit/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -129,11 +106,14 @@ router.put('/edit/:id', async (req, res) => {
     const existingPost = await prisma.latestPost.findUnique({ where: { post_id: parseInt(id) } });
     if (!existingPost) return res.status(404).json({ message: 'Post not found' });
 
+    // Always slugify the post_slug, even if it is not provided
+    const converted_slug = slugify(post_slug || existingPost.post_slug);
+
     const updatedPost = await prisma.latestPost.update({
       where: { post_id: parseInt(id) },
       data: {
         post_title: post_title || existingPost.post_title,
-        post_slug: post_slug || existingPost.post_slug,
+        post_slug: converted_slug, // Use the slugified version
         post_content: post_content || existingPost.post_content,
         modify_by,
         modify_on: new Date(),

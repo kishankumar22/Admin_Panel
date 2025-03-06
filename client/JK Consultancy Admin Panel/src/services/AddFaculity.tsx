@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import Breadcrumb from "../components/Breadcrumbs/Breadcrumb";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import { useFaculty } from "../context/FacultyContext";
 import { Faculty } from "../context/FacultyContext";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
@@ -150,7 +150,7 @@ const AddFaculty: React.FC = () => {
 
       {/* Faculty Modal */}
       {addFacultyModel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 ">
+        <div className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50 ">
           <div className="p-4 w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-600">
             <h3 className="text-center bg-slate-300 p-1 rounded-md text-lg font-bold text-blue-800">
               {editingFaculty ? "Edit Faculty" : "Add Faculty"}
@@ -289,7 +289,7 @@ const AddFaculty: React.FC = () => {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <Modal show={openDeleteModal} size="md" className=" ml-67 my-40   " onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal show={openDeleteModal} size="md" className=" ml-67 my-40 bg-gray-3   " onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">

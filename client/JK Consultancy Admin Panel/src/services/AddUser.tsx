@@ -20,7 +20,6 @@ interface Role {
 const AddUser: React.FC = () => {
   const { user: loggedInUser } = useAuth();
   const createdBy = loggedInUser?.name || 'admin';
-
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -28,7 +27,6 @@ const AddUser: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<string>(''); // Store the email of the user whose password is being changed
-
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -80,8 +78,7 @@ const AddUser: React.FC = () => {
     }
 
     try {
-      const response = await axiosInstance.put(
-        '/change-password',
+      const response = await axiosInstance.put('/change-password',
         {
           email: selectedEmail, // Send the email with the request
           oldPassword,
@@ -250,12 +247,12 @@ const AddUser: React.FC = () => {
       </div>
       {/* Add USer model start*/}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-            <h2 className="text-lg font-bold mb-4">Add User</h2>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center mt-12 ml-60">
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md dark:bg-gray-500">
+            <h2 className="text-lg font-bold mb-4 text-center  dark:text-meta-5">Add User</h2>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="name">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-800" htmlFor="name">
                   Name
                 </label>
                 <input
@@ -264,10 +261,11 @@ const AddUser: React.FC = () => {
                   name="name"
                   value={user.name}
                   onChange={handleChange}
+                  placeholder='Enter Your  name'
                   required
                   pattern="[A-Za-z\s]{2,50}" // Letters and spaces, 2-50 characters
                   title="Name should be 2-50 characters long and contain only letters and spaces"
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${user.name && !/^[A-Za-z\s]{2,50}$/.test(user.name)
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 ${user.name && !/^[A-Za-z\s]{2,50}$/.test(user.name)
                     ? 'border-red-500'
                     : 'border-gray-300'
                     }`}
@@ -278,7 +276,7 @@ const AddUser: React.FC = () => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="email">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-800" htmlFor="email">
                   Email
                 </label>
                 <input
@@ -287,21 +285,22 @@ const AddUser: React.FC = () => {
                   name="email"
                   value={user.email}
                   onChange={handleChange}
+                  placeholder='Enter Your  Email'
                   required
-                  pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                  pattern="[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
                   title="Please enter a valid email address"
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${user.email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(user.email)
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 ${user.email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(user.email)
                     ? 'border-red-500'
                     : 'border-gray-300'
                     }`}
                 />
-                {user.email && !/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(user.email) && (
+                {user.email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(user.email) && (
                   <p className="text-red-500 text-xs mt-1">Please enter a valid email address</p>
                 )}
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="mobileNo">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-800" htmlFor="mobileNo">
                   Mobile No
                 </label>
                 <input
@@ -310,10 +309,11 @@ const AddUser: React.FC = () => {
                   name="mobileNo"
                   value={user.mobileNo}
                   onChange={handleChange}
+                  placeholder='Enter Your  mo number'
                   required
                   pattern="[0-9]{10}"
                   title="Mobile number should be 10 digits"
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${user.mobileNo && !/^[0-9]{10}$/.test(user.mobileNo)
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 ${user.mobileNo && !/^[0-9]{10}$/.test(user.mobileNo)
                     ? 'border-red-500'
                     : 'border-gray-300'
                     }`}
@@ -324,7 +324,7 @@ const AddUser: React.FC = () => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="password">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-800" htmlFor="password">
                   Password
                 </label>
                 <input
@@ -333,10 +333,11 @@ const AddUser: React.FC = () => {
                   name="password"
                   value={user.password}
                   onChange={handleChange}
+                  placeholder='Enter Your password'
                   required
                   pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
                   title="Password must be at least 8 characters long and contain uppercase, lowercase, and numbers"
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${user.password && !/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(user.password)
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500  dark:bg-gray-600 ${user.password && !/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(user.password)
                     ? 'border-red-500'
                     : 'border-gray-300'
                     }`}
@@ -349,7 +350,7 @@ const AddUser: React.FC = () => {
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="roleId">
+                <label className="block text-sm font-medium mb-1 dark:text-gray-800" htmlFor="roleId">
                   Role
                 </label>
                 <select
@@ -358,12 +359,12 @@ const AddUser: React.FC = () => {
                   value={user.roleId}
                   onChange={handleChange}
                   required
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${user.roleId === '' && user.roleId !== undefined
+                  className={`w-full p-2 border dark:bg-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500  dark:bg-gray-600${user.roleId === '' && user.roleId !== undefined
                     ? 'border-red-500'
                     : 'border-gray-300'
                     }`}
                 >
-                  <option value="">Select Role</option>
+                  <option value="" className='dark:bg-gray-600'>Select Role</option>
                   {roles && roles.length > 0 ? (
                     roles
                       .filter((role) => role.role_id !== 2)
@@ -417,8 +418,8 @@ const AddUser: React.FC = () => {
 
       {/* USer edit model start*/}
       {isEditModalOpen && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center ">
+          <div className="bg-white p-6 rounded-lg shadow-md w-full dark:bg-gray-600 max-w-md mt-20 ml-60">
             <h2 className="text-lg font-bold mb-4">Edit User</h2>
             <form onSubmit={handleEditSubmit}>
               <div className="mb-4">
@@ -432,7 +433,7 @@ const AddUser: React.FC = () => {
                   value={editingUser.name}
                   onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border dark:bg-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="mb-4">
@@ -446,7 +447,7 @@ const AddUser: React.FC = () => {
                   value={editingUser.email}
                   onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border dark:bg-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="mb-4">
@@ -460,11 +461,11 @@ const AddUser: React.FC = () => {
                   value={editingUser.mobileNo}
                   onChange={(e) => setEditingUser({ ...editingUser, mobileNo: e.target.value })}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="roleId">
+                <label className="block text-sm font-medium mb-1 " htmlFor="roleId">
                   Role
                 </label>
                 <select
@@ -473,7 +474,7 @@ const AddUser: React.FC = () => {
                   value={editingUser.roleId}
                   onChange={(e) => setEditingUser({ ...editingUser, roleId: e.target.value })}
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300  dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Select Role</option>
                   {roles && roles.length > 0 ? (
@@ -517,8 +518,8 @@ const AddUser: React.FC = () => {
       {/*  change Pass model start*/}
       {isChangePassModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
-            <h2 className="text-lg font-bold mb-4">Change Password</h2>
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mt-12 ml-60 dark:bg-gray-600">
+            <h2 className="text-lg font-bold mb-4 bg-gray-200 text-center border-2 border-b p-1 dark:text-gray-700 rounded-md dark:bg-gray-400">Change Password</h2>
             <form onSubmit={handleChangePass}>
               <input
                 type="hidden"
@@ -535,8 +536,9 @@ const AddUser: React.FC = () => {
                   name="oldPassword"
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder='Enter Your  old password'
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="mb-4">
@@ -549,8 +551,9 @@ const AddUser: React.FC = () => {
                   name="newPassword"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
+                   placeholder='Enter Your  New password'
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 dark:bg-gray-700  rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="mb-4">
@@ -563,15 +566,16 @@ const AddUser: React.FC = () => {
                   name="confirmPassword"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                   placeholder='Enter Your confirm password'
                   required
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsChangePassModalOpen(false)}
-                  className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+                  className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500"
                 >
                   Cancel
                 </button>
@@ -594,9 +598,9 @@ const AddUser: React.FC = () => {
   <h2 className="text-lg font-bold mb-4">User List</h2>
   {users.length > 0 ? (
     <div className="overflow-x-auto"> {/* Make the table scrollable on small screens */}
-      <table className="min-w-full bg-white border border-gray-300 text-sm"> {/* Smaller text */}
+      <table className="min-w-full bg-white border dark:bg-gray-600 border-gray-300 text-sm"> {/* Smaller text */}
         <thead>
-          <tr className="bg-gray-200 text-gray-600">
+          <tr className="bg-gray-200 text-gray-600 dark:bg-gray-300">
             <th className="py-1 px-2 border-b text-left">Sr No.</th> {/* Align text to the left */}
             <th className="py-1 px-2 border-b text-left">Name</th>
             <th className="py-1 px-2 border-b text-left">Email</th>
@@ -607,7 +611,7 @@ const AddUser: React.FC = () => {
         </thead>
         <tbody>
           {users.map((user, index) => (
-            <tr key={user.user_id} className="hover:bg-gray-100">
+            <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500 dark:hover:text-black">
               <td className="py-1 px-2 border-b align-middle">{index + 1}</td> {/* Vertically align text */}
               <td className="py-1 px-2 border-b align-middle">{user.name}</td>
               <td className="py-1 px-2 border-b align-middle">{user.email}</td>
@@ -619,7 +623,7 @@ const AddUser: React.FC = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => handleEdit(user)}
-                    className={`bg-yellow-500 text-white px-2 py-1 rounded-md hover:bg-yellow-600 transition-colors duration-200 focus:outline-none active:bg-yellow-600 ${loggedInUser?.roleId === Number('3') ? 'opacity-50 cursor-not-allowed' : ''
+                    className={`bg-yellow-500 text-white w-16  py-1 rounded-md hover:bg-yellow-600 transition-colors duration-200 focus:outline-none active:bg-yellow-600 ${loggedInUser?.roleId === Number('3') ? 'opacity-50 cursor-not-allowed' : ''
                       }`}
                     disabled={loggedInUser?.roleId === Number('3')}
                   >
@@ -649,13 +653,13 @@ const AddUser: React.FC = () => {
   ) : (
     <p className="text-gray-600 text-center py-6">No users found.</p>
   )}
-</div>
+      </div>
       {/*  USer list model end*/}
       {/* Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm">
-            <h3 className="text-lg font-bold mb-4">Confirm Delete</h3>
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm ml-60  dark:bg-gray-700">
+            <h3 className="text-lg font-bold mb-4 text-center">Confirm Delete</h3>
             <p className="text-sm mb-4">Are you sure you want to delete this user? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button

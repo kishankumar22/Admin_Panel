@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useGallery } from '../context/GalleryContext';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
@@ -181,7 +181,7 @@ const AddGallery: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative dark:bg-meta-4 p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Gallery</h3> */}
@@ -234,7 +234,7 @@ const AddGallery: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full dark:bg-meta-4 max-w-md max-h-full bg-white rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Gallery</h3> */}

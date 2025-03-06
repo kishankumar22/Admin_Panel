@@ -73,7 +73,7 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       await axiosInstance.put(`/faculty/update/${id}`, formData);
-      toast.success("Faculty updated successfully!");
+      // toast.success("Faculty updated successfully!");
       fetchFaculties();
     } catch (error) {
       console.error(error);

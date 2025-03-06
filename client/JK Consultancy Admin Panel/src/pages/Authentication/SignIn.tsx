@@ -1,49 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
+import axiosInstance from '../../config';
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { isLoggedIn, login } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // Validate input
-    if (!email || !password) {
-      toast.error('Please fill in both fields');
-      return;
-    }
-
     try {
-      const response = await axios.post('http://localhost:3002/auth/login', {
-        email,
-        password,
-      });
+      const response = await axiosInstance.post('/login', { email, password });
       const data = response.data;
 
       if (response.status === 200) {
-        // Call the login function from context with user details
         login(data.token, data.user);
-        toast.success('Login successful!'); // Show success toast
-        navigate('/'); // Navigate to the home page
+        toast.success('Login successful!');
+        navigate('/');
       }
     } catch (error: any) {
-      console.error('Login error:', error); // Log the full error object
+      console.error('Login error:', error);
+
       if (error.response) {
-        console.log('Error response data:', error.response.data); // Log the response data
-        toast.error(error.response.data.error || 'An error occurred. Please try again later.');
+        const errorMsg = error.response.data.error || 'An error occurred. Please try again later.';
+        setErrorMessage(errorMsg);
+
       } else {
-        toast.error('An error occurred. Please try again later.');
+        setErrorMessage('An error occurred. Please try again later.');
+
       }
     }
   };
 
-  // Observe `isLoggedIn` state and navigate when it changes
+  // Redirect user if already logged in
   useEffect(() => {
     if (isLoggedIn) {
       navigate('/');
@@ -55,6 +49,7 @@ const SignIn: React.FC = () => {
       <div className="bg-white shadow-md rounded-lg p-8 w-96">
         <h2 className="text-2xl font-bold mb-6 text-center">Admin Login</h2>
         <form onSubmit={handleLogin}>
+          {errorMessage && <p className="text-red-500 text-sm mb-4">{errorMessage}</p>}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
               Email
@@ -68,6 +63,7 @@ const SignIn: React.FC = () => {
               required
             />
           </div>
+
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
               Password
@@ -81,6 +77,7 @@ const SignIn: React.FC = () => {
               required
             />
           </div>
+
           <div className="flex items-center justify-between">
             <button
               type="submit"

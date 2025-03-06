@@ -30,7 +30,7 @@ app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
 
 // Use the login routes
-app.use('/auth', loginRoutes); // Correctly set up the route for login
+app.use('/api', loginRoutes); // Correctly set up the route for login
 // Routes
 app.use('/form', formRoutes);
 
@@ -39,7 +39,7 @@ app.use('/form', formRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.send('Welcome to Kishan Kumar');
+    res.send('Welcome to Kishan Kumar from server ');
 });
 
 // Use the notification router for all routes under `/notifications`

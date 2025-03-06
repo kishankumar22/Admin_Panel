@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext'; 
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import FroalaEditor from 'react-froala-wysiwyg';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/js/plugins.pkgd.min.js';
-import { toast} from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
 
 const LatestPost: React.FC = () => {
   const { user } = useAuth();
-  const createdBy = user?.name || 'admin';
-  const modify_by = user?.name;
+  const createdBy = user?.name || 'admin'; 
+  const modify_by = user?.name; 
 
 
   const [content, setContent] = useState<string>('');
@@ -141,30 +141,32 @@ const LatestPost: React.FC = () => {
       <Breadcrumb pageName="Add Latest Post" />
       <div className="w-full p-4 bg-white rounded-lg shadow-md dark:bg-gray-700">
         {!isFormVisible && (
+          <div className="flex items-center justify-end p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
           <button
             onClick={() => setIsFormVisible(true)}
-            className="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-green-600 transition duration-200"
+            className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
           >
             Add Latest Post
           </button>
+          </div>
         )}
 
         {isFormVisible && (
-          <form ref={formRef} onSubmit={handleSubmit}>
-            <div className="flex justify-end items-center">
-              <h1 className="bg-gray-200 mb-2 dark:bg-gray-500 dark:text-sky-300 text-center text-black rounded-md font-semibold py-2 px-4 flex-grow">
+          <form ref={formRef} onSubmit={handleSubmit} className='bg-gray-200 p-4 rounded-md'>
+            <div className="flex justify-end items-center ">
+              <h1 className="bg-gray-400 text-center text-black rounded-md font-semibold py-2 px-4 flex-grow">
                 {editingPostId ? 'Edit Post' : 'Add Latest Post'}
               </h1>
               <button
                 type="button"
                 onClick={() => setIsFormVisible(false)}
-                className="text-red-500  bg-gray-200 p-2 hover:bg-gray-600 rounded font-semibold ml-4"
+                className="text-red-500 bg-gray-400 p-2 hover:bg-gray-600 rounded font-semibold ml-4"
               >
                 X
               </button>
             </div>
-            <div className="mb-2">
-              <label htmlFor="postTitle" className="block text-sm font-medium dark:bg-gray-700   mb-1">
+            <div className="mt-4 ">
+              <label htmlFor="postTitle" className="block text-sm font-medium text-gray-700 mb-1">
                 Post Title
               </label>
               <input
@@ -173,11 +175,11 @@ const LatestPost: React.FC = () => {
                 placeholder="Post Title"
                 value={postTitle}
                 onChange={(e) => setPostTitle(e.target.value)}
-                className="w-full p-2 border dark:bg-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="mb-4">
-              <label htmlFor="postSlug" className="block text-sm font-medium   mb-1">
+              <label htmlFor="postSlug" className="block text-sm font-medium text-gray-700 mb-1">
                 Post Slug
               </label>
               <input
@@ -186,16 +188,42 @@ const LatestPost: React.FC = () => {
                 placeholder="Post Slug"
                 value={postSlug}
                 onChange={(e) => setPostSlug(e.target.value)}
-                className="w-full p-2 dark:bg-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <h1 className="text-xl font-semibold mb-2">Content Editor</h1>
-            <div className='dark:bg-gray-700'>
-
-              <FroalaEditor model={content} onModelChange={handleModelChange} />
-            </div>
-            <div className="flex justify-center gap-3 mt-4 ">
-              <button type="button" onClick={() => setIsFormVisible(false)} className="bg-red-500  text-white font-semibold py-2 px-4 rounded-md hover:bg -red-600 transition duration-200">
+            <FroalaEditor model={content} onModelChange={handleModelChange}
+             config={{
+               placeholderText: 'Edit Your Content Here!',
+               toolbarButtons: [
+                 'bold', 'italic', 'underline', 'strikeThrough', '|',
+                 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', '|',
+                 'formatOL', 'formatUL', '|',
+                 'insertImage', 'insertFile', 'insertVideo', 'insertTable', '|',
+                 'undo', 'redo', 'html'
+               ],
+               // Configure file upload
+               imageUploadURL: 'http://localhost:3002/api/upload-file', // Endpoint for image uploads
+               fileUploadURL: 'http://localhost:3002/api/upload-file', // Endpoint for file uploads
+               imageAllowedTypes: ['jpeg', 'jpg', 'png', 'gif'],
+               fileAllowedTypes: ['*'],
+               imageMaxSize: 5 * 1024 * 1024, // 5MB max size
+               fileMaxSize: 5 * 1024 * 1024, // 5MB max size
+               // Handle upload response
+               imageUploadParams: {
+                 folder: 'LatestPost', // Upload to 'LatestPost' folder in Cloudinary
+               },
+               fileUploadParams: {
+                 folder: 'LatestPost', // Upload to 'LatestPost' folder in Cloudinary
+               },
+               // Handle upload errors
+               imageUploadMethod: 'POST',
+               fileUploadMethod: 'POST',
+               imageUploadToS3: false, // Disable S3 upload (use custom endpoint)
+               fileUploadToS3: false, // Disable S3 upload (use custom endpoint)
+             }} />
+            <div className="flex justify-center gap-3 mt-4">
+              <button type="button" onClick={() => setIsFormVisible(false)} className="bg-red-500 text-white font-semibold py-2 px-4 rounded-md hover:bg -red-600 transition duration-200">
                 Cancel
               </button>
               <button type="submit" className="bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600 transition duration-200">
@@ -205,25 +233,26 @@ const LatestPost: React.FC = () => {
           </form>
         )}
 
-        <div className="mt-8 ">
+        <div className="mt-8  p-4 rounded-md">
           <h2 className="text-xl font-semibold mb-4">Latest Posts</h2>
           {posts.length > 0 ? (
             <ul>
               {posts.map((post) => (
-                <li key={post.post_id} className="mb-4 p-4 border  border-gray-300 rounded-md">
-                  <div className='dark:bg-white p-2 rounded' dangerouslySetInnerHTML={{ __html: post.post_content }} />
+                <li key={post.post_id} className="mb-4 p-4 border border-gray-300 rounded-md">
+                  <div dangerouslySetInnerHTML={{ __html: post.post_content }} />
                   <p className="text-sm text-gray-500">Created by: {post.created_by}</p>
                   <p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
                   <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
                   <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
-                  <div className="mt-2">
-                    <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
-                      Delete
-                    </button>
+                  <div className="mt-2 flex gap-2">
+                    
                     <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
                       Edit
                     </button>
-                    <label className="inline-flex items-center cursor-pointer ml-4">
+                    <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
+                      Delete
+                    </button>
+                    <label className="inline-flex items-center cursor-pointer ml-1">
                       <input
                         type="checkbox"
                         checked={post.isVisible}
@@ -245,9 +274,10 @@ const LatestPost: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-lg font-semibold">Are you sure you want to delete this post?</h2>
+            <h1 className=' text-center text-2xl font-semibold text-red-600'> DELETE POST</h1>
+            <h2 className="text-lg font-normal p-4">Are you sure you want to delete this post?</h2>
             <div className="mt-4 flex justify-end">
               <button onClick={closeDeleteModal} className="bg-gray-300 text-black px-4 py-2 rounded-md mr-2">
                 Cancel

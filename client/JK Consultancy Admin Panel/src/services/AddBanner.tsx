@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useBanner } from '../context/BannerContext';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
@@ -184,7 +184,7 @@ const AddBanner: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Banner</h3> */}
@@ -237,7 +237,7 @@ const AddBanner: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center  bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center  bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full  bg-white dark:bg-gray-500  dark:text-meta-2  dark:text-opacity-70 rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Banner</h3> */}
@@ -292,7 +292,7 @@ const AddBanner: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-80 mt-60 bg-gray-3' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">

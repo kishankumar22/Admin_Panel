@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useImportantLinks } from '../context/ImportantLinksContext';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Button, Modal } from "flowbite-react";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
@@ -19,7 +19,6 @@ const AddImportantLinks: React.FC = () => {
   const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null);
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(true); // State for URL validation
-
   const { user } = useAuth();
   const { links, uploadLink, deleteLink, updateLink, toggleVisibility, fetchLinks } = useImportantLinks();
   const created_by = user?.name || 'admin'; // Default to 'admin' if user?.name is undefined
@@ -109,7 +108,8 @@ const AddImportantLinks: React.FC = () => {
 
   // Handle updating of a link
   const handleUpdate = async () => {
-    if (!editingLink) return;
+    if (!editingLink) 
+      return;
 
     if (!linkName || !linksUrl || logoPosition === '') {
       toast.error('Please provide link name, URL, and logo position');
@@ -129,6 +129,7 @@ const AddImportantLinks: React.FC = () => {
     }
 
     await updateLink(editingLink.id, linkName, linksUrl, created_by, logo, logoPosition); // Use 'admin' as default
+    toast.success("post updated sucessfully")
     resetForm();
   };
 
@@ -166,7 +167,6 @@ const AddImportantLinks: React.FC = () => {
 
   return (
     <>
-     
       <Breadcrumb pageName="Add Important Links" />
 
       {/* Add Link Button */}
@@ -258,7 +258,7 @@ const AddImportantLinks: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white rounded-lg dark:bg-meta-4 shadow-md">
             {/* <h3 className="mb-1 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Link</h3> */}
@@ -320,7 +320,7 @@ const AddImportantLinks: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full dark:bg-meta-4 bg-white rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 mr-4 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Link</h3>
@@ -376,7 +376,7 @@ const AddImportantLinks: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60 ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-80 mt-60 bg-gray-3 ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">

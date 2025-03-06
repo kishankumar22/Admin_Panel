@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
-import { toast, ToastContainer } from 'react-toastify';
+import { toast } from 'react-toastify';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 
@@ -195,7 +195,7 @@ const Addnotifications = () => {
 
       {/* Add Notification Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 flex  items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex  ml-70 items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-6 h-auto dark:bg-meta-4 rounded-lg shadow-lg w-96">
             {/* <h2 className="text-lg font-bold mb-4 dark:text-meta-5"></h2> */}
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Notification</h3>
@@ -268,7 +268,7 @@ const Addnotifications = () => {
 
       {/* Edit Notification Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex ml-70 items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-6 rounded-lg dark:bg-meta-4 shadow-lg w-96">
             {/* <h2 className="text-lg font-bold mb-4 dark:text-meta-5">Edit Notification</h2> */}
             <h3 className="mb-1 text-center bg-slate-300  rounded-md text-lg font-bold dark:text-meta-5 p-1 text-blue-800">Edit Notification</h3>
@@ -338,7 +338,7 @@ const Addnotifications = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-60 mt-40 bg-gray-3 ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">
