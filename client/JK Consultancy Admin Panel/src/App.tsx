@@ -22,6 +22,7 @@ import ECommerce from './pages/Dashboard/ECommerce';
 import AddUser from './services/AddUser';
 import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
+import AssignRolePage from './pages/Configuration/AssignRolePage';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -128,6 +129,15 @@ const App: React.FC = () => {
         </>
       ),
     },
+    {
+      path: '/assign-page-to-role',
+      element: (
+        <>
+          <PageTitle title="AssignRolePage" />
+          <AssignRolePage />
+        </>
+      ),
+    },
   ];
 
   // Define routes to hide for Role ID 3
@@ -140,6 +150,7 @@ const App: React.FC = () => {
     '/latestpost',
     '/profile',
     '/settings',
+    '/assign-page-to-role',
   ];
 
   // Filter routes based on user role
@@ -187,6 +198,7 @@ const App: React.FC = () => {
           </>
         }
       />
+    
 
       {/* Protected Routes */}
       <Route

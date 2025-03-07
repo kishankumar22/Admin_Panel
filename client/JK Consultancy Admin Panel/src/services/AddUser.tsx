@@ -11,11 +11,11 @@ interface User {
   roleId: string;
   created_by: string;
 }
-
 interface Role {
   name: string;
   role_id: number;
 }
+
 
 const AddUser: React.FC = () => {
   const { user: loggedInUser } = useAuth();

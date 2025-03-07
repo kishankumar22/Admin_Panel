@@ -14,6 +14,7 @@
     "url": "https://tailadmin.com"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.0",
     "apexcharts": "^3.41.0",
     "axios": "^1.7.9",
     "axois": "^0.0.1-security",
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@types/react": "^18.2.17",
     "@types/react-dom": "^18.2.7",
+    "@types/select2": "^4.0.63",
     "@vitejs/plugin-react": "^4.0.3",
     "autoprefixer": "^10.4.14",
     "file-loader": "^6.2.0",

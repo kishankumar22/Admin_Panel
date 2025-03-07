@@ -42,8 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       ) {
         return;
       }
-
-      setSidebarOpen(false);
+          setSidebarOpen(false);
     };
 
     document.addEventListener('click', clickHandler);
@@ -144,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             }`}
                         />
                       </NavLink>
-                     <div className={`translate transform overflow-hidden ${!open && 'hidden'}`}>
+                      <div className={`translate transform overflow-hidden ${!open && 'hidden'}`}>
                         <ul className="mt-4 mb-5.5 flex flex-col gap-2.5 pl-6">
                           <li>
                             <NavLink
@@ -239,6 +238,47 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 </NavLink>
               </li>
             </ul>
+            <ul>
+              {/* Configuration   */}
+              <SidebarLinkGroup
+                activeCondition={pathname === '/configuration' || pathname.includes('configuration')}
+              >
+                {(handleClick, open) => (
+                  <React.Fragment>
+                    <NavLink
+                      to="#"
+                      className={`group relative flex items-center gap-2.5 rounded-sm py-2   px-4 font-medium text-bodydark1 duration-300 ease-in-out hover:bg-graydark dark:hover:bg-meta-4 `}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        sidebarExpanded ? handleClick() : setSidebarExpanded(true);
+                      }}
+                    >
+                      <MdOutlineMiscellaneousServices className="w-6 h-6" />
+                      configuration
+                      <IoIosArrowDown
+                        className={`absolute right-4 top-1/2 -translate-y-1/2 fill-current ${open && 'rotate-180'
+                          }`}
+                      />
+                    </NavLink>
+                    <div className={`translate transform overflow-hidden ${!open && 'hidden'}`}>
+                      <ul>
+                        <li>
+                          <NavLink
+                            to="/assign-page-to-role"
+                            className={({ isActive }) =>
+                              'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-white text-opacity-75 duration-300 ease-in-out hover:text-white hover:bg-gray-500 p-1 dark:hover:bg-gray-500 ' +
+                              (isActive && '!text-white')
+                            }
+                          >
+                            <MdOutlinePostAdd />
+                            Assign page to role
+                          </NavLink>
+                        </li>
+                      </ul>
+                    </div>
+                  </React.Fragment>
+                )}
+              </SidebarLinkGroup></ul>
           </div>
         </nav>
       </div>

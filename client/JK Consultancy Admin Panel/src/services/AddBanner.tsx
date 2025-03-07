@@ -108,7 +108,6 @@ const AddBanner: React.FC = () => {
 
   return (
     <>
-   
       <Breadcrumb pageName="Add Banner" />
       <div className="flex items-center justify-end space-x-2 p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
         <button className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200" onClick={addBanner}>
