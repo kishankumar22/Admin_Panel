@@ -17,6 +17,7 @@ interface NotificationContextProps {
   addNotification: (formData: FormData) => Promise<void>;
   editNotification: (id: number, formData: FormData) => Promise<void>;
   deleteNotification: (id: number) => Promise<void>;
+  searchNotifications: (query: string) => Notification[]; // Add search function
 }
 
 const NotificationContext = createContext<NotificationContextProps | undefined>(undefined);
@@ -76,11 +77,20 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  // Search notifications based on a query
+  const searchNotifications = (query: string): Notification[] => {
+    if (!query) return notifications; // Return all notifications if no query
+    return notifications.filter(notification =>
+      notification.notification_message.toLowerCase().includes(query.toLowerCase()) ||
+      notification.created_by.toLowerCase().includes(query.toLowerCase())
+    );
+  };
+
   useEffect(() => {
     fetchNotifications(); // Fetch notifications on mount 
   }, []);
 
-  return (
+  return (  
     <NotificationContext.Provider
       value={{
         notifications,
@@ -88,6 +98,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         addNotification,
         editNotification,
         deleteNotification,
+        searchNotifications, // Expose search function
       }}
     >
       {children}

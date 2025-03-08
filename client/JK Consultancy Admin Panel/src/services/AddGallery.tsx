@@ -30,6 +30,7 @@ const AddGallery: React.FC = () => {
     }
   };
 
+
   const handleGalleryNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (galleryName.length > 100) {
       toast.error('Gallery name cannot exceed 100 characters');
@@ -104,11 +105,24 @@ const AddGallery: React.FC = () => {
     await toggleVisibility(id, user?.name || 'admin');
   };
 
+  const [searchQuery, setSearchQuery] = useState('');
+  const filteredGalleries = galleries.filter(gallery =>
+    gallery.galleryName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+
   return (
     <>
       <Breadcrumb pageName="Add Gallery" />
-      <div className="flex items-center justify-end space-x-2 p-1.5 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
-        <button className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200" onClick={addGallery}>
+      <div className="flex items-center justify-between space-x-2 p-1.5 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
+      <input
+        type="search"
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
+        placeholder='Search Message here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      />
+        <button className="px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200" onClick={addGallery}>
           Upload Gallery
         </button>
       </div>
@@ -116,8 +130,9 @@ const AddGallery: React.FC = () => {
       <div className="mt-6 p-3 bg-white dark:bg-meta-4  rounded-lg shadow-md">
         <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Galleries</h2>
         <div className="grid grid-cols-3 gap-4">
-          {galleries.map((gallery) => (
-            <div key={gallery.id} className="p-2   border rounded overflow-hidden">
+        {filteredGalleries.length > 0 ? (
+          filteredGalleries.map((gallery) => (
+            <div key={gallery.id} className="p-2 border rounded overflow-hidden">
               <img
                 src={gallery.galleryUrl}
                 alt={gallery.galleryName}
@@ -162,7 +177,7 @@ const AddGallery: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={gallery.IsVisible}
-                    onChange={() => handleToggleVisibility(gallery.id )}
+                    onChange={() => handleToggleVisibility(gallery.id)}
                     className="sr-only peer"
                   />
                   <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
@@ -172,8 +187,11 @@ const AddGallery: React.FC = () => {
                 </label>
               </div>
             </div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <p>No galleries found</p>
+        )}
+      </div>
       </div>
 
       {/* Edit Modal */}

@@ -164,15 +164,28 @@ const AddImportantLinks: React.FC = () => {
     setDeleteLinkId(id);
     setOpenDeleteModal(true);
   };
+  const [searchQuery, setSearchQuery] = useState('');
+ 
+  const filteredLinks = links.filter(link =>
+    link.logoName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
 
   return (
     <>
       <Breadcrumb pageName="Add Important Links" />
 
       {/* Add Link Button */}
-      <div className="flex items-center justify-end space-x-2 p-1.5 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
+      <div className="flex items-center justify-between space-x-2 p-2 mb-4 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
+      <input
+        type="search"
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
+        placeholder='Search Message here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      />
         <button
-          className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
+          className="px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
           onClick={addLink}
         >
           Add Link
@@ -180,46 +193,39 @@ const AddImportantLinks: React.FC = () => {
       </div>
 
       {/* Uploaded Links Section */}
-      <div className="mt-6 p-3 bg-white rounded-lg dark:bg-meta-4 shadow-md">
-        <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Links</h2>
-        <div className="grid grid-cols-3 gap-4 dark:bg-meta-4 ">
-          {links.map((link) => (
-            <div key={link.id} className="p-2 border dark:text-white dark:font-normal dark:text-opacity-50  rounded overflow-hidden">
+      <div className="grid grid-cols-3 gap-4 dark:bg-meta-4">
+        {filteredLinks.length > 0 ? (
+          filteredLinks.map((link) => (
+            <div key={link.id} className="p-2 border dark:text-white dark:font-normal dark:text-opacity-50 rounded overflow-hidden">
               <div className="text-sm p-1 mt-1">
                 <img src={link.LOGOUrl} alt={link.logoName} className="w-24 h-24 object-fit"
-                style={{ opacity: link.IsVisible ? 1 : 0.3 }} />
+                  style={{ opacity: link.IsVisible ? 1 : 0.3 }} />
               </div>
-           
-<div className="font-normal">
-  <p className="text-sm">
-    <span className="font-bold">Link Name: </span> {link.logoName}
-  </p>
-  <p className="text-sm">
-    <span className="font-bold">Link url: </span> {link.linksUrl}
-  </p>
-
-  <p className="text-sm">
-    <span className="font-bold">Logo Position:</span> {link.logoPosition || 'N/A'}
-  </p>
-
-  <p className="text-sm">
-    <span className="font-bold">Created On:</span>
-    {link.created_on ? new Date(link.created_on).toLocaleDateString() : 'N/A'}
-  </p>
-
-  <p className="text-sm">
-    <span className="font-bold">Created By:</span> {link.created_by}
-  </p>
-
-  <p className="text-sm">
-    <span className="font-bold">Modified By:</span> {link.modify_by || 'N/A'}
-  </p>
-
-  <p className="text-sm">
-    <span className="font-bold">Modified On:</span>
-    {link.modify_on ? new Date(link.modify_on).toLocaleDateString() : 'N/A'}
-  </p>
-</div>
+              <div className="font-normal">
+                <p className="text-sm">
+                  <span className="font-bold">Link Name: </span> {link.logoName}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Link URL: </span> {link.linksUrl}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Logo Position:</span> {link.logoPosition || 'N/A'}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Created On:</span>
+                  {link.created_on ? new Date(link.created_on).toLocaleDateString() : 'N/A'}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Created By:</span> {link.created_by}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Modified By:</span> {link.modify_by || 'N/A'}
+                </p>
+                <p className="text-sm">
+                  <span className="font-bold">Modified On:</span>
+                  {link.modify_on ? new Date(link.modify_on).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
               <div className="flex justify-center gap-2 mt-1">
                 <button
                   className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingLink?.id === link.id ? 'cursor-not-allowed' : ''}`}
@@ -231,16 +237,16 @@ const AddImportantLinks: React.FC = () => {
                 <button
                   className={`w-14 text-sm rounded-md ${editingLink?.id === link.id ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
                   onClick={() => openDeleteConfirmation(link.id)}
-                  disabled={editingLink?.id === link.id}
+                  disabled ={editingLink?.id === link.id}
                 >
                   Delete
                 </button>
-                <label className="inline-flex  items-center cursor-pointer">
+                <label className="inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     checked={link.isVisible}
                     onChange={() => handleToggleVisibility(link.id, link.isVisible)}
-                    className="sr-only peer "
+                    className="sr-only peer"
                   />
                   <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
                   <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
@@ -249,9 +255,12 @@ const AddImportantLinks: React.FC = () => {
                 </label>
               </div>
             </div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <p>No links found</p>
+        )}
       </div>
+
 
       {/* Edit Modal */}
       {editingLink && (

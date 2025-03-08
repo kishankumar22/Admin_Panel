@@ -135,13 +135,27 @@ const LatestPost: React.FC = () => {
       toast.error('Error saving post');
     }
   };
+  const [searchQuery, setSearchQuery] = useState('');
+// Filter posts based on the search query
+const filteredPosts = posts.filter(post =>
+  post.post_content.toLowerCase().includes(searchQuery.toLowerCase())
+);
 
   return (
     <>
       <Breadcrumb pageName="Add Latest Post" />
       <div className="w-full p-4 bg-white rounded-lg shadow-md dark:bg-gray-700">
+      <div className="flex items-center justify-start p-1 mb-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
+
+      <input
+        type="search"
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
+        placeholder='Search Latest  here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      /></div>
         {!isFormVisible && (
-          <div className="flex items-center justify-end p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
+          <div className="flex items-center justify-end p-1 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
           <button
             onClick={() => setIsFormVisible(true)}
             className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
@@ -235,42 +249,44 @@ const LatestPost: React.FC = () => {
 
         <div className="mt-8  p-4 rounded-md">
           <h2 className="text-xl font-semibold mb-4">Latest Posts</h2>
-          {posts.length > 0 ? (
-            <ul>
-              {posts.map((post) => (
-                <li key={post.post_id} className="mb-4 p-4 border border-gray-300 rounded-md">
-                  <div dangerouslySetInnerHTML={{ __html: post.post_content }} />
-                  <p className="text-sm text-gray-500">Created by: {post.created_by}</p>
-                  <p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
-                  <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
-                  <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
-                  <div className="mt-2 flex gap-2">
-                    
-                    <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
-                      Edit
-                    </button>
-                    <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
-                      Delete
-                    </button>
-                    <label className="inline-flex items-center cursor-pointer ml-1">
-                      <input
-                        type="checkbox"
-                        checked={post.isVisible}
-                        onChange={() => handleToggleVisibility(post.post_id)}
-                        className="sr-only peer"
-                      />
-                      <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                      <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                        Visible
-                      </span>
-                    </label>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : <p>No posts found.</p>}
+          {filteredPosts.length > 0 ? (
+        <ul>
+          {filteredPosts.map((post) => (
+            <li key={post.post_id} className="mb-4 p-4 border border-gray-300 rounded-md">
+              <div dangerouslySetInnerHTML={{ __html: post.post_content }} />
+              <p className="text-sm text-gray-500">Created by: {post.created_by}</p>
+              <p className="text-sm text-gray-500">Created on: {post.created_on ? new Date(post.created_on).toLocaleDateString() : 'N/A'}</p>
+              <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
+              <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
+                  Edit
+                </button>
+                <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
+                  Delete
+                </button>
+                <label className="inline-flex items-center cursor-pointer ml-1">
+                  <input
+                    type="checkbox"
+                    checked={post.isVisible}
+                    onChange={() => handleToggleVisibility(post.post_id)}
+                    className="sr-only peer"
+                  />
+                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
+                  <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                    Visible
+                  </span>
+                </label>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No posts found.</p>
+      )}
+    </div>
         </div>
-      </div>
+      
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 async function createUser () {
   // Step 1: Fetch the role
-  const roleName = 'Admin'; // Specify the role for the user
+  const roleName = 'Administrator'; // Specify the role for the user
   const role = await prisma.role.findUnique({
     where: { name: roleName },
   });

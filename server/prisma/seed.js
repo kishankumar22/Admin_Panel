@@ -16,6 +16,7 @@ async function main() {
   console.log('Roles have been seeded!');
 }
 
+
 main()
   .catch((e) => {
     console.error(e);

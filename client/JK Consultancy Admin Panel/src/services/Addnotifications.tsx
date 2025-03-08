@@ -20,9 +20,10 @@ const Addnotifications = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false); // Edit modal visibility
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false); // Delete modal visibility
   const [notificationIdToDelete, setNotificationIdToDelete] = useState<number | null>(null); // ID of notification to delete
-
+  // const [notifications, setNotifications] = useState<any[]>([]);
+  
   const { user } = useAuth();
-  const { notifications, addNotification: addNotificationContext, editNotification, deleteNotification } =
+  const {  addNotification: addNotificationContext, editNotification, deleteNotification,searchNotifications  } =
     useNotifications();
 
   const userId = user?.user_id;
@@ -177,20 +178,28 @@ const Addnotifications = () => {
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   };
-
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const filteredNotifications = searchNotifications(searchQuery);
   return (
     <>
    
       <Breadcrumb pageName="Add Notification" />
-
       {/* Add Notification Button */}
-      <div className="flex items-center justify-end space-x-2 p-1.5 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
+      <div className="flex items-center justify-between space-x-2 p-1.5 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
+      <input
+        type="search"
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
+        placeholder='Search Message here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      />
         <button
-          className="px-4 py-2  text-white bg-blue-500 rounded -md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="px-4 py-1  text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
           onClick={openAddModal}
         >
           Add Notification
         </button>
+        
       </div>
 
       {/* Add Notification Modal */}
@@ -359,71 +368,79 @@ const Addnotifications = () => {
       </Modal>
 
       {/* Notifications Table */}
-      <div className="mt-6 p-4 bg-white dark:bg-meta-4   rounded-lg shadow-md">
+  {/* Notifications Table */}
+  <div className="mt-4 p-4 bg-white dark:bg-meta-4 rounded-lg shadow-md">
         <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Notifications</h2>
-     <table className="min-w-full bg-white border border-gray-400 dark:bg-meta-4">
-  <thead className="bg-gray-300 dark:bg-gray-900">
-    <tr>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">ID</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Message</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">URL</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created By</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created On</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified By</th>
-      <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified On</th>
-      <th className="py-2 px-3 border-b text-left pl-16 text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Action</th>
-    </tr>
-  </thead>
-  <tbody>
-    {notifications.map((notification) => (
-      <tr key={notification.notification_id} className="font-normal hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-200">
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_id}</td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_message}</td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 text-xs">
-          {notification.notification_url ? (
-            <a
-              href={notification.notification_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline text-xs"
-            >
-              Open Link
-            </a>
-          ) : (
-            'No URL'
-          )}
-        </td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.created_by}</td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
-          {formatDate(notification.created_on)}
-        </td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.modify_by}</td>
-        <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
-          {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
-        </td>
-        <td className="py-2 px-3 border-b text-xs">
-          <button
-            className="text-white w-16 bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-200"
-            onClick={() => openEditModal(notification)}
-          >
-            Edit
-          </button>
-          <button
-            className="text-white w-16 bg-red-500 ml-2 px-2 py-1 rounded hover:bg-red-600 transition duration-200"
-            onClick={() => {
-              setNotificationIdToDelete(notification.notification_id);
-              setOpenDeleteModal(true);
-            }}
-          >
-            Delete
-          </button>
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+        <table className="min-w-full bg-white border border-gray-400 dark:bg-meta-4">
+          <thead className="bg-gray-300 dark:bg-gray-900">
+            <tr>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">ID</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Message</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">URL</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created By</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Created On</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified By</th>
+              <th className="py-2 px-3 border-b text-left text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Modified On</th>
+              <th className="py-2 px-3 border-b text-left pl-16 text-gray-600 dark:text-white dark:text-opacity-50 text-xs font-semibold">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+          {filteredNotifications.length > 0 ? (
+              filteredNotifications.map((notification) => (
+                <tr key={notification.notification_id} className="font-normal hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-200">
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_id}</td>
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.notification_message}</td>
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 text-xs">
+                    {notification.notification_url ? (
+                      <a
+                        href={notification.notification_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:underline text-xs"
+                      >
+                        Open Link
+                      </a>
+                    ) : (
+                      'No URL'
+                    )}
+                  </td>
+                  <td className ="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.created_by}</td>
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
+                    {formatDate(notification.created_on)}
+                  </td>
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">{notification.modify_by}</td>
+                  <td className="py-2 px-3 border-b text-black dark:text-opacity-50 dark:text-white text-xs">
+                    {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
+                  </td>
+                  <td className="py-2 px-3 border-b text-xs">
+                    <button
+                      className="text-white w-16 bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-200"
+                      onClick={() => openEditModal(notification)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="text-white w-16 bg-red-500 ml-2 px-2 py-1 rounded hover:bg-red-600 transition duration-200"
+                      onClick={() => {
+                        setNotificationIdToDelete(notification.notification_id);
+                        setOpenDeleteModal(true);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={8} className="py-2 px-3 border-b text-center text-gray-600 dark:text-white dark:text-opacity-50 text-xs">
+                  Not Found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
-      
       
     </>
   );

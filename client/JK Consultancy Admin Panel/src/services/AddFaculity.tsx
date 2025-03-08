@@ -134,13 +134,26 @@ const AddFaculty: React.FC = () => {
     setSelectedFaculty(faculty);
     setOpenDetailsModal(true);
   };
+  const [searchQuery, setSearchQuery] = useState('');
+   // Filter faculties based on the search query
+   const filteredFaculties = faculties.filter(faculty =>
+    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <>
      
       <Breadcrumb pageName="Add Faculty" />
-      <div className="flex items-center justify-end p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        <button
+      <div className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
+        
+      <input
+        type="search"
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
+        placeholder='Search Message here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      />
+      <button
           className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
           onClick={() => setAddFacultyModel(true)}
         >
@@ -235,15 +248,14 @@ const AddFaculty: React.FC = () => {
       )}
 
       {/* Faculty List */}
-      <div className="mt-6 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
-        <h2 className="text-sm font-bold text-center p-2  text-cyan-900 dark:text-meta-5">Faculty List</h2>
-        <div className="grid grid-cols-3 gap-4">
- {faculties.map((faculty) => (
+      <div className="grid grid-cols-3 gap-4">
+        {filteredFaculties.length > 0 ? (
+          filteredFaculties.map((faculty) => (
             <div key={faculty.id} className="p-2 border rounded-md">
               <p>
                 <img
-                  src={faculty.profilePicUrl}
-                  alt=""
+                  src={faculty.profilePicUrl || 'https://st4.depositphotos.com/7819052/21803/v/450/depositphotos_218033152-stock-illustration-grunge-red-available-word-rubber.jpg'} // Default image if profilePicUrl is null
+                  alt={faculty.faculty_name || 'Faculty Image'} // Provide alt text
                   className="w-full h-48 object-fit"
                   style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
                 />
@@ -284,8 +296,10 @@ const AddFaculty: React.FC = () => {
                 </label>
               </div>
             </div>
-          ))}
-        </div>
+          ))
+        ) : (
+          <p>No faculties found</p>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}
