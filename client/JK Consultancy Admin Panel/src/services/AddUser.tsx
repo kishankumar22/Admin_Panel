@@ -245,18 +245,12 @@ const AddUser: React.FC = () => {
       <div className="flex justify-between mb-4">
       <input
         type="search"
-        className='p-1 bg-gray-100 border-2 rounded-md text-sm w-60'
+        className='p-2 bg-gray-100 border-2 rounded-md text-sm w-60'
         placeholder='Search by Name	Email	Mobile Number here...'
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
       />
-      <input
-        type="search"
-        className='p-1 bg-gray-100 border-2 rounded-md text-sm w-60'
-        placeholder='Search by Name	Email	Mobile Number here...'
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-      />
+    
         {loggedInUser?.roleId !== Number('3') && (
           <button
             onClick={() => setIsModalOpen(true)}
@@ -538,140 +532,141 @@ const AddUser: React.FC = () => {
 
       {/*  change Pass model start*/}
       {isChangePassModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md mt-12 ml-60 dark:bg-gray-600">
-            <h2 className="text-lg font-bold mb-4 bg-gray-200 text-center border-2 border-b p-1 dark:text-gray-700 rounded-md dark:bg-gray-400">Change Password</h2>
-            <form onSubmit={handleChangePass}>
-              <input
-                type="hidden"
-                name="email"
-                value={selectedEmail} // Hidden input for email
-              />
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="oldPassword">
-                  Old Password
-                </label>
-                <input
-                  type="password"
-                  id="oldPassword"
-                  name="oldPassword"
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder='Enter Your  old password'
-                  required
-                  className="w-full p-2 border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="newPassword">
-                  New Password
-                </label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  name="newPassword"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                   placeholder='Enter Your  New password'
-                  required
-                  className="w-full p-2 border border-gray-300 dark:bg-gray-700  rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1" htmlFor="confirmPassword">
-                  Confirm New Password
-                </label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                   placeholder='Enter Your confirm password'
-                  required
-                  className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsChangePassModalOpen(false)}
-                  className="bg-gray-400 text-white px-4 py-2 rounded-md hover:bg-gray-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                >
-                  {isSubmitting ? 'Updating...' : 'Update Password'}
-                </button>
-              </div>
-            </form>
-          </div>
+  <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
+    <div className="bg-white p-4 rounded-lg shadow-md w-full max-w-sm mt-12 dark:bg-gray-600"> {/* Reduced padding and max width */}
+      <h2 className="text-lg font-bold mb-2 bg-gray-200 text-center border-b p-2 dark:text-gray-700 rounded-md dark:bg-gray-400">Change Password</h2>
+      <form onSubmit={handleChangePass}>
+        <input
+          type="hidden"
+          name="email"
+          value={selectedEmail} // Hidden input for email
+        />
+        <div className="mb-3"> {/* Reduced margin bottom */}
+          <label className="block text-sm font-medium mb-1" htmlFor="oldPassword">
+            Old Password
+          </label>
+          <input
+            type="password"
+            id="oldPassword"
+            name="oldPassword"
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
+            placeholder='Enter Your old password'
+            required
+            className="w-full p-1 border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" // Reduced padding
+          />
         </div>
-      )}
+        <div className="mb-3"> {/* Reduced margin bottom */}
+          <label className="block text-sm font-medium mb-1" htmlFor="newPassword">
+            New Password
+          </label>
+          <input
+            type="password"
+            id="newPassword"
+            name="newPassword"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder='Enter Your New password'
+            required
+            className="w-full p-1 border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" // Reduced padding
+          />
+        </div>
+        <div className="mb-3"> {/* Reduced margin bottom */}
+          <label className="block text-sm font-medium mb-1" htmlFor="confirmPassword">
+            Confirm New Password
+          </label>
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder='Enter Your confirm password'
+            required
+            className="w-full p-1 border border-gray-300 rounded-md dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" // Reduced padding
+          />
+        </div>
+        <div className="flex justify-end gap-1"> {/* Reduced gap between buttons */}
+          <button
+            type="button"
+            onClick={() => setIsChangePassModalOpen(false)}
+            className="bg-gray-400 text-white px-3 py-1 rounded-md hover:bg-gray-500" // Reduced padding
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600" // Reduced padding
+          >
+            {isSubmitting ? 'Updating...' : 'Update Password'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
       {/* Add USer change Pass model end*/}
 
       {/*  USer list model start*/}
       <div className="mt-8">
-  <h2 className="text-lg font-bold mb-4">User List</h2>
-       {filteredUsers.length > 0 ? (
-        <div className="overflow-x-auto"> {/* Make the table scrollable on small screens */}
-          <table className="min-w-full bg-white border dark:bg-gray-600 border-gray-300 text-sm"> {/* Smaller text */}
-            <thead>
-              <tr className="bg-gray-200 text-gray-600 dark:bg-gray-300">
-                <th className="py-1 px-2 border-b text-left">Sr No.</th> {/* Align text to the left */}
-                <th className="py-1 px-2 border-b text-left">Name</th>
-                <th className="py-1 px-2 border-b text-left">Email</th>
-                <th className="py-1 px-2 border-b text-left">Mobile Number</th>
-                <th className="py-1 px-2 border-b text-left">Role</th>
-                <th className="py-1 px-2 border-b text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((user, index) => (
-                <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500 dark:hover:text-black">
-                  <td className="py-1 px-2 border-b align-middle">{index + 1}</td> {/* Vertically align text */}
-                  <td className="py-1 px-2 border-b align-middle">{user.name}</td>
-                  <td className="py-1 px-2 border-b align-middle">{user.email}</td>
-                  <td className="py-1 px-2 border-b align-middle">{user.mobileNo}</td>
-                  <td className="py-1 px-2 border-b align-middle">
-                    {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'NA'}
-                  </td>
-                  <td className="py-1 px-2 border-b align-middle">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(user)}
-                        className={`bg-yellow-500 text-white w-16 py-1 rounded-md hover:bg-yellow-600 transition-colors duration-200 focus:outline-none active:bg-yellow-600 ${loggedInUser ?.roleId === Number('3') ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={loggedInUser ?.roleId === Number('3')}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleOpenDeleteModal(user.user_id)}
-                        className={`bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600 transition-colors duration-200 focus:outline-none active:bg-red-600 ${loggedInUser ?.roleId === Number('3') ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={loggedInUser  ?.roleId === Number('3')}
-                      >
-                        Delete
-                      </button>
-                      <button
-                        onClick={() => handleOpenChangePassModal(user.email)}
-                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600"
-                      >
-                        Change Password
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-gray-600 text-center py-6">No users found.</p>
-      )}
+      <h2 className="text-lg font-bold mb-4">User List</h2>
+      {filteredUsers.length > 0 ? (
+      <div className="overflow-x-auto">
+      <table className="min-w-full bg-white border dark:bg-gray-600 border-gray-300 text-xs">
+      <thead>
+        <tr className="bg-gray-200 h-10 text-gray-600 dark:bg-gray-300">
+          <th className="py-1 px-1 border-b text-left">#</th>
+          <th className="py-1 px-1 border-b text-left">Name</th>
+          <th className="py-1 px-1 border-b text-left">Email</th>
+          <th className="py-1 px-1 border-b text-left">Mobile</th>
+          <th className="py-1 px-1 border-b text-left">Role</th>
+          <th className="py-1 px-1 border-b text-left">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredUsers.map((user, index) => (
+          <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500 dark:hover:text-black">
+            <td className="py-1 px-1 border-b align-middle">{index + 1}</td>
+            <td className="py-1 px-1 border-b align-middle">{user.name}</td>
+            <td className="py-1 px-1 border-b align-middle">{user.email}</td>
+            <td className="py-1 px-1 border-b align-middle">{user.mobileNo}</td>
+            <td className="py-1 px-1 border-b align-middle">
+              {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'NA'}
+            </td>
+            <td className="py-1 px-1 border-b align-middle">
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleEdit(user)}
+                  className={`bg-yellow-500 text-white text-xs px-2 py-1 rounded-md hover:bg-yellow-600 transition duration-150 focus:outline-none ${loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={loggedInUser?.roleId === 3}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleOpenDeleteModal(user.user_id)}
+                  className={`bg-red-500 text-white text-xs px-2 py-1 rounded-md hover:bg-red-600 transition duration-150 focus:outline-none ${loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={loggedInUser?.roleId === 3}
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => handleOpenChangePassModal(user.email)}
+                  className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-600 transition duration-150"
+                >
+                  Change Password
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+) : (
+  <p className="text-gray-600 text-center py-4 text-sm">No users found.</p>
+)}
+
       </div>
       {/*  USer list model end*/}
       {/* Confirmation Modal */}

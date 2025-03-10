@@ -105,3 +105,13 @@ model LatestPost {
   modify_on    DateTime? // Timestamp for when the post was last modified (optional)
   isVisible    Boolean  @default(true) // Visibility status of the post
 }
+
+model Page {
+  pageId         Int      @id @default(autoincrement())
+  pageName   String
+  pageUrl    String   @unique
+  created_by String ?
+  created_on DateTime @default(now())
+  modify_by  String ?
+  modify_on  DateTime ?
+} 

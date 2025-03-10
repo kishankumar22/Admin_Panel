@@ -106,26 +106,30 @@ const AddGallery: React.FC = () => {
   };
 
   const [searchQuery, setSearchQuery] = useState('');
+  // Filter galleries based on the search query
   const filteredGalleries = galleries.filter(gallery =>
-    gallery.galleryName.toLowerCase().includes(searchQuery.toLowerCase())
+    gallery.galleryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(gallery.galleryPosition).toLowerCase().includes(searchQuery.toLowerCase()) // Convert to string before calling toLowerCase
   );
-  
 
   return (
     <>
       <Breadcrumb pageName="Add Gallery" />
-      <div className="flex items-center justify-between space-x-2 p-1.5 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
-      <input
-        type="search"
-        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
-        placeholder='Search Message here...'
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-      />
-        <button className="px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200" onClick={addGallery}>
-          Upload Gallery
-        </button>
-      </div>
+      <div className="flex items-center justify-between space-x-2 p-2 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
+  <input
+    type="search"
+    className='p-1 bg-white border border-gray-300 rounded-md placeholder:text-[.8rem] text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+    placeholder='Search gallery pic by name and position here...'
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+  />
+  <button
+    className="px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    onClick={addGallery}
+  >
+    Upload Gallery
+  </button>
+</div>
 
       <div className="mt-6 p-3 bg-white dark:bg-meta-4  rounded-lg shadow-md">
         <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Galleries</h2>

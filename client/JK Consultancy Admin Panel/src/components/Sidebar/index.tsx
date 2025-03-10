@@ -274,6 +274,18 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             Assign page to role
                           </NavLink>
                         </li>
+                        <li>
+                          <NavLink
+                            to="/page-management"
+                            className={({ isActive }) =>
+                              'group relative flex items-center gap-2.5 rounded-md px-4 font-medium text-white text-opacity-75 duration-300 ease-in-out hover:text-white hover:bg-gray-500 p-1 dark:hover:bg-gray-500 ' +
+                              (isActive && '!text-white')
+                            }
+                          >
+                            <MdOutlinePostAdd />
+                            Create Page
+                          </NavLink>
+                        </li>
                       </ul>
                     </div>
                   </React.Fragment>

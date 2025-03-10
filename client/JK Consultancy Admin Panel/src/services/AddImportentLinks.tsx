@@ -167,7 +167,8 @@ const AddImportantLinks: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
  
   const filteredLinks = links.filter(link =>
-    link.logoName.toLowerCase().includes(searchQuery.toLowerCase())
+    link.logoName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(link.logoPosition).toLowerCase().includes(searchQuery.toLowerCase()) 
   );
 
 
@@ -177,21 +178,22 @@ const AddImportantLinks: React.FC = () => {
 
       {/* Add Link Button */}
       <div className="flex items-center justify-between space-x-2 p-2 mb-4 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
-      <input
-        type="search"
-        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
-        placeholder='Search Message here...'
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-      />
-        <button
-          className="px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
-          onClick={addLink}
-        >
-          Add Link
-        </button>
-      </div>
-
+  {/* Search Input */}
+  <input
+    type="search"
+    className='py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 placeholder:text-[.8rem]'
+    placeholder='Search  link  by name and position here...'
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+  />
+  
+  <button
+    className="px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    onClick={addLink}
+  >
+    Add Link
+  </button>
+</div>
       {/* Uploaded Links Section */}
       <div className="grid grid-cols-3 gap-4 dark:bg-meta-4">
         {filteredLinks.length > 0 ? (

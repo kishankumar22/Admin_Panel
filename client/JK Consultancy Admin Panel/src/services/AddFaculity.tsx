@@ -137,29 +137,32 @@ const AddFaculty: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
    // Filter faculties based on the search query
    const filteredFaculties = faculties.filter(faculty =>
-    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase())
+    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase())||
+    faculty.designation.toLowerCase().includes(searchQuery.toLowerCase())||
+    faculty.qualification.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <>
      
       <Breadcrumb pageName="Add Faculty" />
-      <div className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        
-      <input
-        type="search"
-        className='p-1 bg-gray-100 border-2 rounded-md text-sm'
-        placeholder='Search Message here...'
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-      />
-      <button
-          className="px-4 py-2 text-white bg-blue-500 rounded-lg hover:bg-blue-600"
-          onClick={() => setAddFacultyModel(true)}
-        >
-          Add Faculty
-        </button>
-      </div>
+      <div className="flex items-center justify-between p-2 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
+  {/* Search Input */}
+  <input
+    type="search"
+    className='py-1 px-3 bg-white border placeholder:text-[.75rem] border-gray-300 rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+    placeholder='Search faculity here by designation and qualification...'
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+  />
+  
+  <button
+    className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    onClick={() => setAddFacultyModel(true)}
+  >
+    Add Faculty
+  </button>
+</div>
 
       {/* Faculty Modal */}
       {addFacultyModel && (

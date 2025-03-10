@@ -27,11 +27,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isLoggedIn, user } = useAuth() as AuthContextType;
   const location = useLocation(); // To get the current path
 
-  console.log('ProtectedRoute Debug:');
-  console.log('isLoggedIn:', isLoggedIn);
-  console.log('user:', user);
-  console.log('user.roleId:', user?.roleId);
-  console.log('current path:', location.pathname);
+  // console.log('ProtectedRoute Debug:');
+  // console.log('isLoggedIn:', isLoggedIn);
+  // console.log('user:', user);
+  // console.log('user.roleId:', user?.roleId);
+  // console.log('current path:', location.pathname);
 
   // If user is not logged in, redirect to signin
   if (!isLoggedIn || !user) {

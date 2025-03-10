@@ -23,6 +23,7 @@ import AddUser from './services/AddUser';
 import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
 import AssignRolePage from './pages/Configuration/AssignRolePage';
+import CreatePage from './pages/Configuration/CreatePage';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -135,6 +136,15 @@ const App: React.FC = () => {
         <>
           <PageTitle title="AssignRolePage" />
           <AssignRolePage />
+        </>
+      ),
+    },
+    {
+      path: '/page-management',
+      element: (
+        <>
+          <PageTitle title="Page management" />
+          <CreatePage />
         </>
       ),
     },

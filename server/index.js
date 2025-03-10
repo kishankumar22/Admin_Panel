@@ -11,6 +11,7 @@ const facultyRoutes=require('./routes/facultyRoutes')
 const latestPostRoutes=require('./routes/latestPostRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
 const userRoutes=require('./routes/userRoutes')
+const createpageRoutes=require('./routes/createPageRoutes')
 const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 
 // const { createUser } = require('./controllers/controller');
@@ -50,6 +51,7 @@ app.use('/api',importentLogolinkRoutes)
 app.use('/api',facultyRoutes)
 app.use('/api',latestPostRoutes)
 app.use('/api',userRoutes)
+app.use('/api',createpageRoutes)
 
 // Routes 
 

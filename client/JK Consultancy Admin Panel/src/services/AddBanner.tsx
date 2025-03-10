@@ -109,7 +109,8 @@ const AddBanner: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   // Filter banners based on the search query
   const filteredBanners = banners.filter(banner =>
-    banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase())
+    banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    String(banner.bannerPosition).toLowerCase().includes(searchQuery.toLowerCase()) 
   );
 
 
@@ -117,22 +118,22 @@ const AddBanner: React.FC = () => {
     <>
       <Breadcrumb pageName="Add Banner" />
       <div className="flex items-center justify-between p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        {/* Search Input */}
-        <input
-          type="search"
-          className='py-1 bg-gray-100 border-2 rounded-md text-sm'
-          placeholder='Search Banner here...'
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-        />
+  {/* Search Input */}
+  <input
+    type="search"
+    className='py-1 px-3 bg-white border border-gray-300 placeholder:text-[.8rem] rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+    placeholder='Search Banner by name and position here...'
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+  />
 
-        <button
-          className="ml-2 px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
-          onClick={addBanner}
-        >
-          Upload Banner
-        </button>
-      </div>
+  <button
+    className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+    onClick={addBanner}
+  >
+    Upload Banner
+  </button>
+</div>
 
       <div className="mt-6 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
   <h2 className="text-sm font-bold text-center p-2 text-cyan-900 dark:text-meta-5">Banners List</h2>
