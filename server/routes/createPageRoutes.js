@@ -49,7 +49,7 @@ router.put('/updatePage/:pageId', async (req, res) => {
             where: { pageId: Number(pageId) },
             data: {
                 pageName,
-                pageUrl: `/${pageUrl}`,
+                pageUrl: pageUrl,
                 modify_by,
                 modify_on: new Date(),
             },

@@ -110,7 +110,7 @@ const AddBanner: React.FC = () => {
   // Filter banners based on the search query
   const filteredBanners = banners.filter(banner =>
     banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    String(banner.bannerPosition).toLowerCase().includes(searchQuery.toLowerCase()) 
+    String(banner.bannerPosition).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
 
@@ -118,91 +118,91 @@ const AddBanner: React.FC = () => {
     <>
       <Breadcrumb pageName="Add Banner" />
       <div className="flex items-center justify-between p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-  {/* Search Input */}
-  <input
-    type="search"
-    className='py-1 px-3 bg-white border border-gray-300 placeholder:text-[.8rem] rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
-    placeholder='Search Banner by name and position here...'
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-  />
-
-  <button
-    className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    onClick={addBanner}
-  >
-    Upload Banner
-  </button>
-</div>
+        {/* Search Input */}
+        <input
+          type="search"
+          className='py-1 px-3 bg-white border border-gray-300 placeholder:text-[.8rem] rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+          placeholder='Search Banner by name and position here...'
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+        />
+       
+        <button
+          className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          onClick={addBanner}
+        >
+          Upload Banner
+        </button>
+      </div>
 
       <div className="mt-6 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
-  <h2 className="text-sm font-bold text-center p-2 text-cyan-900 dark:text-meta-5">Banners List</h2>
-  <div className="grid grid-cols-3 gap-4">
-    {filteredBanners.length > 0 ? (
-      filteredBanners.map((banner) => (
-        <div key={banner.id} className="p-2 border rounded overflow-hidden dark:bg-meta-4">
-          <img
-            src={banner.bannerUrl}
-            alt={banner.bannerName}
-            className="w-full h-32 object-fit"
-            style={{ opacity: banner.IsVisible ? 1 : 0.3 }}
-          />
-          <div className="text-sm mt-1 text-gray-500 dark:text-gray-400">
-            <div className="font-medium">Position: {banner.bannerPosition}</div>
-            <div className="font-medium ">
-              <p>Banner Name: <span className="font-medium"></span>{banner.bannerName}</p>
-              <p>
-                <span className="font-medium">Created On:</span>
-                {banner.created_on ? new Date(banner.created_on).toLocaleDateString() : 'N/A'}
-              </p>
-              <p><span className="font-medium">Created By:</span> {banner.created_by}</p>
-              <p><span className="font-medium">Modified By:</span> {banner.modify_by || 'N/A'}</p>
-              <p>
-                <span className="font-medium">Modified On:</span>
-                {banner.modify_on ? new Date(banner.modify_on).toLocaleDateString() : 'N/A'}
-              </p>
+        <h2 className="text-sm font-bold text-center p-2 text-cyan-900 dark:text-meta-5">Banners List</h2>
+        <div className="grid grid-cols-3 gap-4">
+          {filteredBanners.length > 0 ? (
+            filteredBanners.map((banner) => (
+              <div key={banner.id} className="p-2 border rounded overflow-hidden dark:bg-meta-4">
+                <img
+                  src={banner.bannerUrl}
+                  alt={banner.bannerName}
+                  className="w-full h-32 object-fit"
+                  style={{ opacity: banner.IsVisible ? 1 : 0.3 }}
+                />
+                <div className="text-sm mt-1 text-gray-500 dark:text-gray-400">
+                  <div className="font-medium">Position: {banner.bannerPosition}</div>
+                  <div className="font-medium ">
+                    <p>Banner Name: <span className="font-medium"></span>{banner.bannerName}</p>
+                    <p>
+                      <span className="font-medium">Created On:</span>
+                      {banner.created_on ? new Date(banner.created_on).toLocaleDateString() : 'N/A'}
+                    </p>
+                    <p><span className="font-medium">Created By:</span> {banner.created_by}</p>
+                    <p><span className="font-medium">Modified By:</span> {banner.modify_by || 'N/A'}</p>
+                    <p>
+                      <span className="font-medium">Modified On:</span>
+                      {banner.modify_on ? new Date(banner.modify_on).toLocaleDateString() : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-center gap-2 mt-1">
+                  <button
+                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingBanner?.id === banner.id ? 'cursor-not-allowed' : ''}`}
+                    onClick={() => handleEdit(banner)}
+                    disabled={editingBanner?.id === banner.id}
+                  >
+                    {editingBanner?.id === banner.id ? 'Editing...' : 'Edit'}
+                  </button>
+                  <button
+                    className={`w-14 text-sm rounded-md ${editingBanner?.id === banner.id ? "bg-gray-400 text-gray-700 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    onClick={() => {
+                      setBannerIdToDelete(banner.id);
+                      setOpenDeleteModal(true);
+                    }}
+                    disabled={editingBanner?.id === banner.id}
+                  >
+                    Delete
+                  </button>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={banner.IsVisible}
+                      onChange={() => handleToggleVisibility(banner.id)}
+                      className="sr-only peer"
+                    />
+                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
+                    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                      IsVisible
+                    </span>
+                  </label>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-3 text-center text-gray-500 dark:text-gray-400">
+              Not Found
             </div>
-          </div>
-          <div className="flex justify-center gap-2 mt-1">
-            <button
-              className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingBanner?.id === banner.id ? 'cursor-not-allowed' : ''}`}
-              onClick={() => handleEdit(banner)}
-              disabled={editingBanner?.id === banner.id}
-            >
-              {editingBanner?.id === banner.id ? 'Editing...' : 'Edit'}
-            </button>
-            <button
-              className={`w-14 text-sm rounded-md ${editingBanner?.id === banner.id ? "bg-gray-400 text-gray-700 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600"}`}
-              onClick={() => {
-                setBannerIdToDelete(banner.id);
-                setOpenDeleteModal(true);
-              }}
-              disabled={editingBanner?.id === banner.id}
-            >
-              Delete
-            </button>
-            <label className="inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={banner.IsVisible}
-                onChange={() => handleToggleVisibility(banner.id)}
-                className="sr-only peer"
-              />
-              <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-              <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                IsVisible
-              </span>
-            </label>
-          </div>
+          )}
         </div>
-      ))
-    ) : (
-      <div className="col-span-3 text-center text-gray-500 dark:text-gray-400">
-        Not Found
       </div>
-    )}
-  </div>
-</div>
 
       {/* Edit Modal */}
       {editingBanner && (

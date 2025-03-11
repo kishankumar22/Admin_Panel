@@ -5,13 +5,13 @@ const loginRoutes = require('./routes/loginRoutes'); // Correctly import the log
 const notificationRoutes = require('./routes/notificationRoutes');
 const bodyParser = require('body-parser');
 const formRoutes = require('./routes/formRoutes');
-
 const bannerRoutes=require('./routes/bannerRoutes')
 const facultyRoutes=require('./routes/facultyRoutes')
 const latestPostRoutes=require('./routes/latestPostRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
 const userRoutes=require('./routes/userRoutes')
 const createpageRoutes=require('./routes/createPageRoutes')
+const assignroleRoutes=require('./routes/assignroleRoutes')
 const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 
 // const { createUser } = require('./controllers/controller');
@@ -52,6 +52,7 @@ app.use('/api',facultyRoutes)
 app.use('/api',latestPostRoutes)
 app.use('/api',userRoutes)
 app.use('/api',createpageRoutes)
+app.use('/api',assignroleRoutes)
 
 // Routes 
 

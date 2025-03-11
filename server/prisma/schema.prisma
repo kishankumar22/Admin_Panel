@@ -115,3 +115,20 @@ model Page {
   modify_by  String ?
   modify_on  DateTime ?
 } 
+
+model Permission {
+  permissionId Int      @id @default(autoincrement())
+  roleId       Int
+  pageId       Int
+  canCreate    Boolean  @default(false)
+  canRead      Boolean  @default(false)
+  canUpdate    Boolean  @default(false)
+  canDelete    Boolean  @default(false)
+  created_by   String?
+  created_on   DateTime @default(now())
+  modify_by    String?
+  modify_on    DateTime?
+
+  @@unique([roleId, pageId])
+}
+

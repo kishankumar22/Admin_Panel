@@ -25,7 +25,7 @@ const addUser  = async (req, res) => {
         roleId: parseInt(roleId),
         created_by: created_by || 'admin',
         created_on: new Date(),
-        // Omit modify_on to let it default to null
+       // Omit modify_on to let it default to null
       },
     });
 

@@ -242,11 +242,11 @@ const AddUser: React.FC = () => {
   return (
     <div className="p-4">
       {/* Add USer Button */}
-      <div className="flex justify-between mb-4">
+      <div className="flex items-center justify-between space-x-2 p-2 mb-3 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
       <input
         type="search"
-        className='p-2 bg-gray-100 border-2 rounded-md text-sm w-60'
-        placeholder='Search by Name	Email	Mobile Number here...'
+        className='p-1 bg-gray-100 border-2 rounded-md text-sm w-70  placeholder:text-[0.7rem]'
+        placeholder='Search by Name	Email Mobile Number here...'
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
       />
