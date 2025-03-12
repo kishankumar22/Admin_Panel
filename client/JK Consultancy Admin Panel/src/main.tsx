@@ -12,10 +12,12 @@ import { BannerProvider } from './context/BannerContext';
 import { GalleryProvider } from './context/GalleryContext'
 import { ImportantLinksProvider } from './context/ImportantLinksContext';
 import { FacultyProvider } from './context/FacultyContext';
+import { PermissionsProvider } from './context/PermissionsContext';
 
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <AuthProvider>
+      <PermissionsProvider>
     <FacultyProvider>
       <ImportantLinksProvider>
         <BannerProvider>
@@ -29,5 +31,6 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
         </BannerProvider>
       </ImportantLinksProvider>
     </FacultyProvider>
+    </PermissionsProvider>
   </AuthProvider>
 ); 

@@ -81,18 +81,37 @@ const CreatePage: React.FC = () => {
       toast.error('Error deleting page');
     }
   };
-
+  const [searchQuery, setSearchQuery] = useState<string>('');
+ // Filter pages based on the search query
+ const filteredPages = pages.filter(page =>
+  page.pageName.toLowerCase().includes(searchQuery.toLowerCase())
+);
   return (
     <>
       <Breadcrumb pageName="Create Page" />
-      <div className="flex space-x-2">
-        <button className="bg-blue-500 text-white px-4 py-1 rounded" onClick={() => setIsModalOpen(true)}>
+      <div className="flex items-center justify-between mb-4">
+      <input
+        type="search"
+        className='py-1 px-2 bg-white border border-gray-300 rounded-md text-xs w-80 placeholder:text-[.7rem] focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+        placeholder='Search Message here...'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+      />
+
+      <div className="flex items-center space-x-2">
+        <button
+          className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
+          onClick={() => setIsModalOpen(true)}
+        >
           Create Page
         </button>
         <Link to="/assign-page-to-role">
-          <button className="bg-orange-500 text-white px-4 py-1 rounded">Assign Page to Role</button>
+          <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
+            Assign Page to Role
+          </button>
         </Link>
       </div>
+    </div>
 
       <table className="min-w-full border mt-2 text-sm"> {/* Reduced margin and set smaller text size */}
   <thead>
@@ -108,29 +127,43 @@ const CreatePage: React.FC = () => {
     </tr>
   </thead>
   <tbody>
-    {pages.map((page) => (
-      <tr key={page.pageId} className="hover:bg-gray-100">
-        <td className="py-1 px-2 border-b">{page.pageId}</td>
-        <td className="py-1 px-2 border-b">{page.pageName}</td>
-        <td className="py-1 px-2 border-b">{page.pageUrl}</td>
-        <td className="py-1 px-2 border-b">{page.created_by}</td>
-        <td className="py-1 px-2 border-b">{new Date(page.created_on).toLocaleDateString()}</td> {/* Format date */}
-        <td className="py-1 px-2 border-b">{page.modify_by || 'N/A'}</td> {/* Handle undefined */}
-        <td className="py-1 px-2 border-b">{page.modify_on ? new Date(page.modify_on).toLocaleDateString() : 'N/A'}</td> {/* Format date */}
-        <td className="py-1 px-2 border-b">
-          <button className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition duration-200" onClick={() => {
-            setSelectedPage(page);
-            setPageName(page.pageName);
-            setPageUrl(page.pageUrl);
-            setIsEditModalOpen(true);
-          }}>Edit</button>
-          <button className="bg-red-500 text-white px-2 py-1 rounded ml-2 hover:bg-red-600 transition duration-200" onClick={() => {
-            setSelectedPage(page);
-            setIsDeleteModalOpen(true);
-          }}>Delete</button>
-        </td>
-      </tr>
-    ))}
+  {filteredPages.length > 0 ? (
+            filteredPages.map((page) => (
+              <tr key={page.pageId} className="border-b border-gray-200 hover:bg-gray-100">
+                <td className="py-1 px-2 border-b">{page.pageId}</td>
+                <td className="py-1 px-2 border-b">{page.pageName}</td>
+                <td className="py-1 px-2 border-b">{page.pageUrl}</td>
+                <td className="py-1 px-2 border-b">{page.created_by}</td>
+                <td className="py-1 px-2 border-b">{new Date(page.created_on).toLocaleDateString()}</td>
+                <td className="py-1 px-2 border-b">{page.modify_by || 'N/A'}</td>
+                <td className="py-1 px-2 border-b">{page.modify_on ? new Date(page.modify_on).toLocaleDateString() : 'N/A'}</td>
+                <td className="py-1 px-2 border-b">
+                  <button
+                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition duration-200"
+                    onClick={() => {
+                      setSelectedPage(page);
+                      setIsEditModalOpen(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="bg-red-500 text-white px-2 py-1 rounded ml-2 hover:bg-red-600 transition duration-200"
+                    onClick={() => {
+                      setSelectedPage(page);
+                      setIsDeleteModalOpen (true);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={8} className="py-4 text-center text-gray-500">No pages found</td>
+            </tr>
+          )}
   </tbody>
 </table>
 

@@ -1,5 +1,4 @@
-// src/components/AddBanner.tsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useBanner } from '../context/BannerContext';
@@ -7,6 +6,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
+import axiosInstance from '../config';
 
 const AddBanner: React.FC = () => {
   const [file, setFile] = useState<File | undefined>(undefined);
@@ -21,6 +21,34 @@ const AddBanner: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || 'admin';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  interface Permission {
+    roleId: number;
+    pageId: number;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  }
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+
+  const fetchPermissions = async () => {
+    try {
+      const response = await axiosInstance.get('/permissions'); // Adjust the axios instance if needed
+      setPermissions(response.data);
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPermissions();
+  }, []); // Empty dependency array means this runs once when the component mounts
+
+
+  // Permissions (Replace with actual permissions from your context)
+  const canCreate = true; // Example: Replace with user?.permissions?.canCreate
+  const canUpdate = false; // Example: Replace with user?.permissions?.canUpdate
+  const canDelete = true; // Example: Replace with user?.permissions?.canDelete
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -39,6 +67,11 @@ const AddBanner: React.FC = () => {
   };
 
   const handleUpload = async () => {
+    if (!canCreate) {
+      toast.error('Access Denied: You do not have permission to create banners.');
+      return;
+    }
+
     if (!file || !bannerName || !bannerPosition) {
       toast.error('Please provide file, banner name, and position');
       return;
@@ -56,6 +89,11 @@ const AddBanner: React.FC = () => {
   };
 
   const handleDelete = async () => {
+    if (!canDelete) {
+      toast.error('Access Denied: You do not have permission to delete banners.');
+      return;
+    }
+
     if (bannerIdToDelete !== null) {
       await deleteBanner(bannerIdToDelete);
       setOpenDeleteModal(false);
@@ -64,6 +102,11 @@ const AddBanner: React.FC = () => {
   };
 
   const handleEdit = (banner: any) => {
+    if (!canUpdate) {
+      toast.error('Access Denied: You do not have permission to update banners.');
+      return;
+    }
+
     setEditingBanner(banner);
     setBannerName(banner.bannerName);
     setBannerPosition(banner.bannerPosition.toString());
@@ -71,6 +114,11 @@ const AddBanner: React.FC = () => {
   };
 
   const handleUpdate = async () => {
+    if (!canUpdate) {
+      toast.error('Access Denied: You do not have permission to update banners.');
+      return;
+    }
+
     if (!editingBanner) return;
 
     if (!bannerName || !bannerPosition) {
@@ -95,6 +143,11 @@ const AddBanner: React.FC = () => {
   };
 
   const addBanner = () => {
+    if (!canCreate) {
+      toast.error('Access Denied: You do not have permission to create banners.');
+      return;
+    }
+
     setAddBannerModel(true);
   };
 
@@ -103,6 +156,11 @@ const AddBanner: React.FC = () => {
   };
 
   const handleToggleVisibility = async (id: number) => {
+    if (!canUpdate) {
+      toast.error('Access Denied: You do not have permission to update banners.');
+      return;
+    }
+
     await toggleVisibility(id, user?.name || 'admin');
   };
 
@@ -112,7 +170,6 @@ const AddBanner: React.FC = () => {
     banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     String(banner.bannerPosition).toLowerCase().includes(searchQuery.toLowerCase())
   );
-
 
   return (
     <>
@@ -128,8 +185,8 @@ const AddBanner: React.FC = () => {
         />
        
         <button
-          className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          onClick={addBanner}
+          className={`ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={canCreate ? addBanner : () => toast.error('Access Denied: You do not have permission to create banners.')}
         >
           Upload Banner
         </button>
@@ -165,19 +222,19 @@ const AddBanner: React.FC = () => {
                 </div>
                 <div className="flex justify-center gap-2 mt-1">
                   <button
-                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingBanner?.id === banner.id ? 'cursor-not-allowed' : ''}`}
-                    onClick={() => handleEdit(banner)}
-                    disabled={editingBanner?.id === banner.id}
+                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingBanner?.id === banner.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={canUpdate ? () => handleEdit(banner) : () => toast.error('Access Denied: You do not have permission to update banners.')}
+                    disabled={!canUpdate || editingBanner?.id === banner.id}
                   >
                     {editingBanner?.id === banner.id ? 'Editing...' : 'Edit'}
                   </button>
                   <button
-                    className={`w-14 text-sm rounded-md ${editingBanner?.id === banner.id ? "bg-gray-400 text-gray-700 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600"}`}
-                    onClick={() => {
+                    className={`w-14 text-sm rounded-md ${!canDelete || editingBanner?.id === banner.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    onClick={canDelete ? () => {
                       setBannerIdToDelete(banner.id);
                       setOpenDeleteModal(true);
-                    }}
-                    disabled={editingBanner?.id === banner.id}
+                    } : () => toast.error('Access Denied: You do not have permission to delete banners.')}
+                    disabled={!canDelete || editingBanner?.id === banner.id}
                   >
                     Delete
                   </button>
@@ -185,8 +242,9 @@ const AddBanner: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={banner.IsVisible}
-                      onChange={() => handleToggleVisibility(banner.id)}
+                      onChange={canUpdate ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
                       className="sr-only peer"
+                      disabled={!canUpdate}
                     />
                     <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
                     <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
@@ -212,9 +270,7 @@ const AddBanner: React.FC = () => {
           className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-md">
-            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Banner</h3> */}
             <h3 className="mb-1 text-center bg-slate-300 mr-4 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Edit Banner</h3>
-
             <p className='font-semibold p-1 '>File</p>
             <input
               type="file"
@@ -265,9 +321,7 @@ const AddBanner: React.FC = () => {
           className="fixed inset-0 z-50 ml-70 flex items-center justify-center  bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full  bg-white dark:bg-gray-500  dark:text-meta-2  dark:text-opacity-70 rounded-lg shadow-md">
-            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Banner</h3> */}
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add banner</h3>
-
             <p className="font-semibold p-1">File</p>
             <input
               type="file"
