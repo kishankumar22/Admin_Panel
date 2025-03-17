@@ -14,6 +14,8 @@ const AssignRolePage: React.FC = () => {
     handleActionChange,
     savePermissions,
   } = usePermissions();
+//  console.log(roles)
+//  console.log(pages)
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [dropdownOpen, setDropdownOpen] = useState<{ [key: number]: { [key: number]: boolean } }>({});
@@ -84,7 +86,7 @@ const AssignRolePage: React.FC = () => {
               <th className="px-2 py-1 text-left">Page</th>
               {roles.map(
                 (role) =>
-                  role.role_id !== userRole && (
+                  role.role_id !== userRole && role.role_id !== 2 && ( // Exclude userRole and role_id 2 (Administrator)
                     <th key={role.role_id} className="px-2 py-1 text-left">
                       {role.name}
                     </th>
@@ -99,7 +101,7 @@ const AssignRolePage: React.FC = () => {
                   <td className="py-1 px-2">{page.pageName}</td>
                   {roles.map(
                     (role) =>
-                      role.role_id !== userRole && (
+                      role.role_id !== userRole && role.role_id !== 2 && ( // Exclude userRole and role_id 2 (Administrator)
                         <td key={role.role_id} className="px-2 py-1 relative">
                           <button
                             ref={(el) => (buttonRefs.current[role.role_id] = { [page.pageId]: el })}

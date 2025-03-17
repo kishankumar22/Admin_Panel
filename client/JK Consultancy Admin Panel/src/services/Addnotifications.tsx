@@ -29,6 +29,13 @@ const Addnotifications = () => {
     canUpdate: boolean;
     canDelete: boolean;
   }
+
+  interface Role {
+    name: string;
+    role_id: number;
+  }
+  
+  
   const [permissions, setPermissions] = useState<Permission[]>([]);
 
   const fetchPermissions = async () => {
@@ -46,7 +53,19 @@ const Addnotifications = () => {
 
   const { user } = useAuth();
   const { addNotification: addNotificationContext, editNotification, deleteNotification, searchNotifications } = useNotifications();
+  const [roles, setRoles] = useState<Role[]>([]);
+  useEffect(() => {
+    fetchroles();
+  }, []);
 
+  const fetchroles = async () => {
+    try {
+      const response = await axiosInstance.get('/getrole');
+      setRoles(response.data.role);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
   const userId = user?.user_id;
   const createdBy = user?.name || 'admin';
   const modify_by = user?.name; // Get modify_by from user context
@@ -197,14 +216,37 @@ const Addnotifications = () => {
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   };
-
+  interface Page {
+    modify_on: string;
+    modify_by: string;
+    pageId: number;
+    pageName: string;
+    pageUrl: string;
+    created_by: string;
+    created_on: string;
+  }
   const [searchQuery, setSearchQuery] = useState<string>('');
   const filteredNotifications = searchNotifications(searchQuery);
+  const [pages, setPages] = useState<Page[]>([]);
+  useEffect(() => {
+    fetchPages();
+  }, []);
+
+  const fetchPages = async () => {
+    try {
+      const response = await axiosInstance.get('/pages');
+      setPages(response.data);
+    } catch (err) {
+      toast.error('Error fetching pages');
+    }
+  };
 
     // Permission checks
-    const pageId = 1; // Replace with actual page ID for notifications isko dynamic karna hai
-
-    const userPermissions = permissions.find(perm => perm.pageId === pageId);
+    const pageId = pages.find(page => page.pageName === "add notification")?.pageId; // pageId will be 2// Replace with actual page ID for notifications isko dynamic karna hai
+    // console.log(pageId)
+    const roleId=roles.find(role=>role.role_id===user?.roleId)?.role_id;
+    // console.log(roleId)
+    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId===user?.roleId);
     const canCreate = userPermissions?.canCreate ?? false;
     const canUpdate = userPermissions?.canUpdate ?? false;
     const canDelete = userPermissions?.canDelete ?? false;

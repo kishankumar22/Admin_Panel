@@ -12,6 +12,77 @@ const LatestPost: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || 'admin'; 
   const modify_by = user?.name; 
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+    // Interfaces
+    interface Permission {
+      roleId: number;
+      pageId: number;
+      canCreate: boolean;
+      canRead: boolean;
+      canUpdate: boolean;
+      canDelete: boolean;
+    }
+  
+    interface Page {
+      modify_on: string;
+      modify_by: string;
+      pageId: number;
+      pageName: string;
+      pageUrl: string;
+      created_by: string;
+      created_on: string;
+    }
+  
+    interface Role {
+      name: string;
+      role_id: number;
+    }
+  
+    // Fetching data
+    useEffect(() => {
+      fetchPages();
+      fetchPermissions();
+      fetchRoles();
+    }, []);
+  
+    const fetchPages = async () => {
+      try {
+        const response = await axiosInstance.get('/pages');
+        setPages(response.data);
+      } catch (err) {
+        toast.error('Error fetching pages');
+      }
+    };
+  
+    const fetchPermissions = async () => {
+      try {
+        const response = await axiosInstance.get('/permissions');
+        setPermissions(response.data);
+      } catch (error) {
+        console.error('Error fetching permissions:', error);
+      }
+    };
+  
+    const fetchRoles = async () => {
+      try {
+        const response = await axiosInstance.get('/getrole');
+        setRoles(response.data.role);
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+      }
+    };
+  
+    // Permissions and roles
+    const pageId = pages.find(page => page.pageName === "Add Latest Post")?.pageId;
+    const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+    const canCreate = userPermissions?.canCreate ?? false;
+    const canUpdate = userPermissions?.canUpdate ?? false;
+    const canDelete = userPermissions?.canDelete ?? false;
+    const canRead = userPermissions?.canRead ?? false;
+  
 
 
   const [content, setContent] = useState<string>('');
@@ -154,12 +225,13 @@ const filteredPosts = posts.filter(post =>
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
     />
-    <button
-      onClick={() => setIsFormVisible(true)}
-      className="ml-2 px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
-    >
-      Add Latest Post
-    </button>
+   <button
+  onClick={canCreate ? () => setIsFormVisible(true) : () => toast.error('Access Denied: You do not have permission to create posts.')}
+  className={`ml-2 px-4 py-1 text-white rounded-lg hover:bg-blue-600 transition duration-200 ${canCreate ? 'bg-blue-500' : 'bg-gray-400 cursor-not-allowed'}`}
+  disabled={!canCreate}
+>
+  Add Latest Post
+</button>
   </div>
 
   {/* Form for Adding/Editing Post */}
@@ -255,25 +327,36 @@ const filteredPosts = posts.filter(post =>
             <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
             <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
             <div className="mt-2 flex gap-2">
-              <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
-                Edit
-              </button>
-              <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
-                Delete
-              </button>
-              <label className="inline-flex items-center cursor-pointer ml-1">
-                <input
-                  type="checkbox"
-                  checked={post.isVisible}
-                  onChange={() => handleToggleVisibility(post.post_id)}
-                  className="sr-only peer"
-                />
-                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                  Visible
-                </span>
-              </label>
-            </div>
+  <button
+    onClick={canUpdate ? () => handleEditPost(post) : () => toast.error('Access Denied: You do not have permission to edit posts.')}
+    className={`bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    disabled={!canUpdate}
+  >
+    Edit
+  </button>
+  <button
+    onClick={canDelete ? () => openDeleteModal(post.post_id) : () => toast.error('Access Denied: You do not have permission to delete posts.')}
+    className={`bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+    disabled={!canDelete}
+  >
+    Delete
+  </button>
+  <label className="inline-flex items-center cursor-pointer ml-1">
+  <input
+    type="checkbox"
+    checked={post.isVisible}
+    onChange={canRead ? () => handleToggleVisibility(post.post_id) : () => toast.error('Access Denied: You do not have permission to update visibility.')}
+    className="sr-only peer"
+    disabled={!canRead} // Disable the checkbox if the user does not have permission
+  />
+  <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+    <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${post.isVisible ? 'translate-x-5' : ''}`}></div>
+  </div>
+  <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+    Visible
+  </span>
+</label>
+</div>
           </li>
         ))}
       </ul>

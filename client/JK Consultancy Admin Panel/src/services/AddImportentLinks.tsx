@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Button, Modal } from "flowbite-react";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import axiosInstance from '../config';
 
 const AddImportantLinks: React.FC = () => {
   const [linkName, setLinkName] = useState<string>('');
@@ -22,6 +23,78 @@ const AddImportantLinks: React.FC = () => {
   const { user } = useAuth();
   const { links, uploadLink, deleteLink, updateLink, toggleVisibility, fetchLinks } = useImportantLinks();
   const created_by = user?.name || 'admin'; // Default to 'admin' if user?.name is undefined
+
+
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  // Interfaces
+  interface Permission {
+    roleId: number;
+    pageId: number;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  }
+
+  interface Page {
+    modify_on: string;
+    modify_by: string;
+    pageId: number;
+    pageName: string;
+    pageUrl: string;
+    created_by: string;
+    created_on: string;
+  }
+
+  interface Role {
+    name: string;
+    role_id: number;
+  }
+
+  // Fetching data
+  useEffect(() => {
+    fetchPages();
+    fetchPermissions();
+    fetchRoles();
+  }, []);
+
+  const fetchPages = async () => {
+    try {
+      const response = await axiosInstance.get('/pages');
+      setPages(response.data);
+    } catch (err) {
+      toast.error('Error fetching pages');
+    }
+  };
+
+  const fetchPermissions = async () => {
+    try {
+      const response = await axiosInstance.get('/permissions');
+      setPermissions(response.data);
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const response = await axiosInstance.get('/getrole');
+      setRoles(response.data.role);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
+
+  // Permissions and roles
+  const pageId = pages.find(page => page.pageName === "update Logo Image")?.pageId;
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  const canRead = userPermissions?.canRead ?? false;
 
   // Fetch links when the component mounts
   useEffect(() => {
@@ -188,11 +261,12 @@ const AddImportantLinks: React.FC = () => {
   />
   
   <button
-    className="px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    onClick={addLink}
-  >
-    Add Link
-  </button>
+  className={`px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+  onClick={canCreate ? addLink : () => toast.error('Access Denied: You do not have permission to create links.')}
+  disabled={!canCreate}
+>
+  Add Link
+</button>
 </div>
       {/* Uploaded Links Section */}
       <div className="grid grid-cols-3 gap-4 dark:bg-meta-4">
@@ -229,32 +303,35 @@ const AddImportantLinks: React.FC = () => {
                 </p>
               </div>
               <div className="flex justify-center gap-2 mt-1">
-                <button
-                  className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingLink?.id === link.id ? 'cursor-not-allowed' : ''}`}
-                  onClick={() => handleEdit(link)}
-                  disabled={editingLink?.id === link.id}
-                >
-                  {editingLink?.id === link.id ? 'Editing...' : 'Edit'}
-                </button>
-                <button
-                  className={`w-14 text-sm rounded-md ${editingLink?.id === link.id ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
-                  onClick={() => openDeleteConfirmation(link.id)}
-                  disabled ={editingLink?.id === link.id}
-                >
-                  Delete
-                </button>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={link.isVisible}
-                    onChange={() => handleToggleVisibility(link.id, link.isVisible)}
-                    className="sr-only peer"
-                  />
-                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                  <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                    NotVisible
-                  </span>
-                </label>
+              <button
+  className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingLink?.id === link.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+  onClick={canUpdate ? () => handleEdit(link) : () => toast.error('Access Denied: You do not have permission to edit links.')}
+  disabled={!canUpdate && editingLink?.id === link.id}
+>
+  {editingLink?.id === link.id ? 'Editing...' : 'Edit'}
+</button>
+<button
+    className={`w-14 text-sm rounded-md ${!canDelete || editingLink?.id === link.id ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
+    onClick={canDelete ? () => openDeleteConfirmation(link.id) : () => toast.error('Access Denied: You do not have permission to delete links.')}
+    disabled={!canDelete && editingLink?.id === link.id}
+  >
+    Delete
+  </button>
+  <label className="inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      checked={link.IsVisible}
+      onChange={canRead ? () => handleToggleVisibility(link.id,link.isVisible) : () => toast.error('Access Denied: You do not have permission to update links.')}
+      className="sr-only peer"
+      disabled={!canRead}
+    />
+    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+      <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${link.IsVisible ? 'translate-x-5' : ''}`}></div>
+    </div>
+    <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+      IsVisible
+    </span>
+  </label>
               </div>
             </div>
           ))

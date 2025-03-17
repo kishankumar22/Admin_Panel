@@ -15,8 +15,9 @@ import { FacultyProvider } from './context/FacultyContext';
 import { PermissionsProvider } from './context/PermissionsContext';
 
 
+
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <AuthProvider>
+  <AuthProvider>    
       <PermissionsProvider>
     <FacultyProvider>
       <ImportantLinksProvider>
@@ -32,5 +33,6 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
       </ImportantLinksProvider>
     </FacultyProvider>
     </PermissionsProvider>
+
   </AuthProvider>
 ); 

@@ -9,6 +9,7 @@ import { Button, Modal } from "flowbite-react";
 import axiosInstance from '../config';
 
 const AddBanner: React.FC = () => {
+  // State variables
   const [file, setFile] = useState<File | undefined>(undefined);
   const [bannerName, setBannerName] = useState<string>('');
   const [bannerPosition, setBannerPosition] = useState<string>('');
@@ -17,10 +18,17 @@ const AddBanner: React.FC = () => {
   const [addBannerModel, setAddBannerModel] = useState<boolean>(false);
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
   const [bannerIdToDelete, setBannerIdToDelete] = useState<number | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+
   const { banners, uploadBanner, deleteBanner, updateBanner, toggleVisibility } = useBanner();
   const { user } = useAuth();
   const createdBy = user?.name || 'admin';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Interfaces
   interface Permission {
     roleId: number;
     pageId: number;
@@ -29,27 +37,66 @@ const AddBanner: React.FC = () => {
     canUpdate: boolean;
     canDelete: boolean;
   }
-  const [permissions, setPermissions] = useState<Permission[]>([]);
+
+  interface Page {
+    modify_on: string;
+    modify_by: string;
+    pageId: number;
+    pageName: string;
+    pageUrl: string;
+    created_by: string;
+    created_on: string;
+  }
+
+  interface Role {
+    name: string;
+    role_id: number;
+  }
+
+  // Fetching data
+  useEffect(() => {
+    fetchPages();
+    fetchPermissions();
+    fetchRoles();
+  }, []);
+
+  const fetchPages = async () => {
+    try {
+      const response = await axiosInstance.get('/pages');
+      setPages(response.data);
+    } catch (err) {
+      toast.error('Error fetching pages');
+    }
+  };
 
   const fetchPermissions = async () => {
     try {
-      const response = await axiosInstance.get('/permissions'); // Adjust the axios instance if needed
+      const response = await axiosInstance.get('/permissions');
       setPermissions(response.data);
     } catch (error) {
       console.error('Error fetching permissions:', error);
     }
   };
 
-  useEffect(() => {
-    fetchPermissions();
-  }, []); // Empty dependency array means this runs once when the component mounts
+  const fetchRoles = async () => {
+    try {
+      const response = await axiosInstance.get('/getrole');
+      setRoles(response.data.role);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
 
+  // Permissions and roles
+  const pageId = pages.find(page => page.pageName === "banner")?.pageId;
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  const canRead = userPermissions?.canRead ?? false;
 
-  // Permissions (Replace with actual permissions from your context)
-  const canCreate = true; // Example: Replace with user?.permissions?.canCreate
-  const canUpdate = false; // Example: Replace with user?.permissions?.canUpdate
-  const canDelete = true; // Example: Replace with user?.permissions?.canDelete
-
+  // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
@@ -76,6 +123,7 @@ const AddBanner: React.FC = () => {
       toast.error('Please provide file, banner name, and position');
       return;
     }
+
     if (bannerName.length > 150) {
       toast.error('Banner name cannot exceed 150 characters');
       return;
@@ -89,11 +137,6 @@ const AddBanner: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    if (!canDelete) {
-      toast.error('Access Denied: You do not have permission to delete banners.');
-      return;
-    }
-
     if (bannerIdToDelete !== null) {
       await deleteBanner(bannerIdToDelete);
       setOpenDeleteModal(false);
@@ -110,7 +153,7 @@ const AddBanner: React.FC = () => {
     setEditingBanner(banner);
     setBannerName(banner.bannerName);
     setBannerPosition(banner.bannerPosition.toString());
-    setFile(undefined); // Reset file to allow new file selection
+    setFile(undefined);
   };
 
   const handleUpdate = async () => {
@@ -125,6 +168,7 @@ const AddBanner: React.FC = () => {
       toast.error('Please provide banner name and position');
       return;
     }
+
     if (bannerName.length > 150) {
       toast.error('Banner name cannot exceed 150 characters');
       return;
@@ -147,7 +191,6 @@ const AddBanner: React.FC = () => {
       toast.error('Access Denied: You do not have permission to create banners.');
       return;
     }
-
     setAddBannerModel(true);
   };
 
@@ -164,7 +207,6 @@ const AddBanner: React.FC = () => {
     await toggleVisibility(id, user?.name || 'admin');
   };
 
-  const [searchQuery, setSearchQuery] = useState('');
   // Filter banners based on the search query
   const filteredBanners = banners.filter(banner =>
     banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -175,15 +217,13 @@ const AddBanner: React.FC = () => {
     <>
       <Breadcrumb pageName="Add Banner" />
       <div className="flex items-center justify-between p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        {/* Search Input */}
         <input
           type="search"
           className='py-1 px-3 bg-white border border-gray-300 placeholder:text-[.8rem] rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
           placeholder='Search Banner by name and position here...'
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
-       
         <button
           className={`ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={canCreate ? addBanner : () => toast.error('Access Denied: You do not have permission to create banners.')}
@@ -224,7 +264,7 @@ const AddBanner: React.FC = () => {
                   <button
                     className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingBanner?.id === banner.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={canUpdate ? () => handleEdit(banner) : () => toast.error('Access Denied: You do not have permission to update banners.')}
-                    disabled={!canUpdate || editingBanner?.id === banner.id}
+                    disabled={!canUpdate && editingBanner?.id === banner.id}
                   >
                     {editingBanner?.id === banner.id ? 'Editing...' : 'Edit'}
                   </button>
@@ -234,23 +274,25 @@ const AddBanner: React.FC = () => {
                       setBannerIdToDelete(banner.id);
                       setOpenDeleteModal(true);
                     } : () => toast.error('Access Denied: You do not have permission to delete banners.')}
-                    disabled={!canDelete || editingBanner?.id === banner.id}
+                    disabled={!canDelete && editingBanner?.id === banner.id}
                   >
                     Delete
                   </button>
                   <label className="inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={banner.IsVisible}
-                      onChange={canUpdate ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
-                      className="sr-only peer"
-                      disabled={!canUpdate}
-                    />
-                    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                      IsVisible
-                    </span>
-                  </label>
+  <input
+    type="checkbox"
+    checked={banner.IsVisible}
+    onChange={canRead ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
+    className="sr-only peer"
+    disabled={!canRead} // Disable the checkbox if the user does not have permission
+  />
+  <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+    <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${banner.IsVisible ? 'translate-x-5' : ''}`}></div>
+  </div>
+  <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+    IsVisible
+  </span>
+</label>
                 </div>
               </div>
             ))
@@ -271,7 +313,7 @@ const AddBanner: React.FC = () => {
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 mr-4 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Edit Banner</h3>
-            <p className='font-semibold p-1 '>File</p>
+            <p className='font-semibold p-1'>File</p>
             <input
               type="file"
               ref={fileInputRef}
@@ -318,9 +360,9 @@ const AddBanner: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center  bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
         >
-          <div className="relative p-4 w-full max-w-md max-h-full  bg-white dark:bg-gray-500  dark:text-meta-2  dark:text-opacity-70 rounded-lg shadow-md">
+          <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:bg-gray-500 dark:text-meta-2 dark:text-opacity-70 rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add banner</h3>
             <p className="font-semibold p-1">File</p>
             <input
@@ -380,7 +422,7 @@ const AddBanner: React.FC = () => {
               Are you sure you want to delete this banner?
             </h3>
             <div className="flex justify-center text-white gap-4">
-              <Button color="failure" className='bg-red-700' onClick={() => handleDelete()}>
+              <Button color="failure" className='bg-red-700' onClick={handleDelete}>
                 {"Yes, I'm sure"}
               </Button>
               <Button color="gray" onClick={() => setOpenDeleteModal(false)}>

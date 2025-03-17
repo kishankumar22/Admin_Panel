@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Breadcrumb from "../components/Breadcrumbs/Breadcrumb";
 import { toast } from "react-toastify";
 import { useFaculty } from "../context/FacultyContext";
@@ -6,6 +6,7 @@ import { Faculty } from "../context/FacultyContext";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { useAuth } from "../context/AuthContext";
+import axiosInstance from "../config";
 
 const AddFaculty: React.FC = () => {
   const [addFacultyModel, setAddFacultyModel] = useState<boolean>(false);
@@ -27,6 +28,78 @@ const AddFaculty: React.FC = () => {
   const createdBy = user?.name || "admin";
   const modify_by = user?.name; 
 
+
+    const [permissions, setPermissions] = useState<Permission[]>([]);
+    const [pages, setPages] = useState<Page[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
+    // Interfaces
+    interface Permission {
+      roleId: number;
+      pageId: number;
+      canCreate: boolean;
+      canRead: boolean;
+      canUpdate: boolean;
+      canDelete: boolean;
+    }
+  
+    interface Page {
+      modify_on: string;
+      modify_by: string;
+      pageId: number;
+      pageName: string;
+      pageUrl: string;
+      created_by: string;
+      created_on: string;
+    }
+  
+    interface Role {
+      name: string;
+      role_id: number;
+    }
+  
+    // Fetching data
+    useEffect(() => {
+      fetchPages();
+      fetchPermissions();
+      fetchRoles();
+    }, []);
+  
+    const fetchPages = async () => {
+      try {
+        const response = await axiosInstance.get('/pages');
+        setPages(response.data);
+      } catch (err) {
+        toast.error('Error fetching pages');
+      }
+    };
+  
+    const fetchPermissions = async () => {
+      try {
+        const response = await axiosInstance.get('/permissions');
+        setPermissions(response.data);
+      } catch (error) {
+        console.error('Error fetching permissions:', error);
+      }
+    };
+  
+    const fetchRoles = async () => {
+      try {
+        const response = await axiosInstance.get('/getrole');
+        setRoles(response.data.role);
+      } catch (error) {
+        console.error('Error fetching roles:', error);
+      }
+    };
+  
+    // Permissions and roles
+    const pageId = pages.find(page => page.pageName === "Addfaculity")?.pageId;
+    const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+    const canCreate = userPermissions?.canCreate ?? false;
+    const canUpdate = userPermissions?.canUpdate ?? false;
+    const canDelete = userPermissions?.canDelete ?? false;
+    const canRead = userPermissions?.canRead ?? false;
+  
   // Handle File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -157,11 +230,12 @@ const AddFaculty: React.FC = () => {
   />
   
   <button
-    className="ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    onClick={() => setAddFacultyModel(true)}
-  >
-    Add Faculty
-  </button>
+  className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+  onClick={canCreate ? () => setAddFacultyModel(true) : () => toast.error('Access Denied: You do not have permission to create faculty.')}
+  disabled={!canCreate}
+>
+  Add Faculty
+</button>
 </div>
 
       {/* Faculty Modal */}
@@ -267,37 +341,40 @@ const AddFaculty: React.FC = () => {
               <p><b>Qualification:</b> {faculty.qualification}</p>
               <p><b>Designation:</b> {faculty.designation}</p>
               <div className="flex justify-center gap-2 mt-2">
-                <button
-                  className="px-2 py-1 text-sm text-white bg-green-500 rounded-md hover:bg-green-600"
-                  onClick={() => handleEditFaculty(faculty)}
-                >
-                  Edit
-                </button>
-                <button
-                  className="px-2 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600"
-                  onClick={() => handleOpenDeleteModal(faculty.id ?? 0)}
-                >
-                  Delete
-                </button>
-                <button
-                  className="bg-gray-500 text-white p-1 rounded"
-                  onClick={() => handleOpenDetailsModal(faculty)}
-                >
-                  Details
-                </button>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={faculty.IsVisible}
-                    onChange={() => handleToggleVisibility(faculty.id ?? 0)}
-                    className="sr-only peer"
-                  />
-                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                  <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                    IsVisible
-                  </span>
-                </label>
-              </div>
+  <button
+    className={`px-2 py-1 text-sm text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={canUpdate ? () => handleEditFaculty(faculty) : () => toast.error('Access Denied: You do not have permission to edit faculty.')}
+    disabled={!canUpdate}
+  >
+    Edit
+  </button>
+  <button
+    className={`px-2 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={canDelete ? () => handleOpenDeleteModal(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to delete faculty.')}
+    disabled={!canDelete}
+  >
+    Delete
+  </button>
+  <button
+    className="bg-gray-500 text-white p-1 rounded"
+    onClick={() => handleOpenDetailsModal(faculty)}
+  >
+    Details
+  </button>
+  <label className="inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      checked={faculty.IsVisible}
+      onChange={canRead ? () => handleToggleVisibility(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to update visibility.')}
+      className="sr-only peer"
+      disabled={!canRead}
+    />
+    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
+    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+      IsVisible
+    </span>
+  </label>
+</div>
             </div>
           ))
         ) : (

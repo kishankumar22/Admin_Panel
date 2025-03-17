@@ -5,15 +5,6 @@ import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 
-interface Page {
-  modify_on: string;
-  modify_by: string;
-  pageId: any;
-  pageName: string;
-  pageUrl: string;
-  created_by: string;
-  created_on: string;
-}
 
 const CreatePage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,7 +13,9 @@ const CreatePage: React.FC = () => {
   const [pageName, setPageName] = useState('');
   const [pageUrl, setPageUrl] = useState('');
   const [selectedPage, setSelectedPage] = useState<Page | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [pages, setPages] = useState<Page[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   const { user } = useAuth();
   const createdBy = user?.name;
@@ -39,6 +32,67 @@ const CreatePage: React.FC = () => {
       toast.error('Error fetching pages');
     }
   };
+
+   // Interfaces
+   interface Permission {
+    roleId: number;
+    pageId: number;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  }
+
+  interface Page {
+    modify_on: string;
+    modify_by: string;
+    pageId: number;
+    pageName: string;
+    pageUrl: string;
+    created_by: string;
+    created_on: string;
+  }
+
+  interface Role {
+    name: string;
+    role_id: number;
+  }
+
+  // Fetching data
+  useEffect(() => {
+    fetchPages();
+    fetchPermissions();
+    fetchRoles();
+  }, []);
+
+
+
+  const fetchPermissions = async () => {
+    try {
+      const response = await axiosInstance.get('/permissions');
+      setPermissions(response.data);
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const response = await axiosInstance.get('/getrole');
+      setRoles(response.data.role);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
+
+  // Permissions and roles
+  const pageId = pages.find(page => page.pageName === "Create Page")?.pageId;
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  const canRead = userPermissions?.canRead ?? false;
 
   const handleCreatePage = async () => {
     try {
@@ -99,12 +153,13 @@ const CreatePage: React.FC = () => {
       />
 
       <div className="flex items-center space-x-2">
-        <button
-          className="bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
-          onClick={() => setIsModalOpen(true)}
-        >
-          Create Page
-        </button>
+       <button
+  className={`bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition duration-200 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+  onClick={canCreate ? () => setIsModalOpen(true) : () => toast.error('Access Denied: You do not have permission to create pages.')}
+  disabled={!canCreate}
+>
+  Create Page
+</button>
         <Link to="/assign-page-to-role">
           <button className="bg-orange-500 text-white px-3 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
             Assign Page to Role
@@ -138,25 +193,27 @@ const CreatePage: React.FC = () => {
                 <td className="py-1 px-2 border-b">{page.modify_by || 'N/A'}</td>
                 <td className="py-1 px-2 border-b">{page.modify_on ? new Date(page.modify_on).toLocaleDateString() : 'N/A'}</td>
                 <td className="py-1 px-2 border-b">
-                  <button
-                    className="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition duration-200"
-                    onClick={() => {
-                      setSelectedPage(page);
-                      setIsEditModalOpen(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="bg-red-500 text-white px-2 py-1 rounded ml-2 hover:bg-red-600 transition duration-200"
-                    onClick={() => {
-                      setSelectedPage(page);
-                      setIsDeleteModalOpen (true);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </td>
+  <button
+    className={`bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 transition duration-200 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={canUpdate ? () => {
+      setSelectedPage(page);
+      setIsEditModalOpen(true);
+    } : () => toast.error('Access Denied: You do not have permission to edit pages.')}
+    disabled={!canUpdate}
+  >
+    Edit
+  </button>
+  <button
+    className={`bg-red-500 text-white px-2 py-1 rounded ml-2 hover:bg-red-600 transition duration-200 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={canDelete ? () => {
+      setSelectedPage(page);
+      setIsDeleteModalOpen(true);
+    } : () => toast.error('Access Denied: You do not have permission to delete pages.')}
+    disabled={!canDelete}
+  >
+    Delete
+  </button>
+</td>
               </tr>
             ))
           ) : (

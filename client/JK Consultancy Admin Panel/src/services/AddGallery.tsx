@@ -1,5 +1,5 @@
 // src/components/AddGallery.tsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useGallery } from '../context/GalleryContext';
@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
+import axiosInstance from '../config';
 
 const AddGallery: React.FC = () => {
   const [file, setFile] = useState<File | undefined>(undefined);
@@ -21,6 +22,78 @@ const AddGallery: React.FC = () => {
   const createdBy = user?.name || 'admin';
   const { galleries, uploadGallery, deleteGallery, updateGallery, toggleVisibility } = useGallery();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  // Interfaces
+  interface Permission {
+    roleId: number;
+    pageId: number;
+    canCreate: boolean;
+    canRead: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  }
+
+  interface Page {
+    modify_on: string;
+    modify_by: string;
+    pageId: number;
+    pageName: string;
+    pageUrl: string;
+    created_by: string;
+    created_on: string;
+  }
+
+  interface Role {
+    name: string;
+    role_id: number;
+  }
+
+  // Fetching data
+  useEffect(() => {
+    fetchPages();
+    fetchPermissions();
+    fetchRoles();
+  }, []);
+
+  const fetchPages = async () => {
+    try {
+      const response = await axiosInstance.get('/pages');
+      setPages(response.data);
+    } catch (err) {
+      toast.error('Error fetching pages');
+    }
+  };
+
+  const fetchPermissions = async () => {
+    try {
+      const response = await axiosInstance.get('/permissions');
+      setPermissions(response.data);
+    } catch (error) {
+      console.error('Error fetching permissions:', error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const response = await axiosInstance.get('/getrole');
+      setRoles(response.data.role);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
+
+  // Permissions and roles
+  const pageId = pages.find(page => page.pageName === "update Gallery image")?.pageId;
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  const canRead = userPermissions?.canRead ?? false;
+
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -36,7 +109,7 @@ const AddGallery: React.FC = () => {
       toast.error('Gallery name cannot exceed 100 characters');
       return;
     }
- 
+
     setGalleryName(e.target.value);
   };
 
@@ -80,7 +153,7 @@ const AddGallery: React.FC = () => {
       toast.error('Gallery name cannot exceed 100 characters');
       return;
     }
-    
+
     await updateGallery(editingGallery.id, galleryName, galleryPosition, file, user?.name);
     resetForm();
   };
@@ -116,86 +189,89 @@ const AddGallery: React.FC = () => {
     <>
       <Breadcrumb pageName="Add Gallery" />
       <div className="flex items-center justify-between space-x-2 p-2 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
-  <input
-    type="search"
-    className='p-1 bg-white border border-gray-300 rounded-md placeholder:text-[.8rem] text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
-    placeholder='Search gallery pic by name and position here...'
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-  />
-  <button
-    className="px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-    onClick={addGallery}
-  >
-    Upload Gallery
-  </button>
-</div>
+        <input
+          type="search"
+          className='p-1 bg-white border border-gray-300 rounded-md placeholder:text-[.8rem] text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+          placeholder='Search gallery pic by name and position here...'
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+        />
+        <button
+          className={`ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+          onClick={canCreate ? addGallery : () => toast.error('Access Denied: You do not have permission to create banners.')}
+        >
+          Upload Gallery
+        </button>
+      </div>
 
       <div className="mt-6 p-3 bg-white dark:bg-meta-4  rounded-lg shadow-md">
         <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Galleries</h2>
         <div className="grid grid-cols-3 gap-4">
-        {filteredGalleries.length > 0 ? (
-          filteredGalleries.map((gallery) => (
-            <div key={gallery.id} className="p-2 border rounded overflow-hidden">
-              <img
-                src={gallery.galleryUrl}
-                alt={gallery.galleryName}
-                className="w-full h-32 object-fit"
-                style={{ opacity: gallery.IsVisible ? 1 : 0.3 }} // Adjust opacity based on IsVisible
-              />
-              <div className="text-sm mt-1 ">
-                <b className="font-bold ">Position: {gallery.galleryPosition}</b>
+          {filteredGalleries.length > 0 ? (
+            filteredGalleries.map((gallery) => (
+              <div key={gallery.id} className="p-2 border rounded overflow-hidden">
+                <img
+                  src={gallery.galleryUrl}
+                  alt={gallery.galleryName}
+                  className="w-full h-32 object-fit"
+                  style={{ opacity: gallery.IsVisible ? 1 : 0.3 }} // Adjust opacity based on IsVisible
+                />
+                <div className="text-sm mt-1 ">
+                  <b className="font-bold ">Position: {gallery.galleryPosition}</b>
+                </div>
+                <div className="text-sm">
+                  <p className='font-bold'>Gallery Name: <b className='font-normal'>{gallery.galleryName}</b></p>
+                  <p>
+                    <span className="font-bold">Created On:</span>
+                    {gallery.created_on ? new Date(gallery.created_on).toLocaleDateString() : 'N/A'}
+                  </p>
+                  <p><span className="font-bold">Created By:</span> {gallery.created_by}</p>
+                  <p><span className="font-bold">Modified By:</span> {gallery.modify_by || 'N/A'}</p>
+                  <p>
+                    <span className="font-bold">Modified On:</span>
+                    {gallery.modify_on ? new Date(gallery.modify_on).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
+                <div className="flex justify-center gap-2 mt-1">
+                  <button
+                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingGallery?.id === gallery.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={canUpdate ? () => handleEdit(gallery) : () => toast.error('Access Denied: You do not have permission to update galleries.')}
+                    disabled={!canUpdate && editingGallery?.id === gallery.id}
+                  >
+                    {editingGallery?.id === gallery.id ? 'Editing...' : 'Edit'}
+                  </button>
+                  <button
+                    className={`w-14 text-sm rounded-md ${!canDelete || editingGallery?.id === gallery.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    onClick={canDelete ? () => {
+                      setGalleryIdToDelete(gallery.id);
+                      setOpenDeleteModal(true);
+                    } : () => toast.error('Access Denied: You do not have permission to delete galleries.')}
+                    disabled={!canDelete && editingGallery?.id === gallery.id}
+                  >
+                    Delete
+                  </button>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={gallery.IsVisible}
+                      onClick={canRead ? () => handleToggleVisibility(gallery.id) : () => toast.error('Access Denied: You do not have permission to update galleries.')}
+                      className="sr-only peer"
+                      disabled={!canRead} // Disable the checkbox if the user does not have permission
+                    />
+                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed '  : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                      <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${gallery.IsVisible ? 'translate-x-5' : ''}`}></div>
+                    </div>
+                    <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+                      IsVisible
+                    </span>
+                  </label>
+                </div>
               </div>
-              <div className="text-sm">
-                <p className='font-bold'>Gallery Name: <b className='font-normal'>{gallery.galleryName}</b></p>
-                <p>
-                  <span className="font-bold">Created On:</span> 
-                  {gallery.created_on ? new Date(gallery.created_on).toLocaleDateString() : 'N/A'}
-                </p>
-                <p><span className="font-bold">Created By:</span> {gallery.created_by}</p>
-                <p><span className="font-bold">Modified By:</span> {gallery.modify_by || 'N/A'}</p>
-                <p>
-                  <span className="font-bold">Modified On:</span> 
-                  {gallery.modify_on ? new Date(gallery.modify_on).toLocaleDateString() : 'N/A'}
-                </p>
-              </div>
-              <div className="flex justify-center gap-2 mt-1">
-                <button
-                  className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${editingGallery?.id === gallery.id ? 'cursor-not-allowed' : ''}`}
-                  onClick={() => handleEdit(gallery)}
-                  disabled={editingGallery?.id === gallery.id}
-                >
-                  {editingGallery?.id === gallery.id ? 'Editing...' : 'Edit'}
-                </button>
-                <button
-                  className={`w-14 text-sm rounded-md ${editingGallery?.id === gallery.id ? "bg-gray-400 text-gray-700 cursor-not-allowed" : "bg-red-500 text-white hover:bg-red-600"}`}
-                  onClick={() => {
-                    setGalleryIdToDelete(gallery.id);
-                    setOpenDeleteModal(true);
-                  }}
-                  disabled={editingGallery?.id === gallery.id}
-                >
-                  Delete
-                </button>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={gallery.IsVisible}
-                    onChange={() => handleToggleVisibility(gallery.id)}
-                    className="sr-only peer"
-                  />
-                  <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-                  <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-                    IsVisible
-                  </span>
-                </label>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p>No galleries found</p>
-        )}
-      </div>
+            ))
+          ) : (
+            <p>No galleries found</p>
+          )}
+        </div>
       </div>
 
       {/* Edit Modal */}
