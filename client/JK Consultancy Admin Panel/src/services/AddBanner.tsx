@@ -6,7 +6,10 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
-import axiosInstance from '../config';
+import { MdCloudUpload, MdDelete } from 'react-icons/md';
+import { FaEdit } from 'react-icons/fa';
+import { usePermissions } from '../context/PermissionsContext';
+
 
 const AddBanner: React.FC = () => {
   // State variables
@@ -18,74 +21,32 @@ const AddBanner: React.FC = () => {
   const [addBannerModel, setAddBannerModel] = useState<boolean>(false);
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
   const [bannerIdToDelete, setBannerIdToDelete] = useState<number | null>(null);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
+ 
   const [searchQuery, setSearchQuery] = useState('');
 
   const { banners, uploadBanner, deleteBanner, updateBanner, toggleVisibility } = useBanner();
   const { user } = useAuth();
   const createdBy = user?.name || 'admin';
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    roles,
+    pages,
+    permissions,
+  } = usePermissions();
 
-  // Interfaces
-  interface Permission {
-    roleId: number;
-    pageId: number;
-    canCreate: boolean;
-    canRead: boolean;
-    canUpdate: boolean;
-    canDelete: boolean;
-  }
-
-  interface Page {
-    modify_on: string;
-    modify_by: string;
-    pageId: number;
-    pageName: string;
-    pageUrl: string;
-    created_by: string;
-    created_on: string;
-  }
-
-  interface Role {
-    name: string;
-    role_id: number;
-  }
-
-  // Fetching data
+  // Use useEffect to fetch data when the component mounts
   useEffect(() => {
-    fetchPages();
-    fetchPermissions();
-    fetchRoles();
-  }, []);
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
 
-  const fetchPages = async () => {
-    try {
-      const response = await axiosInstance.get('/pages');
-      setPages(response.data);
-    } catch (err) {
-      toast.error('Error fetching pages');
-    }
-  };
-
-  const fetchPermissions = async () => {
-    try {
-      const response = await axiosInstance.get('/permissions');
-      setPermissions(response.data);
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const response = await axiosInstance.get('/getrole');
-      setRoles(response.data.role);
-    } catch (error) {
-      console.error('Error fetching roles:', error);
-    }
-  };
+    fetchData();
+  }, [fetchRoles, fetchPages, fetchPermissions]);
 
   // Permissions and roles
   const pageId = pages.find(page => page.pageName === "banner")?.pageId;
@@ -95,6 +56,12 @@ const AddBanner: React.FC = () => {
   const canUpdate = userPermissions?.canUpdate ?? false;
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
+
+  // console.log('User Role ID:', user?.roleId);
+  // console.log('Page ID:', pageId);
+  // console.log('Permissions:', permissions);
+  // console.log('User Permissions:', userPermissions);
+  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
   // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,9 +192,9 @@ const AddBanner: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <button
-          className={`ml-2 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`ml-2 flex items-center gap-3 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={canCreate ? addBanner : () => toast.error('Access Denied: You do not have permission to create banners.')}
-        >
+        ><MdCloudUpload />
           Upload Banner
         </button>
       </div>
@@ -262,37 +229,37 @@ const AddBanner: React.FC = () => {
                 </div>
                 <div className="flex justify-center gap-2 mt-1">
                   <button
-                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingBanner?.id === banner.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-20 p-1 flex items-center justify-center gap-2  text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingBanner?.id === banner.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={canUpdate ? () => handleEdit(banner) : () => toast.error('Access Denied: You do not have permission to update banners.')}
                     disabled={!canUpdate && editingBanner?.id === banner.id}
-                  >
+                  ><FaEdit />
                     {editingBanner?.id === banner.id ? 'Editing...' : 'Edit'}
                   </button>
                   <button
-                    className={`w-14 text-sm rounded-md ${!canDelete || editingBanner?.id === banner.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    className={`w-16   gap-1 flex items-center justify-center text-sm rounded-md ${!canDelete || editingBanner?.id === banner.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
                     onClick={canDelete ? () => {
                       setBannerIdToDelete(banner.id);
                       setOpenDeleteModal(true);
                     } : () => toast.error('Access Denied: You do not have permission to delete banners.')}
                     disabled={!canDelete && editingBanner?.id === banner.id}
-                  >
+                  ><MdDelete />
                     Delete
                   </button>
                   <label className="inline-flex items-center cursor-pointer">
-  <input
-    type="checkbox"
-    checked={banner.IsVisible}
-    onChange={canRead ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
-    className="sr-only peer"
-    disabled={!canRead} // Disable the checkbox if the user does not have permission
-  />
-  <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
-    <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${banner.IsVisible ? 'translate-x-5' : ''}`}></div>
-  </div>
-  <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
-    IsVisible
-  </span>
-</label>
+                    <input
+                      type="checkbox"
+                      checked={banner.IsVisible}
+                      onChange={canRead ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
+                      className="sr-only peer"
+                      disabled={!canRead} // Disable the checkbox if the user does not have permission
+                    />
+                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                      <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${banner.IsVisible ? 'translate-x-5' : ''}`}></div>
+                    </div>
+                    <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+                      IsVisible
+                    </span>
+                  </label>
                 </div>
               </div>
             ))
@@ -309,7 +276,7 @@ const AddBanner: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 mr-4 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Edit Banner</h3>
@@ -360,7 +327,7 @@ const AddBanner: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white dark:bg-gray-500 dark:text-meta-2 dark:text-opacity-70 rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add banner</h3>
@@ -413,7 +380,7 @@ const AddBanner: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60 bg-gray-3' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-50 pt-40 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">

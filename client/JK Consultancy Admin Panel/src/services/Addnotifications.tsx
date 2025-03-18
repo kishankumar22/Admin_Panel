@@ -5,7 +5,9 @@ import { useNotifications } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
-import axiosInstance from '../config';
+import { MdNotificationAdd,MdEditNotifications,MdDelete   } from "react-icons/md";
+import { usePermissions } from '../context/PermissionsContext';
+
 
 const Addnotifications = () => {
   const [addNotification, setAddNotification] = useState<string>(''); // Notification message
@@ -21,51 +23,31 @@ const Addnotifications = () => {
   const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false); // Delete modal visibility
   const [notificationIdToDelete, setNotificationIdToDelete] = useState<number | null>(null); // ID of notification to delete
 
-  interface Permission {
-    roleId: number;
-    pageId: number;
-    canCreate: boolean;
-    canRead: boolean;
-    canUpdate: boolean;
-    canDelete: boolean;
-  }
+  const {
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    roles,
+    pages,
+    permissions,
+  } = usePermissions();
 
-  interface Role {
-    name: string;
-    role_id: number;
-  }
-  
-  
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-
-  const fetchPermissions = async () => {
-    try {
-      const response = await axiosInstance.get('/permissions'); // Adjust the axios instance if needed
-      setPermissions(response.data);
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-    }
-  };
-
+  // Use useEffect to fetch data when the component mounts
   useEffect(() => {
-    fetchPermissions();
-  }, []); // Empty dependency array means this runs once when the component mounts
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
+
+    fetchData();
+  }, [fetchRoles, fetchPages, fetchPermissions]);
+
+// Empty dependency array means this runs once when the component mounts
 
   const { user } = useAuth();
   const { addNotification: addNotificationContext, editNotification, deleteNotification, searchNotifications } = useNotifications();
-  const [roles, setRoles] = useState<Role[]>([]);
-  useEffect(() => {
-    fetchroles();
-  }, []);
 
-  const fetchroles = async () => {
-    try {
-      const response = await axiosInstance.get('/getrole');
-      setRoles(response.data.role);
-    } catch (error) {
-      console.error('Error fetching roles:', error);
-    }
-  };
   const userId = user?.user_id;
   const createdBy = user?.name || 'admin';
   const modify_by = user?.name; // Get modify_by from user context
@@ -216,40 +198,29 @@ const Addnotifications = () => {
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
   };
-  interface Page {
-    modify_on: string;
-    modify_by: string;
-    pageId: number;
-    pageName: string;
-    pageUrl: string;
-    created_by: string;
-    created_on: string;
-  }
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const filteredNotifications = searchNotifications(searchQuery);
-  const [pages, setPages] = useState<Page[]>([]);
-  useEffect(() => {
-    fetchPages();
-  }, []);
 
-  const fetchPages = async () => {
-    try {
-      const response = await axiosInstance.get('/pages');
-      setPages(response.data);
-    } catch (err) {
-      toast.error('Error fetching pages');
-    }
-  };
 
     // Permission checks
     const pageId = pages.find(page => page.pageName === "add notification")?.pageId; // pageId will be 2// Replace with actual page ID for notifications isko dynamic karna hai
-    // console.log(pageId)
+    // const pageId = pages.find(page => page.pageName === "add notification")?.pageId;
+    console.log("page ID",pageId)
+    
     const roleId=roles.find(role=>role.role_id===user?.roleId)?.role_id;
     // console.log(roleId)
     const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId===user?.roleId);
     const canCreate = userPermissions?.canCreate ?? false;
     const canUpdate = userPermissions?.canUpdate ?? false;
     const canDelete = userPermissions?.canDelete ?? false;
+    const canRead = userPermissions?.canRead ?? false;   
+          // console.log('User Role ID:', user?.roleId);
+          // console.log('Page ID:', pageId);
+          // console.log('Permissions:', permissions);
+          // console.log('User Permissions:', userPermissions);
+          // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+       
   return (
     <>
       <Breadcrumb pageName="Add Notification" />
@@ -264,16 +235,16 @@ const Addnotifications = () => {
           onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
         />
         <button
-          className={`px-4 py-1 text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue- 400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`px-4 py-1  hover:scale-105 flex text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue- 400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={canCreate ? openAddModal : () => toast.error('Access Denied')}
-        >
+        ><MdNotificationAdd className='mt-0.5 mr-1'/>
           Add Notification
         </button>
       </div>
 
       {/* Add Notification Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 flex ml-70 items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex ml-50 items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-6 h-auto dark:bg-meta-4 rounded-lg shadow-lg w-96">
             <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Notification</h3>
           <p className='font-semibold'>Notification Message</p>
@@ -340,7 +311,7 @@ const Addnotifications = () => {
 
       {/* Edit Notification Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 flex ml-70 items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex ml-50 items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-6 rounded-lg dark:bg-meta-4 shadow-lg w-96">
             <h3 className="mb-1 text-center bg-slate-300 rounded-md text-lg font-bold dark:text-meta-5 p-1 text-blue-800">Edit Notification</h3>
 
@@ -406,7 +377,7 @@ const Addnotifications = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-60 mt-40 bg-gray-3' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-50 mt-10 pt-40 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">
@@ -423,7 +394,7 @@ const Addnotifications = () => {
               </Button>
             </div>
           </div>
-        </Modal.Body>
+        </Modal.Body>                       
       </Modal>
 
       {/* Notifications Table */}
@@ -459,25 +430,27 @@ const Addnotifications = () => {
                   </td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">{notification.created_by}</td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">{formatDate(notification.created_on)}</td>
-                  <td className="py-1 px-2 border-b text-black dark:text-white">{notification.modify_by}</td>
+                  <td className="py-1 px-2 border-b text-black dark:text-white">{notification.modify_by ? notification.modify_by:'N/A'}</td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">
                     {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
                   </td>
                   <td className="py-1 px-2 border-b">
                     <div className="flex space-x-1">
                       <button
-                        className={`text-white text-xs bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-150 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex hover:scale-105 text-white text-xs bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-150 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onClick={canUpdate ? () => openEditModal(notification) : () => toast.error('Access Denied')}
                       >
+                        <MdEditNotifications  className='mt-0.5 mr-1' />
                         Edit
                       </button>
                       <button
-                        className={`text-white text-xs bg-red-500 px-2 py-1 rounded hover:bg-red-600 transition duration-150 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        className={`flex hover:scale-105 text-white text-xs bg-red-500 px-2 py-1 rounded hover:bg-red-600 transition duration-150 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onClick={canDelete ? () => {
                           setNotificationIdToDelete(notification.notification_id);
                           setOpenDeleteModal(true);
                         } : () => toast.error('Access Denied')}
                       >
+                         <MdDelete   className='mt-0.5 mr-1 ' />
                         Delete
                       </button>
                     </div>

@@ -262,7 +262,7 @@ const AddUser: React.FC = () => {
       </div>
       {/* Add USer model start*/}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center mt-12 ml-60">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center mt-12 ml-50">
           <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md dark:bg-gray-500">
             <h2 className="text-lg font-bold mb-4 text-center  dark:text-meta-5">Add User</h2>
             <form onSubmit={handleSubmit}>
@@ -532,7 +532,7 @@ const AddUser: React.FC = () => {
 
       {/*  change Pass model start*/}
       {isChangePassModalOpen && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
+       <div className="fixed inset-0 bg-black bg-opacity-50 ml-50 flex items-center justify-center">
     <div className="bg-white p-4 rounded-lg shadow-md w-full max-w-sm mt-12 dark:bg-gray-600"> {/* Reduced padding and max width */}
       <h2 className="text-lg font-bold mb-2 bg-gray-200 text-center border-b p-2 dark:text-gray-700 rounded-md dark:bg-gray-400">Change Password</h2>
       <form onSubmit={handleChangePass}>

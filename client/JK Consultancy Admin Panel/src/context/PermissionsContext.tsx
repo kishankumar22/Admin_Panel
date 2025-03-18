@@ -10,6 +10,8 @@ interface Role {
 }
 
 interface Page {
+  modify_by: string;
+  modify_on: any;
   pageId: number;
   pageName: string;
   pageUrl: string;
@@ -148,12 +150,12 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     fetchRoles();
     fetchPages();
     fetchPermissions();
   }, []);
-
+  
   return (
     <PermissionsContext.Provider
       value={{

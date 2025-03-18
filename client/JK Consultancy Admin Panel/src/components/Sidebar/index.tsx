@@ -10,6 +10,8 @@ import { IoIosArrowDown } from "react-icons/io";
 import { BiImageAdd } from "react-icons/bi";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from '../../context/AuthContext';
+import { MdCreateNewFolder ,MdOutlineAssignmentTurnedIn ,MdOutlineManageHistory } from "react-icons/md";
+import { FaUserPlus } from "react-icons/fa";
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -70,8 +72,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       className={`absolute left-0 top-0 z-9999 flex h-screen w-52 flex-col overflow-y-hidden bg-black duration-300 ease-linear dark:bg-boxdark lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
     >
       <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <NavLink to="/" className="text-center">
-          <h1 className="text-sm font-bold text-white">ADMIN PANEL</h1>
+        <NavLink to="/" >
+          <h1 className="text-sm font-bold text-blue-400 ml-8 ">ADMIN PANEL</h1>
         </NavLink>
         <button
           ref={trigger}
@@ -96,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <NavLink
                 to="/"
                 className={({ isActive }) =>
-                  `group flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-bodydark2 hover:text-white ${isActive && '!text-white'}`
+                  `group rounded flex items-center gap-2 px-3 py-1.5 text-sm font-medium hover:bg-gray-400 text-white text-opacity-75 hover:text-white ${isActive && '!text-white bg-gray-500'}`
                 }
               >
                 <RxDashboard className="w-4 h-4" />
@@ -110,29 +112,29 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                   <>
                     <NavLink
                       to="#"
-                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-bodydark1 hover:bg-graydark dark:hover:bg-meta-4`}
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
                       onClick={(e) => {
                         e.preventDefault();
                         handleDropdownClick('jk-management');
                       }}
                     >
-                      <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                      <MdOutlineManageHistory  className="w-4 h-4" />
                       JK Management
                       <IoIosArrowDown
-                        className={`absolute right-3  -translate-y-1/2 transition-transform duration-200 ${openDropdown === 'jk-management' && 'rotate-180'}`}
+                        className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'jk-management' && 'rotate-180'}`}
                       />
                     </NavLink>
                     <div
-                      className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
                         openDropdown === 'jk-management' ? 'max-h-96' : 'max-h-0'
                       }`}
                     >
-                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
-                        <li>
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4 ">
+                        <li >
                           <NavLink
                             to="/addnotifications"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center  rounded-md  gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <MdOutlineNotificationAdd className="w-3.5 h-3.5" />
@@ -143,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           <NavLink
                             to="/addbanner"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <RiImageAddFill className="w-3.5 h-3.5" />
@@ -154,7 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           <NavLink
                             to="/addpicingallery"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <BiSolidImageAdd className="w-3.5 h-3.5" />
@@ -165,7 +167,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           <NavLink
                             to="/addimportentlinks"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <BiImageAdd className="w-3.5 h-3.5" />
@@ -176,7 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           <NavLink
                             to="/addfaculity"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <CgProfile className="w-3.5 h-3.5" />
@@ -187,7 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           <NavLink
                             to="/latestpost"
                             className={({ isActive }) =>
-                              `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                             }
                           >
                             <MdOutlinePostAdd className="w-3.5 h-3.5" />
@@ -205,10 +207,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               <NavLink
                 to="/adduser"
                 className={({ isActive }) =>
-                  `group flex items-center gap-2 px-3 py-1.5 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                  `group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white  bg-gray-500' }`
                 }
               >
-                <MdOutlinePostAdd className="w-4 h-4" />
+                <FaUserPlus  className="w-4 h-4" />
                 Add User
               </NavLink>
             </li>
@@ -218,16 +220,16 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 <>
                   <NavLink
                     to="#"
-                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-bodydark1 hover:bg-graydark dark:hover:bg-meta-4`}
+                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4 `}
                     onClick={(e) => {
                       e.preventDefault();
                       handleDropdownClick('configuration');
                     }}
                   >
-                    <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                    <MdOutlineMiscellaneousServices className="w-4 h-4 " />
                     Configuration
                     <IoIosArrowDown
-                      className={`absolute right-3  -translate-y-1/2 transition-transform duration-200 ${openDropdown === 'configuration' && 'rotate-180'}`}
+                      className={`absolute  right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'configuration' && 'rotate-180 '}`}
                     />
                   </NavLink>
                   <div
@@ -240,10 +242,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         <NavLink
                           to="/assign-page-to-role"
                           className={({ isActive }) =>
-                            `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                           }
                         >
-                          <MdOutlinePostAdd className="w-3.5 h-3.5" />
+                          <MdOutlineAssignmentTurnedIn  className="w-3.5 h-3.5" />
                           Assign Page to Role
                         </NavLink>
                       </li>
@@ -251,10 +253,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         <NavLink
                           to="/page-management"
                           className={({ isActive }) =>
-                            `group flex items-center gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white'}`
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg bg-gray-500'}`
                           }
                         >
-                          <MdOutlinePostAdd className="w-3.5 h-3.5" />
+                          <MdCreateNewFolder className="w-3.5 h-3.5" />
                           Create Page
                         </NavLink>
                       </li>

@@ -7,7 +7,9 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Button, Modal } from "flowbite-react";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
-import axiosInstance from '../config';
+import { FaEdit } from 'react-icons/fa';
+import { MdAddLink, MdDelete } from 'react-icons/md';
+import { usePermissions } from '../context/PermissionsContext';
 
 const AddImportantLinks: React.FC = () => {
   const [linkName, setLinkName] = useState<string>('');
@@ -25,67 +27,25 @@ const AddImportantLinks: React.FC = () => {
   const created_by = user?.name || 'admin'; // Default to 'admin' if user?.name is undefined
 
 
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  // Interfaces
-  interface Permission {
-    roleId: number;
-    pageId: number;
-    canCreate: boolean;
-    canRead: boolean;
-    canUpdate: boolean;
-    canDelete: boolean;
-  }
+  const {
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    roles,
+    pages,
+    permissions,
+  } = usePermissions();
 
-  interface Page {
-    modify_on: string;
-    modify_by: string;
-    pageId: number;
-    pageName: string;
-    pageUrl: string;
-    created_by: string;
-    created_on: string;
-  }
-
-  interface Role {
-    name: string;
-    role_id: number;
-  }
-
-  // Fetching data
+  // Use useEffect to fetch data when the component mounts
   useEffect(() => {
-    fetchPages();
-    fetchPermissions();
-    fetchRoles();
-  }, []);
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
 
-  const fetchPages = async () => {
-    try {
-      const response = await axiosInstance.get('/pages');
-      setPages(response.data);
-    } catch (err) {
-      toast.error('Error fetching pages');
-    }
-  };
-
-  const fetchPermissions = async () => {
-    try {
-      const response = await axiosInstance.get('/permissions');
-      setPermissions(response.data);
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const response = await axiosInstance.get('/getrole');
-      setRoles(response.data.role);
-    } catch (error) {
-      console.error('Error fetching roles:', error);
-    }
-  };
+    fetchData();
+  }, [fetchRoles, fetchPages, fetchPermissions]);
 
   // Permissions and roles
   const pageId = pages.find(page => page.pageName === "update Logo Image")?.pageId;
@@ -95,6 +55,12 @@ const AddImportantLinks: React.FC = () => {
   const canUpdate = userPermissions?.canUpdate ?? false;
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
+
+  console.log('User Role ID:', user?.roleId);
+  console.log('Page ID:', pageId);
+  console.log('Permissions:', permissions);
+  console.log('User Permissions:', userPermissions);
+  console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
   // Fetch links when the component mounts
   useEffect(() => {
@@ -261,10 +227,10 @@ const AddImportantLinks: React.FC = () => {
   />
   
   <button
-  className={`px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+  className={`px-1 py-1 w-28 flex justify-center gap-2 items-center text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
   onClick={canCreate ? addLink : () => toast.error('Access Denied: You do not have permission to create links.')}
   disabled={!canCreate}
->
+><MdAddLink />
   Add Link
 </button>
 </div>
@@ -304,17 +270,17 @@ const AddImportantLinks: React.FC = () => {
               </div>
               <div className="flex justify-center gap-2 mt-1">
               <button
-  className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingLink?.id === link.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+  className={`w-20 p-1 flex justify-center items-center gap-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingLink?.id === link.id ? 'opacity-50 cursor-not-allowed' : ''}`}
   onClick={canUpdate ? () => handleEdit(link) : () => toast.error('Access Denied: You do not have permission to edit links.')}
   disabled={!canUpdate && editingLink?.id === link.id}
->
+><FaEdit />
   {editingLink?.id === link.id ? 'Editing...' : 'Edit'}
 </button>
 <button
-    className={`w-14 text-sm rounded-md ${!canDelete || editingLink?.id === link.id ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
+    className={`w-20 flex justify-center items-center gap-1 text-sm rounded-md ${!canDelete || editingLink?.id === link.id ? 'bg-gray-400 text-gray-700 cursor-not-allowed' : 'bg-red-500 text-white hover:bg-red-600'}`}
     onClick={canDelete ? () => openDeleteConfirmation(link.id) : () => toast.error('Access Denied: You do not have permission to delete links.')}
     disabled={!canDelete && editingLink?.id === link.id}
-  >
+  > <MdDelete />
     Delete
   </button>
   <label className="inline-flex items-center cursor-pointer">
@@ -346,7 +312,7 @@ const AddImportantLinks: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full bg-white rounded-lg dark:bg-meta-4 shadow-md">
             {/* <h3 className="mb-1 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Link</h3> */}
@@ -408,7 +374,7 @@ const AddImportantLinks: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full max-w-md max-h-full dark:bg-meta-4 bg-white rounded-lg shadow-md">
             <h3 className="mb-1 text-center bg-slate-300 mr-4 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Link</h3>
@@ -464,7 +430,7 @@ const AddImportantLinks: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60 bg-gray-3 ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-50  pt-40 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">

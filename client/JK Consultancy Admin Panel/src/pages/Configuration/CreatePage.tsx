@@ -92,8 +92,15 @@ const CreatePage: React.FC = () => {
   const canCreate = userPermissions?.canCreate ?? false;
   const canUpdate = userPermissions?.canUpdate ?? false;
   const canDelete = userPermissions?.canDelete ?? false;
-  const canRead = userPermissions?.canRead ?? false;
-
+  // const canRead = userPermissions?.canRead ?? false;
+  
+  useEffect(() => {
+    console.log('User Role ID:', user?.roleId);
+    console.log('Page ID:', pageId);
+    console.log('Permissions:', permissions);
+    console.log('User Permissions:', userPermissions);
+    console.log('Permission Values:', { canCreate, canUpdate, canDelete });
+  }, []);
   const handleCreatePage = async () => {
     try {
       await axiosInstance.post('/createPage', { pageName, pageUrl, created_by: createdBy });

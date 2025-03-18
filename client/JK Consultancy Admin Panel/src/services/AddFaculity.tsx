@@ -6,7 +6,10 @@ import { Faculty } from "../context/FacultyContext";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { useAuth } from "../context/AuthContext";
-import axiosInstance from "../config";
+import { MdDelete } from "react-icons/md";
+import { FaEdit } from "react-icons/fa";
+import { FcViewDetails } from "react-icons/fc";
+import { usePermissions } from "../context/PermissionsContext";
 
 const AddFaculty: React.FC = () => {
   const [addFacultyModel, setAddFacultyModel] = useState<boolean>(false);
@@ -27,79 +30,42 @@ const AddFaculty: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || "admin";
   const modify_by = user?.name; 
-
-
-    const [permissions, setPermissions] = useState<Permission[]>([]);
-    const [pages, setPages] = useState<Page[]>([]);
-    const [roles, setRoles] = useState<Role[]>([]);
-    // Interfaces
-    interface Permission {
-      roleId: number;
-      pageId: number;
-      canCreate: boolean;
-      canRead: boolean;
-      canUpdate: boolean;
-      canDelete: boolean;
-    }
+  const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+      roles,
+      pages,
+      permissions,
+    } = usePermissions();
   
-    interface Page {
-      modify_on: string;
-      modify_by: string;
-      pageId: number;
-      pageName: string;
-      pageUrl: string;
-      created_by: string;
-      created_on: string;
-    }
-  
-    interface Role {
-      name: string;
-      role_id: number;
-    }
-  
-    // Fetching data
+    // Use useEffect to fetch data when the component mounts
     useEffect(() => {
-      fetchPages();
-      fetchPermissions();
-      fetchRoles();
-    }, []);
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
   
-    const fetchPages = async () => {
-      try {
-        const response = await axiosInstance.get('/pages');
-        setPages(response.data);
-      } catch (err) {
-        toast.error('Error fetching pages');
-      }
-    };
-  
-    const fetchPermissions = async () => {
-      try {
-        const response = await axiosInstance.get('/permissions');
-        setPermissions(response.data);
-      } catch (error) {
-        console.error('Error fetching permissions:', error);
-      }
-    };
-  
-    const fetchRoles = async () => {
-      try {
-        const response = await axiosInstance.get('/getrole');
-        setRoles(response.data.role);
-      } catch (error) {
-        console.error('Error fetching roles:', error);
-      }
-    };
-  
-    // Permissions and roles
-    const pageId = pages.find(page => page.pageName === "Addfaculity")?.pageId;
-    const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
-    const canCreate = userPermissions?.canCreate ?? false;
-    const canUpdate = userPermissions?.canUpdate ?? false;
-    const canDelete = userPermissions?.canDelete ?? false;
-    const canRead = userPermissions?.canRead ?? false;
-  
+      fetchData();
+    }, [fetchRoles, fetchPages, fetchPermissions]);
+
+  // Permissions and roles
+  const pageId = pages.find(page => page.pageName === "Addfaculity")?.pageId;
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  const canRead = userPermissions?.canRead ?? false;
+
+  console.log('User Role ID:', user?.roleId);
+  console.log('Page ID:', pageId);
+  console.log('Permissions:', permissions);
+  console.log('User Permissions:', userPermissions);
+  console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+
+
   // Handle File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -111,30 +77,30 @@ const AddFaculty: React.FC = () => {
 
   // Add or Update Faculty
   const handleAddFaculty = async () => {
+    if (!canCreate) {
+      toast.error("Access Denied: You do not have permission to create faculty.");
+      return;
+    }
+
     if (!facultyName || qualification === "Select" || designation === "Select") {
       toast.error("Please fill in all fields");
       return;
     }
-    if (!facultyName || qualification === "Select" || designation === "Select") {
-      toast.error("Please fill in all fields");
-      return;
-    }
-  
+
     if (facultyName.length > 150) {
       toast.error("Faculty name cannot exceed 150 characters");
       return;
     }
-  
+
     if (otherQualification.length > 20) {
       toast.error("Other qualification cannot exceed 15 characters");
       return;
     }
-  
+
     if (otherDesignation.length > 20) {
       toast.error("Other designation cannot exceed 15 characters");
       return;
     }
-  
 
     const facultyData: Omit<Faculty, "id" | "created_on" | "modify_on"> = {
       faculty_name: facultyName,
@@ -175,6 +141,11 @@ const AddFaculty: React.FC = () => {
 
   // Handle Delete Faculty
   const handleDelete = async () => {
+    if (!canDelete) {
+      toast.error("Access Denied: You do not have permission to delete faculty.");
+      return;
+    }
+
     if (facultyIdToDelete !== null) {
       await deleteFaculty(facultyIdToDelete);
       setOpenDeleteModal(false);
@@ -184,11 +155,21 @@ const AddFaculty: React.FC = () => {
 
   // Handle Toggle Visibility
   const handleToggleVisibility = async (id: number) => {
+    if (!canRead) {
+      toast.error("Access Denied: You do not have permission to update visibility.");
+      return;
+    }
+
     await toggleVisibility(id, createdBy);
   };
 
   // Function to handle editing faculty
   const handleEditFaculty = (faculty: Faculty) => {
+    if (!canUpdate) {
+      toast.error("Access Denied: You do not have permission to edit faculty.");
+      return;
+    }
+
     setEditingFaculty(faculty);
     setFacultyName(faculty.faculty_name);
     setQualification(faculty.qualification);
@@ -198,6 +179,11 @@ const AddFaculty: React.FC = () => {
 
   // Function to handle opening delete modal
   const handleOpenDeleteModal = (facultyId: number) => {
+    if (!canDelete) {
+      toast.error("Access Denied: You do not have permission to delete faculty.");
+      return;
+    }
+
     setFacultyIdToDelete(facultyId);
     setOpenDeleteModal(true);
   };
@@ -207,40 +193,40 @@ const AddFaculty: React.FC = () => {
     setSelectedFaculty(faculty);
     setOpenDetailsModal(true);
   };
+
   const [searchQuery, setSearchQuery] = useState('');
-   // Filter faculties based on the search query
-   const filteredFaculties = faculties.filter(faculty =>
-    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase())||
-    faculty.designation.toLowerCase().includes(searchQuery.toLowerCase())||
+  // Filter faculties based on the search query
+  const filteredFaculties = faculties.filter(faculty =>
+    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    faculty.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
     faculty.qualification.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <>
-     
       <Breadcrumb pageName="Add Faculty" />
       <div className="flex items-center justify-between p-2 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-  {/* Search Input */}
-  <input
-    type="search"
-    className='py-1 px-3 bg-white border placeholder:text-[.75rem] border-gray-300 rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
-    placeholder='Search faculity here by designation and qualification...'
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
-  />
-  
-  <button
-  className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
-  onClick={canCreate ? () => setAddFacultyModel(true) : () => toast.error('Access Denied: You do not have permission to create faculty.')}
-  disabled={!canCreate}
->
-  Add Faculty
-</button>
-</div>
+        {/* Search Input */}
+        <input
+          type="search"
+          className='py-1 px-3 bg-white border placeholder:text-[.75rem] border-gray-300 rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+          placeholder='Search faculty here by designation and qualification...'
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
+        />
+
+        <button
+          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
+          onClick={canCreate ? () => setAddFacultyModel(true) : () => toast.error('Access Denied: You do not have permission to create faculty.')}
+          disabled={!canCreate}
+        >
+          Add Faculty
+        </button>
+      </div>
 
       {/* Faculty Modal */}
       {addFacultyModel && (
-        <div className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50 ">
+        <div className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50 ">
           <div className="p-4 w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-600">
             <h3 className="text-center bg-slate-300 p-1 rounded-md text-lg font-bold text-blue-800">
               {editingFaculty ? "Edit Faculty" : "Add Faculty"}
@@ -325,56 +311,61 @@ const AddFaculty: React.FC = () => {
       )}
 
       {/* Faculty List */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
         {filteredFaculties.length > 0 ? (
           filteredFaculties.map((faculty) => (
-            <div key={faculty.id} className="p-2 border rounded-md">
-              <p>
-                <img
-                  src={faculty.profilePicUrl || 'https://st4.depositphotos.com/7819052/21803/v/450/depositphotos_218033152-stock-illustration-grunge-red-available-word-rubber.jpg'} // Default image if profilePicUrl is null
-                  alt={faculty.faculty_name || 'Faculty Image'} // Provide alt text
-                  className="w-full h-48 object-fit"
-                  style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
-                />
-              </p>
-              <p><b>Name:</b> {faculty.faculty_name}</p>
-              <p><b>Qualification:</b> {faculty.qualification}</p>
-              <p><b>Designation:</b> {faculty.designation}</p>
-              <div className="flex justify-center gap-2 mt-2">
-  <button
-    className={`px-2 py-1 text-sm text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={canUpdate ? () => handleEditFaculty(faculty) : () => toast.error('Access Denied: You do not have permission to edit faculty.')}
-    disabled={!canUpdate}
-  >
-    Edit
-  </button>
-  <button
-    className={`px-2 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={canDelete ? () => handleOpenDeleteModal(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to delete faculty.')}
-    disabled={!canDelete}
-  >
-    Delete
-  </button>
-  <button
-    className="bg-gray-500 text-white p-1 rounded"
-    onClick={() => handleOpenDetailsModal(faculty)}
-  >
-    Details
-  </button>
-  <label className="inline-flex items-center cursor-pointer">
-    <input
-      type="checkbox"
-      checked={faculty.IsVisible}
-      onChange={canRead ? () => handleToggleVisibility(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to update visibility.')}
-      className="sr-only peer"
-      disabled={!canRead}
-    />
-    <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
-    <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
-      IsVisible
-    </span>
-  </label>
-</div>
+            <div key={faculty.id} className="p-1 border rounded-md shadow-md">
+              <img
+                src={faculty.profilePicUrl || 'https://st4.depositphotos.com/7819052/21803/v/450/depositphotos_218033152-stock-illustration-grunge-red-available-word-rubber.jpg'} // Default image if profilePicUrl is null
+                alt={faculty.faculty_name || 'Faculty Image'} // Provide alt text
+                className="w-full h-44 object-fit rounded-md" // Adjusted height
+                style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
+              />
+              <p className="text-sm font-semibold mt-1"><b>Name:</b> {faculty.faculty_name}</p>
+              <p className="text-xs"><b>Qualification:</b> {faculty.qualification}</p>
+              <p className="text-xs"><b>Designation:</b> {faculty.designation}</p>
+              <div className="flex justify-between items-center mt-2">
+                <div className="flex gap-1">
+                  <button
+                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={canUpdate ? () => handleEditFaculty(faculty) : () => toast.error('Access Denied: You do not have permission to edit faculty.')}
+                    disabled={!canUpdate}
+                  >
+                    <FaEdit className="text-sm" />
+                    Edit
+                  </button>
+                  <button
+                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={canDelete ? () => handleOpenDeleteModal(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to delete faculty.')}
+                    disabled={!canDelete}
+                  >
+                    <MdDelete className="text-sm" />
+                    Delete
+                  </button>
+                  <button
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-white bg-gray-500 rounded-md"
+                    onClick={() => handleOpenDetailsModal(faculty)}
+                  >
+                    <FcViewDetails className="text-sm" />
+                    Details
+                  </button>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={faculty.IsVisible}
+                    onChange={canRead ? () => handleToggleVisibility(faculty.id ?? 0) : () => toast.error('Access Denied: You do not have permission to update visibility.')}
+                    className="sr-only peer"
+                    disabled={!canRead}
+                  />
+                  <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                    <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${faculty.IsVisible ? 'translate-x-5' : ''}`}></div>
+                  </div>
+                  <span className={`ms-2 text-xs font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
+                    IsVisible
+                  </span>
+                </label>
+              </div>
             </div>
           ))
         ) : (
@@ -383,7 +374,7 @@ const AddFaculty: React.FC = () => {
       </div>
 
       {/* Delete Confirmation Modal */}
-      <Modal show={openDeleteModal} size="md" className=" ml-67 my-40 bg-gray-3   " onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal show={openDeleteModal} size="md" className=" ml-50  bg-black pt-44  " onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">
@@ -405,7 +396,7 @@ const AddFaculty: React.FC = () => {
 
       {/* Details Modal */}
       {openDetailsModal && selectedFaculty && (
-        <Modal show={openDetailsModal} size="md" className=" ml-60 my-20 bg-gray-3" onClose={() => setOpenDetailsModal(false)} popup>
+        <Modal show={openDetailsModal} size="md" className=" ml-50 py-20 bg-black " onClose={() => setOpenDetailsModal(false)} popup>
           <Modal.Header />
           <Modal.Body>
             <div className="">

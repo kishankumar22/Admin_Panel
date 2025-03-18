@@ -7,73 +7,34 @@ import 'froala-editor/js/plugins.pkgd.min.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
+import { usePermissions } from '../context/PermissionsContext';
 
 const LatestPost: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || 'admin'; 
   const modify_by = user?.name; 
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-    // Interfaces
-    interface Permission {
-      roleId: number;
-      pageId: number;
-      canCreate: boolean;
-      canRead: boolean;
-      canUpdate: boolean;
-      canDelete: boolean;
-    }
-  
-    interface Page {
-      modify_on: string;
-      modify_by: string;
-      pageId: number;
-      pageName: string;
-      pageUrl: string;
-      created_by: string;
-      created_on: string;
-    }
-  
-    interface Role {
-      name: string;
-      role_id: number;
-    }
-  
-    // Fetching data
-    useEffect(() => {
-      fetchPages();
-      fetchPermissions();
-      fetchRoles();
-    }, []);
-  
-    const fetchPages = async () => {
-      try {
-        const response = await axiosInstance.get('/pages');
-        setPages(response.data);
-      } catch (err) {
-        toast.error('Error fetching pages');
-      }
+
+  const {
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    roles,
+    pages,
+    permissions,
+  } = usePermissions();
+
+  // Use useEffect to fetch data when the component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
     };
-  
-    const fetchPermissions = async () => {
-      try {
-        const response = await axiosInstance.get('/permissions');
-        setPermissions(response.data);
-      } catch (error) {
-        console.error('Error fetching permissions:', error);
-      }
-    };
-  
-    const fetchRoles = async () => {
-      try {
-        const response = await axiosInstance.get('/getrole');
-        setRoles(response.data.role);
-      } catch (error) {
-        console.error('Error fetching roles:', error);
-      }
-    };
-  
+
+    fetchData();
+  }, [fetchRoles, fetchPages, fetchPermissions]);
+
+ 
     // Permissions and roles
     const pageId = pages.find(page => page.pageName === "Add Latest Post")?.pageId;
     const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
@@ -369,7 +330,7 @@ const filteredPosts = posts.filter(post =>
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 ml-50 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h1 className=' text-center text-2xl font-semibold text-red-600'> DELETE POST</h1>
             <h2 className="text-lg font-normal p-4">Are you sure you want to delete this post?</h2>

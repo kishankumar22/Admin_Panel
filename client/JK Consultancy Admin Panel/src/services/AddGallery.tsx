@@ -7,7 +7,9 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
-import axiosInstance from '../config';
+import { MdDelete } from 'react-icons/md';
+import { FaEdit } from 'react-icons/fa';
+import { usePermissions } from '../context/PermissionsContext';
 
 const AddGallery: React.FC = () => {
   const [file, setFile] = useState<File | undefined>(undefined);
@@ -22,68 +24,26 @@ const AddGallery: React.FC = () => {
   const createdBy = user?.name || 'admin';
   const { galleries, uploadGallery, deleteGallery, updateGallery, toggleVisibility } = useGallery();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  // Interfaces
-  interface Permission {
-    roleId: number;
-    pageId: number;
-    canCreate: boolean;
-    canRead: boolean;
-    canUpdate: boolean;
-    canDelete: boolean;
-  }
-
-  interface Page {
-    modify_on: string;
-    modify_by: string;
-    pageId: number;
-    pageName: string;
-    pageUrl: string;
-    created_by: string;
-    created_on: string;
-  }
-
-  interface Role {
-    name: string;
-    role_id: number;
-  }
-
-  // Fetching data
-  useEffect(() => {
-    fetchPages();
-    fetchPermissions();
-    fetchRoles();
-  }, []);
-
-  const fetchPages = async () => {
-    try {
-      const response = await axiosInstance.get('/pages');
-      setPages(response.data);
-    } catch (err) {
-      toast.error('Error fetching pages');
-    }
-  };
-
-  const fetchPermissions = async () => {
-    try {
-      const response = await axiosInstance.get('/permissions');
-      setPermissions(response.data);
-    } catch (error) {
-      console.error('Error fetching permissions:', error);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const response = await axiosInstance.get('/getrole');
-      setRoles(response.data.role);
-    } catch (error) {
-      console.error('Error fetching roles:', error);
-    }
-  };
-
+  const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+      roles,
+      pages,
+      permissions,
+    } = usePermissions();
+  
+    // Use useEffect to fetch data when the component mounts
+    useEffect(() => {
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
+  
+      fetchData();
+    }, [fetchRoles, fetchPages, fetchPermissions]);
+  
   // Permissions and roles
   const pageId = pages.find(page => page.pageName === "update Gallery image")?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
@@ -93,6 +53,11 @@ const AddGallery: React.FC = () => {
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
 
+  // console.log('User Role ID:', user?.roleId);
+  // console.log('Page ID:', pageId);
+  // console.log('Permissions:', permissions);
+  // console.log('User Permissions:', userPermissions);
+  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -234,20 +199,20 @@ const AddGallery: React.FC = () => {
                 </div>
                 <div className="flex justify-center gap-2 mt-1">
                   <button
-                    className={`w-20 p-1 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingGallery?.id === gallery.id ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`w-20 p-1 flex justify-center items-center gap-1.5 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingGallery?.id === gallery.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={canUpdate ? () => handleEdit(gallery) : () => toast.error('Access Denied: You do not have permission to update galleries.')}
                     disabled={!canUpdate && editingGallery?.id === gallery.id}
-                  >
+                  ><FaEdit />
                     {editingGallery?.id === gallery.id ? 'Editing...' : 'Edit'}
                   </button>
                   <button
-                    className={`w-14 text-sm rounded-md ${!canDelete || editingGallery?.id === gallery.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    className={`w-20 flex justify-center items-center  gap-1.5 text-sm rounded-md ${!canDelete || editingGallery?.id === gallery.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
                     onClick={canDelete ? () => {
                       setGalleryIdToDelete(gallery.id);
                       setOpenDeleteModal(true);
                     } : () => toast.error('Access Denied: You do not have permission to delete galleries.')}
                     disabled={!canDelete && editingGallery?.id === gallery.id}
-                  >
+                  ><MdDelete/>
                     Delete
                   </button>
                   <label className="inline-flex items-center cursor-pointer">
@@ -279,7 +244,7 @@ const AddGallery: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative dark:bg-meta-4 p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Gallery</h3> */}
@@ -332,7 +297,7 @@ const AddGallery: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-70 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
         >
           <div className="relative p-4 w-full dark:bg-meta-4 max-w-md max-h-full bg-white rounded-lg shadow-md">
             {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Gallery</h3> */}
@@ -387,7 +352,7 @@ const AddGallery: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-80 mt-60' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal className='ml-50 pt-44 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">
