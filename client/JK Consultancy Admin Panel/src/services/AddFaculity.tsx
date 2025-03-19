@@ -10,6 +10,7 @@ import { MdDelete } from "react-icons/md";
 import { FaEdit } from "react-icons/fa";
 import { FcViewDetails } from "react-icons/fc";
 import { usePermissions } from "../context/PermissionsContext";
+import { useLocation } from "react-router-dom";
 
 const AddFaculty: React.FC = () => {
   const [addFacultyModel, setAddFacultyModel] = useState<boolean>(false);
@@ -49,7 +50,9 @@ const AddFaculty: React.FC = () => {
   
       fetchData();
     }, [fetchRoles, fetchPages, fetchPermissions]);
-
+  // Use useLocation to get the current path
+  // const location = useLocation();
+  // const currentPageName = location.pathname.split('/').pop(); 
   // Permissions and roles
   const pageId = pages.find(page => page.pageName === "Addfaculity")?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
@@ -73,6 +76,14 @@ const AddFaculty: React.FC = () => {
     } else {
       setProfileFile(undefined);
     }
+  };
+
+  const addfaculty = () => {
+    if (!canCreate) {
+      toast.error('Access Denied: You do not have permission to create banners.');
+      return;
+    }
+    setAddFacultyModel(true)
   };
 
   // Add or Update Faculty
@@ -217,7 +228,7 @@ const AddFaculty: React.FC = () => {
 
         <button
           className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'}`}
-          onClick={canCreate ? () => setAddFacultyModel(true) : () => toast.error('Access Denied: You do not have permission to create faculty.')}
+          onClick={canCreate ?   addfaculty: () => toast.error('Access Denied: You do not have permission to create faculty.')}
           disabled={!canCreate}
         >
           Add Faculty
