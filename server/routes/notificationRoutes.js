@@ -81,21 +81,21 @@ router.post('/add-notification', upload.single('file'), async (req, res) => {
  */
 router.get('/all-notification', async (req, res) => {
   try {
+    console.log('📢 Fetching notifications...');
+    
     const notifications = await prisma.notification.findMany({
-      orderBy: {
-        created_on: 'desc',
-      },
+      orderBy: { created_on: 'desc' },
     });
+
+    console.log('✅ Notifications fetched:', notifications);
 
     res.status(200).json(notifications);
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An error occurred while fetching notifications.',
-    });
+    console.error('❌ Error fetching notifications:', error);
+    res.status(500).json({ success: false, message: 'Server error', error });
   }
 });
+
 
 /**
  * PUT /notifications/edit/:id

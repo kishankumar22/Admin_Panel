@@ -21,7 +21,7 @@ const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 dotenv.config(); // Load environment variables
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3003;
 
 
 // Middleware to parse JSON requests
@@ -40,7 +40,7 @@ app.use('/form', formRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.send('Welcome to Kishan Kumar from server ');
+    res.send('Welcome to Kishan Kumar  from local server ');
 });
 
 // Use the notification router for all routes under `/notifications`

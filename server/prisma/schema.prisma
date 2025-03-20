@@ -1,134 +1,149 @@
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"] // Add your required target here
 }
-
 datasource db {
-  provider = "mysql"
+  provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
 
 // Role Table
 model Role {
-  role_id        Int      @id @default(autoincrement()) // Primary key
-  name           String   @unique                      // Role name (unique)
-  users          User[]   @relation("RoleToUser")      // One-to-Many relationship with User
+  role_id     Int          @id @default(autoincrement())
+  name        String       @unique
+  users       User[]       @relation("RoleToUser")
+  permissions Permission[] // Add this line to establish the back relation
 }
 
 // User Table
 model User {
-  user_id        Int      @id @default(autoincrement()) // Primary key
-  name           String   @db.VarChar(255)             // User's name
-  email          String   @unique                      // User's email (unique)
-  mobileNo       String   @db.VarChar(15)              // Mobile number
-  password       String                                // Hashed password
-  roleId         Int                                    // Foreign key to Role table
-  role           Role     @relation("RoleToUser", fields: [roleId], references: [role_id]) // Role reference
-  created_on     DateTime?          // Timestamp for user creation
-  created_by     String?                                // Who created the user
-  modify_on      DateTime?                   // Auto-update timestamp
-  modify_by      String?                                // Who modified the user
-  notifications  Notification[]                        // One-to-Many relationship with Notification
+  user_id       Int            @id @default(autoincrement()) // Primary key
+  name          String         @db.NVarChar(255) // User's name
+  email         String         @unique // User's email (unique)
+  mobileNo      String         @db.NVarChar(15) // Mobile number
+  password      String // Hashed password
+  roleId        Int // Foreign key to Role table
+  role          Role           @relation("RoleToUser", fields: [roleId], references: [role_id]) // Role reference
+  created_on    DateTime? // Timestamp for user creation
+  created_by    String? // Who created the user
+  modify_on     DateTime? // Auto-update timestamp
+  modify_by     String? // Who modified the user
+  notifications Notification[] // One-to-Many relationship with Notification
 }
 
 // Notification Table
 model Notification {
-  notification_id        Int      @id @default(autoincrement()) // Primary key
-  notification_message   String   @db.VarChar(225)             // Notification message
-  notification_url       String                                  // URL or file location
-  public_id              String?                                // Cloudinary public ID (nullable for URLs)
-  userId                 Int                                    // Foreign key to User table
-  user                   User     @relation(fields: [userId], references: [user_id]) // Reference to User
-  created_on             DateTime @default(now())               // Timestamp for notification creation
-  created_by             String                                  // Who created the notification
-  modify_by              String?                                 // Who modified the notification (Optional)
-  modify_on              DateTime?                              // Timestamp of last modification (Optional)
+  notification_id      Int       @id @default(autoincrement()) // Primary key
+  notification_message String    @db.NVarChar(225) // Notification message
+  notification_url     String // URL or file location
+  public_id            String? // Cloudinary public ID (nullable for URLs)
+  userId               Int // Foreign key to User table
+  user                 User      @relation(fields: [userId], references: [user_id]) // Reference to User
+  created_on           DateTime  @default(now()) // Timestamp for notification creation
+  created_by           String // Who created the notification
+  modify_by            String? // Who modified the notification (Optional)
+  modify_on            DateTime? // Timestamp of last modification (Optional)
 }
+
+// Banner Table
 model Banner {
-  id             Int      @id @default(autoincrement())
+  id             Int       @id @default(autoincrement())
   bannerUrl      String
   bannerName     String
   bannerPosition Int
-  created_on     DateTime @default(now())
+  created_on     DateTime  @default(now())
   created_by     String
   modify_on      DateTime?
   modify_by      String?
   publicId       String
-  IsVisible       Boolean  @default(true) // New field added
-}
-model Gallery {
-  id             Int      @id @default(autoincrement())
-  galleryUrl     String
-  galleryName    String
-  galleryPosition Int
-  created_on     DateTime @default(now())
-  created_by     String
-  modify_on      DateTime?
-  modify_by      String?
-  publicId       String
-  IsVisible       Boolean  @default(true) // New field added
+  IsVisible      Boolean   @default(true) // New field added
 }
 
+// Gallery Table
+model Gallery {
+  id              Int       @id @default(autoincrement())
+  galleryUrl      String
+  galleryName     String
+  galleryPosition Int
+  created_on      DateTime  @default(now())
+  created_by      String
+  modify_on       DateTime?
+  modify_by       String?
+  publicId        String
+  IsVisible       Boolean   @default(true) // New field added
+}
+
+// Important Links Table
 model ImportantLinks {
-  id            Int      @id @default(autoincrement())
-  LOGOUrl      String   // Logo ki URL store hogi
-  linksUrl     String   // User jo link dega wo store hoga
-  logoName     String   //  
-  logoPosition Int      // 
-  created_on   DateTime @default(now())
+  id           Int       @id @default(autoincrement())
+  LOGOUrl      String // Logo ki URL store hogi
+  linksUrl     String // User jo link dega wo store hoga
+  logoName     String
+  logoPosition Int
+  created_on   DateTime  @default(now())
   created_by   String
   modify_on    DateTime?
   modify_by    String?
-  publicId     String  
-  IsVisible    Boolean  @default(true) // Visibility toggle ke liye
+  publicId     String
+  IsVisible    Boolean   @default(true) // Visibility toggle ke liye
 }
 
+// Faculty Table
 model Faculty {
-  id             Int      @id @default(autoincrement())
-  faculty_name           String
-  qualification  String
-  designation    String
-  profilePicUrl  String?
-  created_on     DateTime @default(now())
-  created_by     String
-  modify_on      DateTime?
-  modify_by      String?
-  IsVisible       Boolean  @default(true) // New field added
+  id            Int       @id @default(autoincrement())
+  faculty_name  String
+  qualification String
+  designation   String
+  profilePicUrl String?
+  created_on    DateTime  @default(now())
+  created_by    String
+  modify_on     DateTime?
+  modify_by     String?
+  IsVisible     Boolean   @default(true) // New field added
 }
+
+// Latest Post Table
 model LatestPost {
-  post_id      Int      @id @default(autoincrement()) // Unique identifier for the post
-  post_title   String   // Title of the post
-  post_slug    String   @unique // Slug for the post, must be unique
-  post_content String   @db.Text // Use @db.Text for large text in MySQL
-  created_by   String   // User who created the post
-  created_on   DateTime @default(now()) // Timestamp for when the post was created
-  modify_by    String?  // User who last modified the post (optional)
+  post_id      Int       @id @default(autoincrement()) // Unique identifier for the post
+  post_title   String // Title of the post
+  post_slug    String    @unique // Slug for the post, must be unique
+  post_content String    @db.NVarChar(MAX) // Large text field
+  created_by   String // User who created the post
+  created_on   DateTime  @default(now()) // Timestamp for when the post was created
+  modify_by    String? // User who last modified the post (optional)
   modify_on    DateTime? // Timestamp for when the post was last modified (optional)
-  isVisible    Boolean  @default(true) // Visibility status of the post
+  isVisible    Boolean   @default(true) // Visibility status of the post
 }
 
+// Page Table
 model Page {
-  pageId         Int      @id @default(autoincrement())
-  pageName   String
-  pageUrl    String   @unique
-  created_by String ?
-  created_on DateTime @default(now())
-  modify_by  String ?
-  modify_on  DateTime ?
-} 
+  pageId      Int          @id @default(autoincrement())
+  pageName    String
+  pageUrl     String       @unique
+  created_by  String?
+  created_on  DateTime     @default(now())
+  modify_by   String?
+  modify_on   DateTime?
+  permissions Permission[] // Add this line to establish the back relation
+}
 
+// Permission Table (Fix the missing back relations)
 model Permission {
-  permissionId Int      @id @default(autoincrement())
+  permissionId Int       @id @default(autoincrement())
   roleId       Int
   pageId       Int
-  canCreate    Boolean  @default(false)
-  canRead      Boolean  @default(false)
-  canUpdate    Boolean  @default(false)
-  canDelete    Boolean  @default(false)
+  canCreate    Boolean   @default(false)
+  canRead      Boolean   @default(false)
+  canUpdate    Boolean   @default(false)
+  canDelete    Boolean   @default(false)
   created_by   String?
-  created_on   DateTime @default(now())
+  created_on   DateTime  @default(now())
   modify_by    String?
   modify_on    DateTime?
 
-  @@unique([roleId, pageId])
-}
+  // Define the relations properly with back references
+  role Role @relation(fields: [roleId], references: [role_id])
+  page Page @relation(fields: [pageId], references: [pageId])
 
+  @@unique([roleId, pageId]) // Ensure each role has unique permissions per page
+}
