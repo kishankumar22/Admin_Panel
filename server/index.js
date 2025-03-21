@@ -21,7 +21,7 @@ const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 dotenv.config(); // Load environment variables
 
 const app = express();
-const PORT = process.env.PORT || 3003;
+const PORT = process.env.PORT || 3002;
 
 
 // Middleware to parse JSON requests

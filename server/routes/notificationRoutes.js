@@ -81,13 +81,13 @@ router.post('/add-notification', upload.single('file'), async (req, res) => {
  */
 router.get('/all-notification', async (req, res) => {
   try {
-    console.log('📢 Fetching notifications...');
+    // console.log('📢 Fetching notifications...');
     
     const notifications = await prisma.notification.findMany({
       orderBy: { created_on: 'desc' },
     });
 
-    console.log('✅ Notifications fetched:', notifications);
+    // console.log('✅ Notifications fetched:', notifications);
 
     res.status(200).json(notifications);
   } catch (error) {
@@ -110,7 +110,6 @@ router.put('/edit/:id', upload.single('file'), async (req, res) => {
     let notification_url = null;
     let public_id = null;
 
-    // Fetch the existing notification
     const existingNotification = await prisma.notification.findUnique({
       where: { notification_id: parseInt(id) },
     });
@@ -119,7 +118,6 @@ router.put('/edit/:id', upload.single('file'), async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
-    // If the user provided a file, upload it to Cloudinary
     if (file) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -135,18 +133,15 @@ router.put('/edit/:id', upload.single('file'), async (req, res) => {
       notification_url = uploadResult.secure_url;
       public_id = uploadResult.public_id;
 
-      // Delete the old file from Cloudinary if a new file is uploaded
       if (existingNotification.public_id) {
         await cloudinary.uploader.destroy(existingNotification.public_id);
       }
     }
 
-    // If the user provided a URL, use it directly
     if (url) {
       notification_url = url;
     }
 
-    // Update the notification in the database
     const updatedNotification = await prisma.notification.update({
       where: { notification_id: parseInt(id) },
       data: {
@@ -158,18 +153,13 @@ router.put('/edit/:id', upload.single('file'), async (req, res) => {
       },
     });
 
-    res.status(200).json({
-      success: true,
-      data: updatedNotification,
-    });
+    res.status(200).json({ success: true, data: updatedNotification });
   } catch (error) {
     console.error('Error editing notification:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An error occurred while editing the notification.',
-    });
+    res.status(500).json({ success: false, message: 'An error occurred while editing the notification.' });
   }
 });
+
 
 /**
  * DELETE /notifications/delete/:id

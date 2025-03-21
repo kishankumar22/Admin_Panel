@@ -1,9 +1,10 @@
-const express = require('express'); // Import express
-const db = require('../config/db'); // Import the database connection
-const bcrypt = require('bcrypt'); // Import bcrypt for password hashing
-const jwt = require('jsonwebtoken'); // Import JWT for authentication
+const express = require('express');
+const db = require('../config/db'); // Import the database connection promise
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const sql = require('mssql'); // Add MSSQL package
 
-const router = express.Router(); // Correctly initialize the router
+const router = express.Router();
 
 // User Login Route
 router.post('/login', async (req, res) => {
@@ -15,41 +16,42 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const query = 'SELECT * FROM user WHERE email = ?';
-    db.query(query, [email], async (err, results) => {
-      if (err) {
-        console.error('❌ Database query failed:', err.message);
-        return res.status(500).json({ error: 'Database query failed' });
-      }
+    // Wait for the database connection pool
+    const pool = await db;
 
-      if (results.length === 0) {
-        return res.status(404).json({ error: 'User  not found' });
-      }
+    // MSSQL query syntax with named parameter
+    const query = 'SELECT * FROM [user] WHERE email = @email';
+    
+    // Create a request from the pool
+    const request = pool.request();
+    request.input('email', sql.VarChar, email);
 
-      const user = results[0];
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      if (!passwordMatch) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
+    const result = await request.query(query);
 
-      // Generate JWT with 1 hour expiration
-      const token = jwt.sign(
-        { userId: user.id, email: user.email },
-        process.env.JWT_SECRET || 'Admin', // Use a secure key in production
-        { expiresIn: '1h' }
-      );
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
-      // Destructure to exclude password
-      const { password: _, ...userDetails } = user;
+    const user = result.recordset[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-      // Log user details to the console
-      // console.log('User  logged in:', userDetails);
+    // Generate JWT with 1 hour expiration
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET || 'Admin', // Use a secure key in production
+      { expiresIn: '1h' }
+    );
 
-      res.status(200).json({
-        message: 'Login successful',
-        token: token,
-        user: userDetails, // Return all user details
-      });
+    // Destructure to exclude password
+    const { password: _, ...userDetails } = user;
+
+    res.status(200).json({
+      message: 'Login successful',
+      token: token,
+      user: userDetails, // Return all user details
     });
   } catch (error) {
     console.error('❌ Server error:', error.message);
@@ -57,4 +59,4 @@ router.post('/login', async (req, res) => {
   }
 });
 
-module.exports = router; // Export the router
+module.exports = router;

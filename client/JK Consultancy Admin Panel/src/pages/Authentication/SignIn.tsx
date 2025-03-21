@@ -29,6 +29,7 @@ const SignIn: React.FC = () => {
       if (error.response) {
         const errorMsg = error.response.data.error || 'An error occurred. Please try again later.';
         setErrorMessage(errorMsg);
+        toast.error(errorMessage)
 
       } else {
         setErrorMessage('An error occurred. Please try again later.');

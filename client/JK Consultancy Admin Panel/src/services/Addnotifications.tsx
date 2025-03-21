@@ -214,7 +214,7 @@ const Addnotifications = () => {
     const canCreate = userPermissions?.canCreate ?? false;
     const canUpdate = userPermissions?.canUpdate ?? false;
     const canDelete = userPermissions?.canDelete ?? false;
-    const canRead = userPermissions?.canRead ?? false;   
+    // const canRead = userPermissions?.canRead ?? false;   
           // console.log('User Role ID:', user?.roleId);
           // console.log('Page ID:', pageId);
           // console.log('Permissions:', permissions);
@@ -229,7 +229,7 @@ const Addnotifications = () => {
         {/* Search Input */}
         <input
           type="search"
-          className='py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+          className='py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 dark:bg-gray-600'
           placeholder='Search Message here...'
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)} // Update search query state

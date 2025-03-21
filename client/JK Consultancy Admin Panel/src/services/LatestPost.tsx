@@ -7,43 +7,11 @@ import 'froala-editor/js/plugins.pkgd.min.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
-import { usePermissions } from '../context/PermissionsContext';
 
 const LatestPost: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || 'admin'; 
   const modify_by = user?.name; 
-
-  const {
-    fetchRoles,
-    fetchPages,
-    fetchPermissions,
-    roles,
-    pages,
-    permissions,
-  } = usePermissions();
-
-  // Use useEffect to fetch data when the component mounts
-  useEffect(() => {
-    const fetchData = async () => {
-      await fetchRoles();
-      await fetchPages();
-      await fetchPermissions();
-    };
-
-    fetchData();
-  }, [fetchRoles, fetchPages, fetchPermissions]);
-
- 
-    // Permissions and roles
-    const pageId = pages.find(page => page.pageName === "Add Latest Post")?.pageId;
-    const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
-    const canCreate = userPermissions?.canCreate ?? false;
-    const canUpdate = userPermissions?.canUpdate ?? false;
-    const canDelete = userPermissions?.canDelete ?? false;
-    const canRead = userPermissions?.canRead ?? false;
-  
 
 
   const [content, setContent] = useState<string>('');
@@ -186,13 +154,12 @@ const filteredPosts = posts.filter(post =>
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
     />
-   <button
-  onClick={canCreate ? () => setIsFormVisible(true) : () => toast.error('Access Denied: You do not have permission to create posts.')}
-  className={`ml-2 px-4 py-1 text-white rounded-lg hover:bg-blue-600 transition duration-200 ${canCreate ? 'bg-blue-500' : 'bg-gray-400 cursor-not-allowed'}`}
-  disabled={!canCreate}
->
-  Add Latest Post
-</button>
+    <button
+      onClick={() => setIsFormVisible(true)}
+      className="ml-2 px-4 py-1 text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200"
+    >
+      Add Latest Post
+    </button>
   </div>
 
   {/* Form for Adding/Editing Post */}
@@ -288,36 +255,25 @@ const filteredPosts = posts.filter(post =>
             <p className="text-sm text-gray-500">Modified by: {post.modify_by || 'N/A'}</p>
             <p className="text-sm text-gray-500">Modified on: {post.modify_on ? new Date(post.modify_on).toLocaleDateString() : 'N/A'}</p>
             <div className="mt-2 flex gap-2">
-  <button
-    onClick={canUpdate ? () => handleEditPost(post) : () => toast.error('Access Denied: You do not have permission to edit posts.')}
-    className={`bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
-    disabled={!canUpdate}
-  >
-    Edit
-  </button>
-  <button
-    onClick={canDelete ? () => openDeleteModal(post.post_id) : () => toast.error('Access Denied: You do not have permission to delete posts.')}
-    className={`bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2 ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
-    disabled={!canDelete}
-  >
-    Delete
-  </button>
-  <label className="inline-flex items-center cursor-pointer ml-1">
-  <input
-    type="checkbox"
-    checked={post.isVisible}
-    onChange={canRead ? () => handleToggleVisibility(post.post_id) : () => toast.error('Access Denied: You do not have permission to update visibility.')}
-    className="sr-only peer"
-    disabled={!canRead} // Disable the checkbox if the user does not have permission
-  />
-  <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
-    <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${post.isVisible ? 'translate-x-5' : ''}`}></div>
-  </div>
-  <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
-    Visible
-  </span>
-</label>
-</div>
+              <button onClick={() => handleEditPost(post)} className="bg-blue-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-blue-600 transition duration-200">
+                Edit
+              </button>
+              <button onClick={() => openDeleteModal(post.post_id)} className="bg-red-500 text-white font-semibold py-1 px-2 rounded-md hover:bg-red-600 transition duration-200 mr-2">
+                Delete
+              </button>
+              <label className="inline-flex items-center cursor-pointer ml-1">
+                <input
+                  type="checkbox"
+                  checked={post.isVisible}
+                  onChange={() => handleToggleVisibility(post.post_id)}
+                  className="sr-only peer"
+                />
+                <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600"></div>
+                <span className="ms-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                  Visible
+                </span>
+              </label>
+            </div>
           </li>
         ))}
       </ul>
@@ -330,7 +286,7 @@ const filteredPosts = posts.filter(post =>
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 ml-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h1 className=' text-center text-2xl font-semibold text-red-600'> DELETE POST</h1>
             <h2 className="text-lg font-normal p-4">Are you sure you want to delete this post?</h2>
