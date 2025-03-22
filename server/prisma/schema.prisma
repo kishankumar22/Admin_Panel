@@ -5,6 +5,7 @@ generator client {
 datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
+
 }
 
 // Role Table
@@ -90,17 +91,22 @@ model ImportantLinks {
 
 // Faculty Table
 model Faculty {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   faculty_name  String
   qualification String
   designation   String
   profilePicUrl String?
-  created_on    DateTime  @default(now())
+  documents     String?  // Store JSON as a string
+  monthlySalary Int?
+  yearlyLeave   Int?
+  created_on    DateTime @default(now())
   created_by    String
   modify_on     DateTime?
   modify_by     String?
-  IsVisible     Boolean   @default(true) // New field added
+  IsVisible     Boolean  @default(true)
 }
+
+
 
 // Latest Post Table
 model LatestPost {

@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +8,7 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { MdNotificationAdd,MdEditNotifications,MdDelete   } from "react-icons/md";
 import { usePermissions } from '../context/PermissionsContext';
+import { useLocation } from 'react-router-dom';
 
 
 const Addnotifications = () => {
@@ -204,9 +206,15 @@ const Addnotifications = () => {
 
 
     // Permission checks
-    const pageId = pages.find(page => page.pageName === "add notification")?.pageId; // pageId will be 2// Replace with actual page ID for notifications isko dynamic karna hai
-    // const pageId = pages.find(page => page.pageName === "add notification")?.pageId;
-    console.log("page ID",pageId)
+    // Use useLocation to get the current path
+     const location = useLocation();
+   const currentPageName = location.pathname.split('/').pop(); 
+   console.log("currentPageName :", currentPageName);
+   
+   // Permissions and roles
+   // Prefixing currentPageName with '/' to match the database format
+   const prefixedPageUrl = `/${currentPageName}`;
+   const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
     
     const roleId=roles.find(role=>role.role_id===user?.roleId)?.role_id;
     // console.log(roleId)

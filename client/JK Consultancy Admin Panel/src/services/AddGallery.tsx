@@ -10,6 +10,7 @@ import { Button, Modal } from "flowbite-react";
 import { MdDelete } from 'react-icons/md';
 import { FaEdit } from 'react-icons/fa';
 import { usePermissions } from '../context/PermissionsContext';
+import { useLocation } from 'react-router-dom';
 
 const AddGallery: React.FC = () => {
   const [file, setFile] = useState<File | undefined>(undefined);
@@ -45,13 +46,22 @@ const AddGallery: React.FC = () => {
     }, [fetchRoles, fetchPages, fetchPermissions]);
   
   // Permissions and roles
-  const pageId = pages.find(page => page.pageName === "update Gallery image")?.pageId;
+ // Use useLocation to get the current path
+  const location = useLocation();
+const currentPageName = location.pathname.split('/').pop(); 
+console.log("currentPageName :", currentPageName);
+
+// Permissions and roles
+// Prefixing currentPageName with '/' to match the database format
+const prefixedPageUrl = `/${currentPageName}`;
+const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
   const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
   const canCreate = userPermissions?.canCreate ?? false;
   const canUpdate = userPermissions?.canUpdate ?? false;
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
+
 
   // console.log('User Role ID:', user?.roleId);
   // console.log('Page ID:', pageId);

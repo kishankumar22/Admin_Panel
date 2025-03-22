@@ -10,6 +10,7 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { FaEdit } from 'react-icons/fa';
 import { MdAddLink, MdDelete } from 'react-icons/md';
 import { usePermissions } from '../context/PermissionsContext';
+import { useLocation } from 'react-router-dom';
 
 const AddImportantLinks: React.FC = () => {
   const [linkName, setLinkName] = useState<string>('');
@@ -48,7 +49,15 @@ const AddImportantLinks: React.FC = () => {
   }, [fetchRoles, fetchPages, fetchPermissions]);
 
   // Permissions and roles
-  const pageId = pages.find(page => page.pageName === "update Logo Image")?.pageId;
+   // Use useLocation to get the current path
+    const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop(); 
+  // console.log("currentPageName :", currentPageName);
+  
+  // Permissions and roles
+  // Prefixing currentPageName with '/' to match the database format
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
   const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
   const canCreate = userPermissions?.canCreate ?? false;
@@ -56,11 +65,11 @@ const AddImportantLinks: React.FC = () => {
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
 
-  console.log('User Role ID:', user?.roleId);
-  console.log('Page ID:', pageId);
-  console.log('Permissions:', permissions);
-  console.log('User Permissions:', userPermissions);
-  console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+  // console.log('User Role ID:', user?.roleId);
+  // console.log('Page ID:', pageId);
+  // console.log('Permissions:', permissions);
+  // console.log('User Permissions:', userPermissions);
+  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
   // Fetch links when the component mounts
   useEffect(() => {

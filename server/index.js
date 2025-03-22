@@ -30,8 +30,8 @@ app.use(cors()); // Enable CORS
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
 
-// Use the login routes
-app.use('/api', loginRoutes); // Correctly set up the route for login
+// Use the login route
+app.use('/api', loginRoutes); // Correctly set up thce route for login
 // Routes
 app.use('/form', formRoutes);
 

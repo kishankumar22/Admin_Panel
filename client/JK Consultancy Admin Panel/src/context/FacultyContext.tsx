@@ -9,20 +9,22 @@ export interface Faculty {
   qualification: string;
   designation: string;
   profilePicUrl?: string;
+  documents?: string;
+  monthlySalary?: number;
+  yearlyLeave?: number;
   created_by: string;
   created_on: string;
   modify_by?: string;
   modify_on?: string;
-  // Add isVisible field
 }
 
 interface FacultyContextType {
   faculties: Faculty[];
   fetchFaculties: () => Promise<void>;
-  addFaculty: (faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, file?: File) => Promise<void>;
-  updateFaculty: (id: number, faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, file?: File) => Promise<void>;
+  addFaculty: (faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[]) => Promise<void>;
+  updateFaculty: (id: number, faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[]) => Promise<void>;
   deleteFaculty: (id: number) => Promise<void>;
-  toggleVisibility: (id: number, modifyBy: string) => Promise<void>; // Add toggleVisibility
+  toggleVisibility: (id: number, modifyBy: string) => Promise<void>;
 }
 
 const FacultyContext = createContext<FacultyContextType | undefined>(undefined);
@@ -40,27 +42,44 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const addFaculty = async (faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, file?: File) => {
+  const addFaculty = async (
+    faculty: Omit<Faculty, "id" | "created_on" | "modify_on">,
+    profilePic?: File,
+    documents?: File[]
+  ) => {
     try {
       const formData = new FormData();
       formData.append("faculty_name", faculty.faculty_name);
       formData.append("qualification", faculty.qualification);
       formData.append("designation", faculty.designation);
       formData.append("created_by", faculty.created_by);
-      if (file) {
-        formData.append("file", file);
+      if (faculty.monthlySalary !== undefined) formData.append("monthlySalary", faculty.monthlySalary.toString());
+      if (faculty.yearlyLeave !== undefined) formData.append("yearlyLeave", faculty.yearlyLeave.toString());
+      formData.append("IsVisible", faculty.IsVisible?.toString() ?? "true");
+
+      if (profilePic) formData.append("profilePic", profilePic);
+      if (documents && documents.length > 0) {
+        documents.forEach((doc) => formData.append("documents", doc));
       }
 
-      await axiosInstance.post("/faculty/add", formData);
+      await axiosInstance.post("/faculty/add", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
       toast.success("Faculty added successfully!");
       fetchFaculties();
     } catch (error) {
-      console.error(error);
+      console.error("Error adding faculty:", error);
       toast.error("Error adding faculty");
     }
   };
 
-  const updateFaculty = async (id: number, faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, file?: File) => {
+  const updateFaculty = async (
+    id: number,
+    faculty: Omit<Faculty, "id" | "created_on" | "modify_on">,
+    profilePic?: File,
+    documents?: File[]
+  ) => {
     try {
       const formData = new FormData();
       formData.append("faculty_name", faculty.faculty_name);
@@ -68,15 +87,23 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       formData.append("designation", faculty.designation);
       formData.append("created_by", faculty.created_by);
       formData.append("modify_by", faculty.modify_by || "Admin");
-      if (file) {
-        formData.append("file", file);
+      if (faculty.monthlySalary !== undefined) formData.append("monthlySalary", faculty.monthlySalary.toString());
+      if (faculty.yearlyLeave !== undefined) formData.append("yearlyLeave", faculty.yearlyLeave.toString());
+      if (faculty.IsVisible !== undefined) formData.append("IsVisible", faculty.IsVisible.toString());
+
+      if (profilePic) formData.append("profilePic", profilePic);
+      if (documents && documents.length > 0) {
+        documents.forEach((doc) => formData.append("documents", doc));
       }
 
-      await axiosInstance.put(`/faculty/update/${id}`, formData);
-      // toast.success("Faculty updated successfully!");
+      await axiosInstance.put(`/faculty/update/${id}`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      toast.success("Faculty updated successfully!");
       fetchFaculties();
     } catch (error) {
-      console.error(error);
+      console.error("Error updating faculty:", error);
       toast.error("Error updating faculty");
     }
   };

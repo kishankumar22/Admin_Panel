@@ -4,15 +4,20 @@ import axiosInstance from '../config';
 import { toast } from 'react-toastify';
 
 interface Banner {
-  bannerPosition: number;
-  bannerUrl: string | undefined;
-  id: number;
-  bannerName: string;
+  id?: number;
+  faculty_name: string;
+  qualification: string;
+  designation: string;
+  profilePicUrl?: string;
+  documents?: { title: string; url: string }[]; // Accepts multiple documents
+  monthlySalary?: number;
+  yearlyLeave?: number;
   created_by: string;
   created_on: string;
   modify_by?: string;
   modify_on?: string;
-  IsVisible: boolean; // Include IsVisible in the Banner interface
+  IsVisible?: boolean;
+
 }
   
 interface BannerContextType {

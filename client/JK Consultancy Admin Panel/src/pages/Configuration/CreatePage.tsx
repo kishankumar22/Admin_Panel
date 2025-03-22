@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -86,7 +86,15 @@ const CreatePage: React.FC = () => {
   };
 
   // Permissions and roles
-  const pageId = pages.find(page => page.pageName === "Create Page")?.pageId;
+ // Use useLocation to get the current path
+  const location = useLocation();
+const currentPageName = location.pathname.split('/').pop(); 
+// console.log("currentPageName :", currentPageName);
+
+// Permissions and roles
+// Prefixing currentPageName with '/' to match the database format
+const prefixedPageUrl = `/${currentPageName}`;
+const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
   const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
   const canCreate = userPermissions?.canCreate ?? false;
@@ -95,11 +103,11 @@ const CreatePage: React.FC = () => {
   // const canRead = userPermissions?.canRead ?? false;
   
  
-    console.log('User Role ID:', user?.roleId);
-    console.log('Page ID:', pageId);
-    console.log('Permissions:', permissions);
-    console.log('User Permissions:', userPermissions);
-    console.log('Permission Values:', { canCreate, canUpdate, canDelete });
+    // console.log('User Role ID:', user?.roleId);
+    // console.log('Page ID:', pageId);
+    // console.log('Permissions:', permissions);
+    // console.log('User Permissions:', userPermissions);
+    // console.log('Permission Values:', { canCreate, canUpdate, canDelete });
 
   const handleCreatePage = async () => {
     try {

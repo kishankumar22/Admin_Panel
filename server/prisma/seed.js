@@ -2,26 +2,31 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function main() {
-  // Seed Roles
-  const roles = ['Admin', 'Administrator', 'Registered'];
+  try {
+    console.log("🌱 Seeding database...");
 
-  for (const roleName of roles) {
-    await prisma.role.upsert({
-      where: { name: roleName },
-      update: {},
-      create: { name: roleName },
-    });
+    // Ensure the database is connected
+    await prisma.$queryRaw`SELECT 1`;
+    console.log("✅ Database connection successful!");
+
+    // Seed Roles
+    const roles = ['Admin', 'Administrator', 'Registered'];
+
+    for (const roleName of roles) {
+      await prisma.role.upsert({
+        where: { name: roleName },
+        update: {},
+        create: { name: roleName },
+      });
+    }
+
+    console.log("✅ Roles have been seeded successfully!");
+  } catch (error) {
+    console.error("❌ Error seeding database:", error);
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
-
-  console.log('Roles have been seeded!');
 }
 
-
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main();

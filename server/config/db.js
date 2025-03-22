@@ -5,7 +5,7 @@ const dbConfig = {
   server: 'USER\\SQLEXPRESS', // Replace with your SQL Server hocst (e.g., 'localhost' or 'DESKTOP-XXXXX')
   database: 'jkconsultancyadmindb', // Your database name
   user: 'kishankk', // Your database username
-  password: 'kishan', // Your database password
+  password: 'kishank', // Your database password
   port: 1433, // Default SQL Server port; change if needed
   options: {
     trustedConnection: true, // Enables Windows Authentication
