@@ -171,7 +171,7 @@ const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
        <button
   className={`bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition duration-200 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
   onClick={canCreate ? () => setIsModalOpen(true) : () => toast.error('Access Denied: You do not have permission to create pages.')}
-  disabled={!canCreate}
+  // disabled={!canCreate}
 >
   Create Page
 </button>
@@ -214,7 +214,7 @@ const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
       setSelectedPage(page);
       setIsEditModalOpen(true);
     } : () => toast.error('Access Denied: You do not have permission to edit pages.')}
-    disabled={!canUpdate}
+    // disabled={!canUpdate}
   >
     Edit
   </button>
@@ -224,7 +224,7 @@ const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
       setSelectedPage(page);
       setIsDeleteModalOpen(true);
     } : () => toast.error('Access Denied: You do not have permission to delete pages.')}
-    disabled={!canDelete}
+    // disabled={!canDelete}
   >
     Delete
   </button>

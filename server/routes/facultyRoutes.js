@@ -5,11 +5,9 @@ const { PrismaClient } = require('@prisma/client');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Configure Multer for in-memory file storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Fetch all faculties
 router.get('/faculty', async (req, res) => {
   try {
     const faculties = await prisma.faculty.findMany({
@@ -18,11 +16,10 @@ router.get('/faculty', async (req, res) => {
     res.status(200).json(faculties);
   } catch (error) {
     console.error('Error fetching faculties:', error);
-    res.status(500).json({ message: 'Error fetching faculties', error });
+    res.status(500).json({ message: 'Error fetching faculties', error: error.message });
   }
 });
 
-// Add faculty with profile picture and documents
 router.post('/faculty/add', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
@@ -35,10 +32,10 @@ router.post('/faculty/add', upload.fields([
       created_by, 
       monthlySalary, 
       yearlyLeave, 
-      IsVisible 
+      IsVisible,
+      documentTitles
     } = req.body;
 
-    // Validate required fields
     if (!faculty_name || !qualification || !designation || !created_by) {
       return res.status(400).json({ message: 'Missing required fields.' });
     }
@@ -46,7 +43,6 @@ router.post('/faculty/add', upload.fields([
     let profilePicUrl = null;
     let documents = [];
 
-    // Upload profile picture if provided
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
       const uploadResult = await uploadToCloudinary(req.files.profilePic[0].buffer, 'faculties');
       if (!uploadResult || !uploadResult.secure_url) {
@@ -55,18 +51,20 @@ router.post('/faculty/add', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
-    // Upload multiple documents if provided
+    const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
-      for (const file of req.files.documents) {
+      const documentFiles = req.files.documents;
+      for (let i = 0; i < documentFiles.length; i++) {
+        const file = documentFiles[i];
         const uploadResult = await uploadToCloudinary(file.buffer, 'faculties');
         if (!uploadResult || !uploadResult.secure_url) {
           return res.status(500).json({ message: `Failed to upload document ${file.originalname} to Cloudinary` });
         }
-        documents.push({ title: file.originalname, url: uploadResult.secure_url });
+        const title = titles[i] || `Untitled Document ${i + 1}`;
+        documents.push({ title, url: uploadResult.secure_url });
       }
     }
 
-    // Create faculty record
     const newFaculty = await prisma.faculty.create({
       data: {
         faculty_name,
@@ -77,15 +75,13 @@ router.post('/faculty/add', upload.fields([
         monthlySalary: monthlySalary ? parseInt(monthlySalary) : null,
         yearlyLeave: yearlyLeave ? parseInt(yearlyLeave) : null,
         created_by,
-        IsVisible: IsVisible ? JSON.parse(IsVisible) : true, // Default to true if not provided
+        IsVisible: IsVisible ? JSON.parse(IsVisible) : true,
       },
     });
 
     res.status(201).json({ 
       message: 'Faculty added successfully!', 
-      faculty: newFaculty, 
-      profilePicUrl, 
-      documents 
+      faculty: newFaculty 
     });
   } catch (error) {
     console.error('Error adding faculty:', error);
@@ -93,7 +89,6 @@ router.post('/faculty/add', upload.fields([
   }
 });
 
-// Update faculty
 router.put('/faculty/update/:id', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
@@ -107,7 +102,9 @@ router.put('/faculty/update/:id', upload.fields([
       monthlySalary, 
       yearlyLeave, 
       modify_by, 
-      IsVisible 
+      IsVisible,
+      documentTitles,
+      existingDocuments // Add this to track existing documents
     } = req.body;
 
     const existingFaculty = await prisma.faculty.findUnique({
@@ -119,9 +116,8 @@ router.put('/faculty/update/:id', upload.fields([
     }
 
     let profilePicUrl = existingFaculty.profilePicUrl;
-    let documents = existingFaculty.documents ? JSON.parse(existingFaculty.documents) : [];
+    let documents = existingDocuments ? JSON.parse(existingDocuments) : []; // Start with existing documents
 
-    // Upload new profile picture if provided
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
       const uploadResult = await uploadToCloudinary(req.files.profilePic[0].buffer, 'faculties');
       if (!uploadResult || !uploadResult.secure_url) {
@@ -130,14 +126,17 @@ router.put('/faculty/update/:id', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
-    // Upload new documents if provided (append to existing)
+    const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
-      for (const file of req.files.documents) {
+      const documentFiles = req.files.documents;
+      for (let i = 0; i < documentFiles.length; i++) {
+        const file = documentFiles[i];
         const uploadResult = await uploadToCloudinary(file.buffer, 'faculties');
         if (!uploadResult || !uploadResult.secure_url) {
           return res.status(500).json({ message: `Failed to upload document ${file.originalname} to Cloudinary` });
         }
-        documents.push({ title: file.originalname, url: uploadResult.secure_url });
+        const title = titles[i] || `Untitled Document ${i + 1}`;
+        documents.push({ title, url: uploadResult.secure_url });
       }
     }
 
@@ -160,15 +159,13 @@ router.put('/faculty/update/:id', upload.fields([
     res.status(200).json({ message: 'Faculty updated successfully!', faculty: updatedFaculty });
   } catch (error) {
     console.error('Error updating faculty:', error);
-    res.status(500).json({ message: 'Error updating faculty', error });
+    res.status(500).json({ message: 'Error updating faculty', error: error.message });
   }
 });
 
-// Delete faculty
 router.delete('/faculty/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
-
     const existingFaculty = await prisma.faculty.findUnique({
       where: { id: parseInt(id) },
     });
@@ -184,11 +181,10 @@ router.delete('/faculty/delete/:id', async (req, res) => {
     res.status(200).json({ message: 'Faculty deleted successfully.' });
   } catch (error) {
     console.error('Error deleting faculty:', error);
-    res.status(500).json({ message: 'Error deleting faculty.', error });
+    res.status(500).json({ message: 'Error deleting faculty.', error: error.message });
   }
 });
 
-// Toggle visibility
 router.put('/faculty/toggle-visibility/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -214,7 +210,7 @@ router.put('/faculty/toggle-visibility/:id', async (req, res) => {
     res.status(200).json({ message: 'Faculty visibility updated successfully!', faculty: updatedFaculty });
   } catch (error) {
     console.error('Error updating faculty visibility:', error);
-    res.status(500).json({ message: 'Error updating faculty visibility', error });
+    res.status(500).json({ message: 'Error updating faculty visibility', error: error.message });
   }
 });
 

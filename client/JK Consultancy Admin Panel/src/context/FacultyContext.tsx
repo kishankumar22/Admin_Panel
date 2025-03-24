@@ -21,8 +21,8 @@ export interface Faculty {
 interface FacultyContextType {
   faculties: Faculty[];
   fetchFaculties: () => Promise<void>;
-  addFaculty: (faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[]) => Promise<void>;
-  updateFaculty: (id: number, faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[]) => Promise<void>;
+  addFaculty: (faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[], documentTitles?: string[]) => Promise<void>;
+  updateFaculty: (id: number, faculty: Omit<Faculty, "id" | "created_on" | "modify_on">, profilePic?: File, documents?: File[], documentTitles?: string[], existingDocuments?: { title: string; url: string }[]) => Promise<void>;
   deleteFaculty: (id: number) => Promise<void>;
   toggleVisibility: (id: number, modifyBy: string) => Promise<void>;
 }
@@ -37,7 +37,7 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const res = await axiosInstance.get<Faculty[]>("/faculty");
       setFaculties(res.data);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching faculties:", error);
       toast.error("Error fetching faculties");
     }
   };
@@ -45,7 +45,8 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addFaculty = async (
     faculty: Omit<Faculty, "id" | "created_on" | "modify_on">,
     profilePic?: File,
-    documents?: File[]
+    documents?: File[],
+    documentTitles?: string[]
   ) => {
     try {
       const formData = new FormData();
@@ -56,6 +57,9 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (faculty.monthlySalary !== undefined) formData.append("monthlySalary", faculty.monthlySalary.toString());
       if (faculty.yearlyLeave !== undefined) formData.append("yearlyLeave", faculty.yearlyLeave.toString());
       formData.append("IsVisible", faculty.IsVisible?.toString() ?? "true");
+      if (documentTitles && documentTitles.length > 0) {
+        formData.append("documentTitles", JSON.stringify(documentTitles));
+      }
 
       if (profilePic) formData.append("profilePic", profilePic);
       if (documents && documents.length > 0) {
@@ -67,7 +71,7 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       toast.success("Faculty added successfully!");
-      fetchFaculties();
+      await fetchFaculties(); // Ensure this runs only once
     } catch (error) {
       console.error("Error adding faculty:", error);
       toast.error("Error adding faculty");
@@ -78,7 +82,9 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     id: number,
     faculty: Omit<Faculty, "id" | "created_on" | "modify_on">,
     profilePic?: File,
-    documents?: File[]
+    documents?: File[],
+    documentTitles?: string[],
+    existingDocuments?: { title: string; url: string }[]
   ) => {
     try {
       const formData = new FormData();
@@ -90,6 +96,12 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (faculty.monthlySalary !== undefined) formData.append("monthlySalary", faculty.monthlySalary.toString());
       if (faculty.yearlyLeave !== undefined) formData.append("yearlyLeave", faculty.yearlyLeave.toString());
       if (faculty.IsVisible !== undefined) formData.append("IsVisible", faculty.IsVisible.toString());
+      if (documentTitles && documentTitles.length > 0) {
+        formData.append("documentTitles", JSON.stringify(documentTitles));
+      }
+      if (existingDocuments && existingDocuments.length > 0) {
+        formData.append("existingDocuments", JSON.stringify(existingDocuments));
+      }
 
       if (profilePic) formData.append("profilePic", profilePic);
       if (documents && documents.length > 0) {
@@ -101,7 +113,7 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
 
       toast.success("Faculty updated successfully!");
-      fetchFaculties();
+      await fetchFaculties(); // Ensure this runs only once
     } catch (error) {
       console.error("Error updating faculty:", error);
       toast.error("Error updating faculty");
@@ -112,9 +124,9 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       await axiosInstance.delete(`/faculty/delete/${id}`);
       toast.success("Faculty deleted successfully!");
-      fetchFaculties();
+      await fetchFaculties();
     } catch (error) {
-      console.error(error);
+      console.error("Error deleting faculty:", error);
       toast.error("Error deleting faculty");
     }
   };
@@ -123,9 +135,9 @@ export const FacultyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       await axiosInstance.put(`/faculty/toggle-visibility/${id}`, { modify_by: modifyBy });
       toast.success("Faculty visibility updated successfully!");
-      fetchFaculties();
+      await fetchFaculties();
     } catch (error) {
-      console.error(error);
+      console.error("Error toggling visibility:", error);
       toast.error("Error updating faculty visibility");
     }
   };

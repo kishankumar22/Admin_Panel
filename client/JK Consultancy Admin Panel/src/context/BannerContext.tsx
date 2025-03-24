@@ -4,6 +4,9 @@ import axiosInstance from '../config';
 import { toast } from 'react-toastify';
 
 interface Banner {
+  bannerUrl: string | undefined;
+  bannerPosition(bannerPosition: any): unknown;
+  bannerName: any;
   id?: number;
   faculty_name: string;
   qualification: string;
