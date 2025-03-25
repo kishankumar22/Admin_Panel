@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 
 interface Banner {
   bannerUrl: string | undefined;
-  bannerPosition(bannerPosition: any): unknown;
+  bannerPosition(bannerPosition: any): number;
   bannerName: any;
   id?: number;
   faculty_name: string;

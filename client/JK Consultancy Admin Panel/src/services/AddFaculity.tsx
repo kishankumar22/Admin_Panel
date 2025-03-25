@@ -224,7 +224,7 @@ const AddFaculty: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <button
-          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-400 hover:bg-blue-600' : 'bg-gray-500 hover:cursor-not-allowed'}`}
+          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? 'bg-blue-800 hover:bg-blue-600' : 'bg-gray-500 hover:cursor-not-allowed'}`}
           onClick={addfaculty}
           // disabled={!canCreate}
         >
@@ -313,7 +313,7 @@ const AddFaculty: React.FC = () => {
           filteredFaculties.map((faculty) => (
             <div key={faculty.id} className="p-1 border rounded-md shadow-md">
               <img
-                src={faculty.profilePicUrl || 'https://st4.depositphotos.com/7819052/21803/v/450/depositphotos_218033152-stock-illustration-grunge-red-available-word-rubber.jpg'}
+                src={faculty.profilePicUrl || 'https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png'}
                 alt={faculty.faculty_name || 'Faculty Image'}
                 className="w-full h-44 object-fit rounded-md"
                 style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
@@ -355,7 +355,7 @@ const AddFaculty: React.FC = () => {
                     checked={faculty.IsVisible}
                     onChange={() => handleToggleVisibility(faculty.id ?? 0)}
                     className="sr-only peer"
-                    disabled={canRead}
+                    // disabled={canRead}
                   />
                   <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600'}`}>
                     <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${faculty.IsVisible ? 'translate-x-5' : ''}`}></div>

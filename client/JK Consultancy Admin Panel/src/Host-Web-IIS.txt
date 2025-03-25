@@ -1,0 +1,53 @@
+1.  run this command  in administrator
+    %windir%\system32\inetsrv\appcmd unlock config -section:system.webServer/handlers
+    %windir%\system32\inetsrv\appcmd unlock config -section:system.webServer/rewrite
+2. application pool me
+  1.netclr version   no managed  code
+  2.pipeline -classic
+3. for ssms ke liye port(1433) go to window defender firewall
+1. click imbound > new rule>port> portnum>next >name
+4. give all permission  to folder
+1.IIS_IUSRS
+2.IUSR
+5.install re write module  and web config file code look like this type 
+ this is for frontend(webconfig file   inside dist and root folde only for frontend)
+1. npm run builde karne par dist ke andar web.config delete ho jata hai 
+  <?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="ReactRouter" stopProcessing="true">
+          <match url=".*" />
+          <conditions logicalGrouping="MatchAll">
+            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="true" />
+            <add input="{REQUEST_FILENAME}" matchType="IsDirectory" negate="true" />
+          </conditions>
+          <action type="Rewrite" url="/index.html" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+
+/--------------------------------------------------/
+this is for backend (root folder)
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <handlers>
+      <add name="iisnode" path="index.js" verb="*" modules="iisnode" />
+    </handlers>
+    <rewrite>
+      <rules>
+        <rule name="DynamicContent">
+          <match url="/*" />
+          <action type="Rewrite" url="index.js" />
+        </rule>
+      </rules>
+    </rewrite>
+    <iisnode loggingEnabled="true" />
+  </system.webServer>
+</configuration>
+
+  

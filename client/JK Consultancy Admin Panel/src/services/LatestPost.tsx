@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext'; 
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
@@ -7,8 +8,6 @@ import 'froala-editor/js/plugins.pkgd.min.js';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import axiosInstance from '../config';
-import { Button, Modal } from 'flowbite-react';
-import { HiOutlineExclamationCircle } from 'react-icons/hi';
 
 const LatestPost: React.FC = () => {
   const { user } = useAuth();
@@ -287,25 +286,22 @@ const filteredPosts = posts.filter(post =>
       
 
       {/* Delete Confirmation Modal */}
-          <Modal show={isDeleteModalOpen} size="md" className="ml-50 bg-black pt-44" onClose={closeDeleteModal} popup>
-  <Modal.Header />
-  <Modal.Body>
-    <div className="text-center">
-      <HiOutlineExclamationCircle className="mx-auto mb-4 h-14 w-14 text-gray-400 dark:text-gray-200" />
-      <h3 className="mb-5 text-lg font-normal text-gray-900 dark:text-gray-400">
-        Are you sure you want to delete this post?
-      </h3>
-      <div className="flex justify-center gap-4">
-        <Button color="gray" onClick={closeDeleteModal}>
-          Cancel
-        </Button>
-        <Button color="failure" onClick={confirmDeletePost}>
-          Delete
-        </Button>
-      </div>
-    </div>
-  </Modal.Body>
-</Modal>
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 ml-60 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h1 className=' text-center text-2xl font-semibold text-red-600'> DELETE POST</h1>
+            <h2 className="text-lg font-normal p-4">Are you sure you want to delete this post?</h2>
+            <div className="mt-4 flex justify-end">
+              <button onClick={closeDeleteModal} className="bg-gray-300 text-black px-4 py-2 rounded-md mr-2">
+                Cancel
+              </button>
+              <button onClick={confirmDeletePost} className="bg-red-500 text-white px-4 py-2 rounded-md">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
