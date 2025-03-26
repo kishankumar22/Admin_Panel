@@ -209,7 +209,7 @@ const Addnotifications = () => {
     // Use useLocation to get the current path
      const location = useLocation();
    const currentPageName = location.pathname.split('/').pop(); 
-   console.log("currentPageName :", currentPageName);
+  //  console.log("currentPageName :", currentPageName);
    
    // Permissions and roles
    // Prefixing currentPageName with '/' to match the database format

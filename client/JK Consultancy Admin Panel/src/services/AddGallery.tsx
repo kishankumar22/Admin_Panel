@@ -26,35 +26,35 @@ const AddGallery: React.FC = () => {
   const { galleries, uploadGallery, deleteGallery, updateGallery, toggleVisibility } = useGallery();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const {
-      fetchRoles,
-      fetchPages,
-      fetchPermissions,
-      roles,
-      pages,
-      permissions,
-    } = usePermissions();
-  
-    // Use useEffect to fetch data when the component mounts
-    useEffect(() => {
-      const fetchData = async () => {
-        await fetchRoles();
-        await fetchPages();
-        await fetchPermissions();
-      };
-  
-      fetchData();
-    }, [fetchRoles, fetchPages, fetchPermissions]);
-  
-  // Permissions and roles
- // Use useLocation to get the current path
-  const location = useLocation();
-const currentPageName = location.pathname.split('/').pop(); 
-console.log("currentPageName :", currentPageName);
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    roles,
+    pages,
+    permissions,
+  } = usePermissions();
 
-// Permissions and roles
-// Prefixing currentPageName with '/' to match the database format
-const prefixedPageUrl = `/${currentPageName}`;
-const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
+  // Use useEffect to fetch data when the component mounts
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
+
+    fetchData();
+  }, [fetchRoles, fetchPages, fetchPermissions]);
+
+  // Permissions and roles
+  // Use useLocation to get the current path
+  const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop();
+  console.log("currentPageName :", currentPageName);
+
+  // Permissions and roles
+  // Prefixing currentPageName with '/' to match the database format
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
   const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
   const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
   const canCreate = userPermissions?.canCreate ?? false;
@@ -222,7 +222,7 @@ const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
                       setOpenDeleteModal(true);
                     } : () => toast.error('Access Denied: You do not have permission to delete galleries.')}
                     disabled={!canDelete && editingGallery?.id === gallery.id}
-                  ><MdDelete/>
+                  ><MdDelete />
                     Delete
                   </button>
                   <label className="inline-flex items-center cursor-pointer">
@@ -233,7 +233,7 @@ const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
                       className="sr-only peer"
                       disabled={!canRead} // Disable the checkbox if the user does not have permission
                     />
-                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed '  : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed ' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
                       <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${gallery.IsVisible ? 'translate-x-5' : ''}`}></div>
                     </div>
                     <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
