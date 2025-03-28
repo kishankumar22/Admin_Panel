@@ -1,47 +1,52 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { toast } from 'react-toastify';
-import axiosInstance from '../../config';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { toast } from "react-toastify";
+import axiosInstance from "../../config";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 const SignIn: React.FC = () => {
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { isLoggedIn, login } = useAuth();
   const navigate = useNavigate();
+
+  const togglePasswordVisibility = () => {
+    setShowPassword((prev) => !prev);
+  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
-      const response = await axiosInstance.post('/login', { email, password });
+      const response = await axiosInstance.post("/login", { email, password });
       const data = response.data;
+      // console.log(data);
 
       if (response.status === 200) {
         login(data.token, data.user);
-        toast.success('Login successful!');
-        navigate('/');
+        navigate("/");
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
 
       if (error.response) {
-        const errorMsg = error.response.data.error || 'An error occurred. Please try again later.';
+        const errorMsg =
+          error.response.data.error || "An error occurred. Please try again later.";
         setErrorMessage(errorMsg);
-        toast.error(errorMessage)
-
+        toast.error(errorMsg);
       } else {
-        setErrorMessage('An error occurred. Please try again later.');
-
+        setErrorMessage("An error occurred. Please try again later.");
+        toast.error("An error occurred. Please try again later.");
       }
     }
   };
 
-  // Redirect user if already logged in
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/');
+      navigate("/");
     }
   }, [isLoggedIn, navigate]);
 
@@ -65,18 +70,25 @@ const SignIn: React.FC = () => {
             />
           </div>
 
-          <div className="mb-4">
+          <div className="mb-4 relative">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
               Password
             </label>
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               id="password"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring focus:ring-blue-300"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring focus:ring-blue-300 pr-10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <button
+              type="button"
+              className="absolute inset-y-0 right-3 top-6.5 flex items-center text-gray-600"
+              onClick={togglePasswordVisibility}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
           </div>
 
           <div className="flex items-center justify-between">

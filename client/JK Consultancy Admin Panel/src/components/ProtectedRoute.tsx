@@ -69,7 +69,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     }
   }
 
-  console.log('Access granted');
+  // console.log('Access granted');
   return <>{children}</>;
 };
 

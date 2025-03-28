@@ -41,9 +41,8 @@ const AddGallery: React.FC = () => {
       await fetchPages();
       await fetchPermissions();
     };
-
     fetchData();
-  }, [fetchRoles, fetchPages, fetchPermissions]);
+  }, []);
 
   // Permissions and roles
   // Use useLocation to get the current path

@@ -41,9 +41,8 @@ const Addnotifications = () => {
       await fetchPages();
       await fetchPermissions();
     };
-
     fetchData();
-  }, [fetchRoles, fetchPages, fetchPermissions]);
+  }, []);
 
 // Empty dependency array means this runs once when the component mounts
 

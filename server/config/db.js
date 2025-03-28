@@ -1,28 +1,65 @@
-
 const sql = require('mssql');
 
+// Database configuration
 const dbConfig = {
-  server: 'USER\\SQLEXPRESS', // Replace with your SQL Server hocst (e.g., 'localhost' or 'DESKTOP-XXXXX')
-  database: 'jkconsultancyadmindb', // Your database name
-  user: 'kishankk', // Your database username
-  password: 'kishank', // Your database password
-  port: 1433, // Default SQL Server port; change if needed
+  user: 'kishankk',
+  password: 'kishank',
+  server: 'localhost',
+  database: 'jkconsultancyadmindb',
   options: {
-    trustedConnection: true, // Enables Windows Authentication
-    // encrypt: true, // Recommended for secure connections
-    trustServerCertificate: true // For local development; bypasses SSL certificate validation
-  }
+    trustServerCertificate: true,
+    enableArithAbort: true,
+    encrypt: true,
+  },
+  pool: {
+    max: 10,
+    min: 0,
+    idleTimeoutMillis: 30000,
+  },
+  connectionTimeout: 30000,
+  requestTimeout: 30000,
 };
 
-// Create a connection pool
-const db = new sql.ConnectionPool(dbConfig);
+// Create a global connection pool that can be reused
+const pool = new sql.ConnectionPool(dbConfig);
 
-db.connect()
-  .then(() => {
-    console.log('Database is connected successfully using Windows Authentication!');
+// Create a connection pool promise to be resolved on successful connection
+const poolConnect = pool
+  .connect()
+  .then(pool => {
+    console.log(':white_check_mark: Database connected successfully!');
+    return pool;
   })
-  .catch((err) => {
-    console.error('❌ Database connection failed:', err.message);
+  .catch(err => {
+    console.error(':x: Database connection failed:', err.message);
+    throw err;
   });
 
-module.exports = db; // Export the connection pool
+// Export both the pool and the connection promise
+module.exports = {
+  sql,
+  pool,
+  poolConnect,
+  // Helper method to execute queries safely
+  async executeQuery(query, params = {}) {
+    try {
+      const connection = await poolConnect;
+      const request = connection.request();
+
+      // Add all parameters dynamically
+      for (const [name, { type, value }] of Object.entries(params)) {
+        request.input(name, type, value);
+      }
+
+      const result = await request.query(query);
+      return result;
+    } catch (error) {
+      console.error('Query execution error:', error.message);
+      throw error;
+    }
+  },
+  // Close the pool when the application shuts down
+  closePool() {
+    return pool.close();
+  },
+};

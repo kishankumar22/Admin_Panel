@@ -1,8 +1,8 @@
 const express = require('express');
-const db = require('../config/db'); // Import the database connection promise
+const db = require('../config/db'); // Import the database configuration
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const sql = require('mssql'); // Add MSSQL package
+const sql = require('mssql');
 
 const router = express.Router();
 
@@ -16,14 +16,14 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    // Wait for the database connection pool
-    const pool = await db;
+    // Wait for the database connection pool using poolConnect
+    const pool = await db.poolConnect; // Correct: Use poolConnect to get the connected pool
 
     // MSSQL query syntax with named parameter
     const query = 'SELECT * FROM [user] WHERE email = @email';
     
-    // Create a request from the pool
-    const request = pool.request();
+    // Create a request from the connected pool
+    const request = pool.request(); // This should now work
     request.input('email', sql.VarChar, email);
 
     const result = await request.query(query);
@@ -51,11 +51,11 @@ router.post('/login', async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token: token,
-      user: userDetails, // Return all user details
+      user: userDetails,
     });
   } catch (error) {
     console.error('❌ Server error:', error.message);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });
 

@@ -26,7 +26,11 @@ const PORT = process.env.PORT || 3002;
 
 // Middleware to parse JSON requests
 app.use(express.json());    
-app.use(cors()); // Enable CORS
+app.use(cors({
+    origin: "*",  // Allow all origins
+    methods: ["GET", "POST", "PUT", "DELETE"],  // Allowed HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"]  // Allowed headers
+  }));
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
 

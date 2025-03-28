@@ -45,9 +45,8 @@ const AddBanner: React.FC = () => {
       await fetchPages();
       await fetchPermissions();
     };
-
     fetchData();
-  }, [fetchRoles, fetchPages, fetchPermissions]);
+  }, []);
  // Use useLocation to get the current path
   const location = useLocation();
 const currentPageName = location.pathname.split('/').pop(); 

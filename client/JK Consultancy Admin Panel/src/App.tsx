@@ -44,7 +44,7 @@ const App: React.FC = () => {
       path: '/',
       element: (
         <>
-          <PageTitle title="eCommerce" />
+          <PageTitle title="Admin Panel JK Website " />
           <ECommerce />
         </>
       ),
@@ -134,7 +134,7 @@ const App: React.FC = () => {
       path: '/assign-page-to-role',
       element: (
         <>
-          <PageTitle title="AssignRolePage" />
+          <PageTitle title="Assign Role Page" />
           <AssignRolePage />
         </>
       ),
