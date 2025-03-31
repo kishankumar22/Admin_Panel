@@ -10,8 +10,10 @@ import { IoIosArrowDown } from "react-icons/io";
 import { BiImageAdd } from "react-icons/bi";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from '../../context/AuthContext';
-import { MdCreateNewFolder ,MdOutlineAssignmentTurnedIn ,MdOutlineManageHistory } from "react-icons/md";
+import { MdCreateNewFolder, MdOutlineAssignmentTurnedIn, MdOutlineManageHistory } from "react-icons/md";
 import { FaUserPlus } from "react-icons/fa";
+import { PiStudent } from "react-icons/pi";
+import { IoIosPersonAdd } from "react-icons/io";
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -118,16 +120,15 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         handleDropdownClick('jk-management');
                       }}
                     >
-                      <MdOutlineManageHistory  className="w-4 h-4" />
+                      <MdOutlineManageHistory className="w-4 h-4" />
                       JK Management
                       <IoIosArrowDown
                         className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'jk-management' && 'rotate-180'}`}
                       />
                     </NavLink>
                     <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        openDropdown === 'jk-management' ? 'max-h-96' : 'max-h-0'
-                      }`}
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${openDropdown === 'jk-management' ? 'max-h-96' : 'max-h-0'
+                        }`}
                     >
                       <ul className="mt-1 flex flex-col gap-0.5 pl-4 ">
                         <li >
@@ -203,17 +204,45 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </SidebarLinkGroup>
             )}
 
-            <li>
-              <NavLink
-                to="/adduser"
-                className={({ isActive }) =>
-                  `group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white  bg-gray-500' }`
-                }
-              >
-                <FaUserPlus  className="w-4 h-4" />
-                Add User
-              </NavLink>
-            </li>
+
+            <SidebarLinkGroup activeCondition={pathname === '/students' || pathname.includes('students')}>
+              {() => (
+                <>
+                  <NavLink
+                    to="#"
+                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDropdownClick('students');
+                    }}
+                  >
+                    <PiStudent className="w-4 h-4" />
+                    Students
+                    <IoIosArrowDown
+                      className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
+                    />
+                  </NavLink>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'students' ? 'max-h-96' : 'max-h-0'
+                      }`}
+                  >
+                    <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                      <li>
+                        <NavLink
+                          to="/student"
+                          className={({ isActive }) =>
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                          }
+                        >
+                          < IoIosPersonAdd className="w-3.5 h-3.5" />
+                          Add Students
+                        </NavLink>
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </SidebarLinkGroup>
 
             <SidebarLinkGroup activeCondition={pathname === '/configuration' || pathname.includes('configuration')}>
               {() => (
@@ -233,9 +262,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                     />
                   </NavLink>
                   <div
-                    className={`overflow-hidden transition-all duration-200 ease-in-out ${
-                      openDropdown === 'configuration' ? 'max-h-96' : 'max-h-0'
-                    }`}
+                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'configuration' ? 'max-h-96' : 'max-h-0'
+                      }`}
                   >
                     <ul className="mt-1 flex flex-col gap-0.5 pl-4">
                       <li>
@@ -245,7 +273,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                           }
                         >
-                          <MdOutlineAssignmentTurnedIn  className="w-3.5 h-3.5" />
+                          <MdOutlineAssignmentTurnedIn className="w-3.5 h-3.5" />
                           Assign Page to Role
                         </NavLink>
                       </li>
@@ -265,6 +293,18 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 </>
               )}
             </SidebarLinkGroup>
+            <li>
+              <NavLink
+                to="/adduser"
+                className={({ isActive }) =>
+                  `group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white  bg-gray-500'}`
+                }
+              >
+                <FaUserPlus className="w-4 h-4" />
+                Add User
+              </NavLink>
+            </li>
+
           </ul>
         </nav>
       </div>

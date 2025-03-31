@@ -6,7 +6,7 @@ import { useNotifications } from '../context/NotificationContext';
 import { toast } from 'react-toastify';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
-import { MdNotificationAdd,MdEditNotifications,MdDelete   } from "react-icons/md";
+import { MdNotificationAdd, MdEditNotifications, MdDelete } from "react-icons/md";
 import { usePermissions } from '../context/PermissionsContext';
 import { useLocation } from 'react-router-dom';
 
@@ -44,7 +44,7 @@ const Addnotifications = () => {
     fetchData();
   }, []);
 
-// Empty dependency array means this runs once when the component mounts
+  // Empty dependency array means this runs once when the component mounts
 
   const { user } = useAuth();
   const { addNotification: addNotificationContext, editNotification, deleteNotification, searchNotifications } = useNotifications();
@@ -204,30 +204,30 @@ const Addnotifications = () => {
   const filteredNotifications = searchNotifications(searchQuery);
 
 
-    // Permission checks
-    // Use useLocation to get the current path
-     const location = useLocation();
-   const currentPageName = location.pathname.split('/').pop(); 
+  // Permission checks
+  // Use useLocation to get the current path
+  const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop();
   //  console.log("currentPageName :", currentPageName);
-   
-   // Permissions and roles
-   // Prefixing currentPageName with '/' to match the database format
-   const prefixedPageUrl = `/${currentPageName}`;
-   const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
-    
-    const roleId=roles.find(role=>role.role_id===user?.roleId)?.role_id;
-    // console.log(roleId)
-    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId===user?.roleId);
-    const canCreate = userPermissions?.canCreate ?? false;
-    const canUpdate = userPermissions?.canUpdate ?? false;
-    const canDelete = userPermissions?.canDelete ?? false;
-    // const canRead = userPermissions?.canRead ?? false;   
-          // console.log('User Role ID:', user?.roleId);
-          // console.log('Page ID:', pageId);
-          // console.log('Permissions:', permissions);
-          // console.log('User Permissions:', userPermissions);
-          // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
-       
+
+  // Permissions and roles
+  // Prefixing currentPageName with '/' to match the database format
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
+
+  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  // console.log(roleId)
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
+  const canCreate = userPermissions?.canCreate ?? false;
+  const canUpdate = userPermissions?.canUpdate ?? false;
+  const canDelete = userPermissions?.canDelete ?? false;
+  // const canRead = userPermissions?.canRead ?? false;   
+  // console.log('User Role ID:', user?.roleId);
+  // console.log('Page ID:', pageId);
+  // console.log('Permissions:', permissions);
+  // console.log('User Permissions:', userPermissions);
+  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+
   return (
     <>
       <Breadcrumb pageName="Add Notification" />
@@ -244,27 +244,35 @@ const Addnotifications = () => {
         <button
           className={`px-4 py-1  hover:scale-105 flex text-sm text-white bg-blue-500 rounded-md hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue- 400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={canCreate ? openAddModal : () => toast.error('Access Denied')}
-        ><MdNotificationAdd className='mt-0.5 mr-1'/>
+        ><MdNotificationAdd className='mt-0.5 mr-1' />
           Add Notification
         </button>
       </div>
 
       {/* Add Notification Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 flex ml-50 items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 h-auto dark:bg-meta-4 rounded-lg shadow-lg w-96">
-            <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Notification</h3>
-          <p className='font-semibold'>Notification Message</p>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 px-4">
+          <div className="bg-white dark:bg-meta-4 p-5 rounded-lg shadow-lg w-full max-w-md">
+
+            {/* Header */}
+            <h3 className="mb-3 text-center bg-gray-200 p-2 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">
+              Add Notification
+            </h3>
+
+            {/* Notification Message */}
+            <label className="block text-sm font-semibold mb-1">Notification Message</label>
             <input
               type="text"
-              className="w-full p-2 dark:bg-meta-4 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 border border-gray-300 dark:bg-meta-4 rounded-md focus:ring-2 focus:ring-blue-500"
               placeholder="Enter notification"
               value={addNotification}
               onChange={(e) => setAddNotification(e.target.value)}
             />
-            <p className='font-semibold'>Notification type</p>
+
+            {/* Notification Type Selection */}
+            <label className="block mt-3 text-sm font-semibold mb-1">Notification Type</label>
             <select
-              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 border border-gray-300 dark:bg-meta-4 rounded-md focus:ring-2 focus:ring-blue-500"
               value={inputType}
               onChange={(e) => setInputType(e.target.value as 'url' | 'file')}
             >
@@ -273,12 +281,13 @@ const Addnotifications = () => {
               <option value="file">File</option>
             </select>
 
+            {/* URL Input */}
             {inputType === 'url' && (
               <>
-                <p className='font-semibold'>Notification url</p>
+                <label className="block mt-3 text-sm font-semibold mb-1">Notification URL</label>
                 <input
                   type="text"
-                  className={`w-full p-2 mb-4 border dark:bg-meta-4 ${isValidUrl ? 'border-gray-300' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 ${isValidUrl ? 'focus:ring-blue-500' : 'focus:ring-red-500'}`}
+                  className={`w-full p-2 border ${isValidUrl ? 'border-gray-300' : 'border-red-500'} dark:bg-meta-4 rounded-md focus:ring-2 ${isValidUrl ? 'focus:ring-blue-500' : 'focus:ring-red-500'}`}
                   placeholder="(e.g., https://example.com)"
                   value={url}
                   onChange={handleUrlChange}
@@ -286,27 +295,30 @@ const Addnotifications = () => {
               </>
             )}
 
+            {/* File Upload */}
             {inputType === 'file' && (
               <>
-                <p className='font-semibold'>Notification file</p>
+                <label className="block mt-3 text-sm font-semibold mb-1">Upload File</label>
                 <input
                   type="file"
-                  className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 border border-gray-300 dark:bg-meta-4 rounded-md focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
               </>
             )}
 
-            <div className="flex justify-end space-x-2">
+            {/* Buttons */}
+            <div className="flex justify-end space-x-2 mt-4">
               <button
-                className={`px-4 py-2 text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 ${isUploading || (inputType === 'url' && !isValidUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:ring-2 ${isUploading || (inputType === 'url' && !isValidUrl) ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-300'}`}
                 onClick={canCreate ? handleAddNotification : () => toast.error('Access Denied')}
                 disabled={isUploading || (inputType === 'url' && !isValidUrl)}
               >
                 {isUploading ? 'Uploading...' : 'Add'}
               </button>
+
               <button
-                className="px-4 py-2 text-white bg-gray-500 rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                className="px-4 py-2 text-sm font-medium text-white bg-gray-500 rounded-md hover:bg-gray-600 focus:ring-2 focus:ring-gray-300"
                 onClick={closeAddModal}
               >
                 Cancel
@@ -316,23 +328,29 @@ const Addnotifications = () => {
         </div>
       )}
 
+
       {/* Edit Notification Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 flex ml-50 items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg dark:bg-meta-4 shadow-lg w-96">
-            <h3 className="mb-1 text-center bg-slate-300 rounded-md text-lg font-bold dark:text-meta-5 p-1 text-blue-800">Edit Notification</h3>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-meta-4 p-6 rounded-lg shadow-lg w-[90%] max-w-md">
+            <h3 className="mb-3 text-center bg-slate-300 dark:bg-gray-700 rounded-md text-lg font-bold text-blue-800 p-2">
+              Edit Notification
+            </h3>
 
-            <p className='font-semibold'>Notification Message</p>
+            {/* Notification Message */}
+            <label className="font-semibold">Notification Message</label>
             <input
               type="text"
-              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 mb-3 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter notification"
               value={addNotification}
               onChange={(e) => setAddNotification(e.target.value)}
             />
-            <p className='font-semibold'>Notification type</p>
+
+            {/* Notification Type */}
+            <label className="font-semibold">Notification Type</label>
             <select
-              className="w-full p-2 mb-4 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full p-2 mb-3 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={inputType}
               onChange={(e) => setInputType(e.target.value as 'url' | 'file')}
             >
@@ -340,34 +358,44 @@ const Addnotifications = () => {
               <option value="file">File</option>
             </select>
 
+            {/* URL Input with Validation */}
             {inputType === 'url' && (
               <>
-                <p className='font-semibold'>Notification url</p>
+                <label className="font-semibold">Notification URL</label>
                 <input
                   type="text"
-                  className={`w-full p-2 mb-4 border dark:bg-meta-4 ${isValidUrl ? 'border-gray-300' : 'border-red-500'} rounded-md focus:outline-none focus:ring-2 ${isValidUrl ? 'focus:ring-blue-500' : 'focus:ring-red-500'}`}
+                  className={`w-full p-2 mb-2 border dark:bg-meta-4 rounded-md focus:outline-none focus:ring-2 ${isValidUrl ? 'border-gray-300 focus:ring-blue-500' : 'border-red-500 focus:ring-red-500'
+                    }`}
                   placeholder="(e.g., https://example.com)"
                   value={url}
                   onChange={handleUrlChange}
                 />
+                {!isValidUrl && url.length > 0 && (
+                  <p className="text-sm text-red-500">Invalid URL format. Please enter a valid URL.</p>
+                )}
               </>
             )}
 
+            {/* File Upload */}
             {inputType === 'file' && (
               <>
-                <p className='font-semibold'>Notification file</p>
+                <label className="font-semibold">Notification File</label>
                 <input
                   type="file"
-                  className="w-full p-2 mb-4 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-2 mb-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
               </>
             )}
 
-            <div className="flex justify-end space-x-2">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 mt-3">
               <button
-                className={`px-4 py-2 text-white bg-green-500 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 ${isUpdating || (inputType === 'url' && !isValidUrl) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                onClick={canUpdate ? handleSaveNotification : () => toast.error('Access Denied')}
+                className={`px-4 py-2 text-white rounded-md transition ${isUpdating || (inputType === 'url' && !isValidUrl)
+                    ? 'bg-green-300 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600 focus:ring-2 focus:ring-green-300'
+                  }`}
+                onClick={canUpdate ? handleSaveNotification : undefined}
                 disabled={isUpdating || (inputType === 'url' && !isValidUrl)}
               >
                 {isUpdating ? 'Updating...' : 'Save'}
@@ -383,26 +411,46 @@ const Addnotifications = () => {
         </div>
       )}
 
+
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-50 mt-10 pt-40 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
-        <Modal.Header />
-        <Modal.Body>
+      <Modal
+        show={openDeleteModal}
+        size="md"
+        className="fixed inset-0 flex items-center justify-center pt-50 bg-black bg-opacity-50"
+        onClose={() => setOpenDeleteModal(false)}
+        popup
+      >
+        <Modal.Header className="p-3" />
+        <Modal.Body className="p-5 max-h-[60vh] overflow-y-auto bg-white rounded-lg shadow-lg">
           <div className="text-center">
-            <HiOutlineExclamationCircle className="mx-auto mb-4 h-14 w-14 text-gray-400 dark:text-gray-200" />
-            <h3 className="mb-5 text-lg font-normal text-gray-900 dark:text-gray-400">
+            <HiOutlineExclamationCircle className="mx-auto mb-3 h-14 w-14 text-gray-400 dark:text-gray-200" />
+            <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-400">
               Are you sure you want to delete this notification?
             </h3>
-            <div className="flex justify-center text-white gap-4">
-              <Button color="failure" className='bg-red-700' onClick={canDelete ? handleDeleteNotification : () => toast.error('Access Denied')}>
-                {"Yes, I'm sure"}
+            <div className="flex justify-center gap-3">
+              <Button
+                color="failure"
+                className={`px-3 py-1.5 text-sm rounded-md transition ${canDelete
+                    ? "bg-red-600 hover:bg-red-700 text-white"
+                    : "bg-red-300 text-gray-600 cursor-not-allowed"
+                  }`}
+                onClick={canDelete ? handleDeleteNotification : undefined}
+                disabled={!canDelete}
+              >
+                Yes, I'm sure
               </Button>
-              <Button color="gray" onClick={() => setOpenDeleteModal(false)}>
+              <Button
+                color="gray"
+                className="px-3 py-1.5 text-sm bg-gray-300 hover:bg-gray-400 text-black rounded-md"
+                onClick={() => setOpenDeleteModal(false)}
+              >
                 No, cancel
               </Button>
             </div>
           </div>
-        </Modal.Body>                       
+        </Modal.Body>
       </Modal>
+
 
       {/* Notifications Table */}
       <div className="mt-2 p-3 bg-white dark:bg-meta-4 rounded-lg shadow-md">
@@ -437,7 +485,7 @@ const Addnotifications = () => {
                   </td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">{notification.created_by}</td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">{formatDate(notification.created_on)}</td>
-                  <td className="py-1 px-2 border-b text-black dark:text-white">{notification.modify_by ? notification.modify_by:'N/A'}</td>
+                  <td className="py-1 px-2 border-b text-black dark:text-white">{notification.modify_by ? notification.modify_by : 'N/A'}</td>
                   <td className="py-1 px-2 border-b text-black dark:text-white">
                     {notification.modify_on ? formatDate(notification.modify_on) : 'N/A'}
                   </td>
@@ -447,7 +495,7 @@ const Addnotifications = () => {
                         className={`flex hover:scale-105 text-white text-xs bg-green-500 px-2 py-1 rounded hover:bg-green-600 transition duration-150 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onClick={canUpdate ? () => openEditModal(notification) : () => toast.error('Access Denied')}
                       >
-                        <MdEditNotifications  className='mt-0.5 mr-1' />
+                        <MdEditNotifications className='mt-0.5 mr-1' />
                         Edit
                       </button>
                       <button
@@ -457,7 +505,7 @@ const Addnotifications = () => {
                           setOpenDeleteModal(true);
                         } : () => toast.error('Access Denied')}
                       >
-                         <MdDelete   className='mt-0.5 mr-1 ' />
+                        <MdDelete className='mt-0.5 mr-1 ' />
                         Delete
                       </button>
                     </div>

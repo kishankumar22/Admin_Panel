@@ -7,7 +7,7 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { useAuth } from "../context/AuthContext";
 import { MdDelete } from "react-icons/md";
-import { FaEdit } from "react-icons/fa";
+import { FaEdit, FaEye, FaEyeSlash } from "react-icons/fa";
 import { FcViewDetails } from "react-icons/fc";
 import { usePermissions } from "../context/PermissionsContext";
 import { useLocation } from "react-router-dom";
@@ -32,6 +32,24 @@ const AddFaculty: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [openDocsModal, setOpenDocsModal] = useState<boolean>(false);
   const [selectedFacultyDocs, setSelectedFacultyDocs] = useState<Faculty | null>(null);
+  // Add to state declarations
+  const [openPreviewModal, setOpenPreviewModal] = useState<boolean>(false);
+  const [selectedDocument, setSelectedDocument] = useState<{ title: string; url: string } | null>(null);
+  // Add to handlers
+  const handleOpenPreviewModal = (doc: { title: string; url: string }) => {
+    setSelectedDocument(doc);
+    setOpenPreviewModal(true);
+  };
+  const getFileType = (url: string): string => {
+    const extension = url.split('.').pop()?.toLowerCase() || '';
+    if (extension === 'pdf') return 'pdf';
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) return 'image';
+    return 'unknown'; // Default case for unsupported files
+  };
+  const handleClosePreviewModal = () => {
+    setOpenPreviewModal(false);
+    setSelectedDocument(null);
+  };
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -244,9 +262,8 @@ const AddFaculty: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <button
-          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-            canCreate ? "bg-blue-800 hover:bg-blue-600" : "bg-gray-500 hover:cursor-not-allowed"
-          }`}
+          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? "bg-blue-800 hover:bg-blue-600" : "bg-gray-500 hover:cursor-not-allowed"
+            }`}
           onClick={addfaculty}
         >
           Add Faculty
@@ -399,40 +416,42 @@ const AddFaculty: React.FC = () => {
       )}
 
       {/* Faculty List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
         {filteredFaculties.length > 0 ? (
-          filteredFaculties.map((faculty) => (
-            <div key={faculty.id} className="p-2 border rounded-md shadow-md">
-              <img
-                src={
-                  faculty.profilePicUrl ||
-                  "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"
-                }
-                alt={faculty.faculty_name || "Faculty Image"}
-                className="w-full h-44 object-fit rounded-md"
-                style={{ opacity: faculty.IsVisible ? 1 : 0.6 }}
-              />
-              <p className="text-sm font-semibold mt-1">
-                <b>Name:</b> {faculty.faculty_name}
-              </p>
-              <p className="text-xs">
-                <b>Qualification:</b> {faculty.qualification}
-              </p>
-              <p className="text-xs">
-                <b>Designation:</b> {faculty.designation}
-              </p>
-              <p className="text-xs">
-                <b>Monthly Salary:</b> {faculty.monthlySalary ?? "N/A"}
-              </p>
-              <p className="text-xs">
-                <b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}
-              </p>
-              <div className="flex justify-between items-center mt-2">
-                <div className="flex gap-1">
+          filteredFaculties.map((faculty: Faculty) => (
+            <div key={faculty.id} className="p-3 border rounded-lg shadow-lg bg-white dark:bg-gray-800">
+              <div className="relative">
+                <img
+                  src={faculty.profilePicUrl || "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"}
+                  alt={faculty.faculty_name || "Faculty Image"}
+                  className="w-full h-40 object- rounded-md"
+                  style={{ opacity: faculty.IsVisible ? 1 : 0.5 }}
+                />
+                <button
+                  className={`flex items-center justify-center p-2 text-xs text-white bg-slate-200 rounded-md transition duration-200 ease-in-out hover:bg-gray-400 absolute top-2 right-2 ${!canRead ? "opacity-50 cursor-not-allowed" : ""}`}
+                  onClick={() => handleToggleVisibility(faculty.id ?? 0)}
+                  disabled={!canRead}
+                >
+                  {faculty.IsVisible ? (
+                    <FaEye className="w-5  h-5 text-blue-700" />
+                  ) : (
+                    <FaEyeSlash className="w-5  h-5 text-red-500" />
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                <p><b>Name:</b> {faculty.faculty_name}</p>
+                <p><b>Qualification:</b> {faculty.qualification}</p>
+                <p><b>Designation:</b> {faculty.designation}</p>
+                <p><b>Salary:</b> {faculty.monthlySalary ?? "N/A"}</p>
+                <p><b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}</p>
+              </div>
+
+              <div className="flex justify-between items-center mt-3">
+                <div className="flex gap-2">
                   <button
-                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-green-500 rounded-md hover:bg-green-600 ${
-                      !canUpdate ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? "opacity-50 cursor-not-allowed" : ""}`}
                     onClick={() => handleEditFaculty(faculty)}
                     disabled={!canUpdate}
                   >
@@ -440,9 +459,7 @@ const AddFaculty: React.FC = () => {
                     Edit
                   </button>
                   <button
-                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-red-500 rounded-md hover:bg-red-600 ${
-                      !canDelete ? "opacity-50 cursor-not-allowed" : ""
-                    }`}
+                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? "opacity-50 cursor-not-allowed" : ""}`}
                     onClick={() => handleOpenDeleteModal(faculty.id ?? 0)}
                     disabled={!canDelete}
                   >
@@ -464,38 +481,11 @@ const AddFaculty: React.FC = () => {
                     Docs
                   </Button>
                 </div>
-                <label className="inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={faculty.IsVisible}
-                    onChange={() => handleToggleVisibility(faculty.id ?? 0)}
-                    className="sr-only peer"
-                    disabled={!canRead}
-                  />
-                  <div
-                    className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${
-                      !canRead ? "opacity-50 cursor-not-allowed" : "peer-checked:bg-blue-600"
-                    }`}
-                  >
-                    <div
-                      className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${
-                        faculty.IsVisible ? "translate-x-5" : ""
-                      }`}
-                    ></div>
-                  </div>
-                  <span
-                    className={`ms-2 text-xs font-medium ${
-                      !canRead ? "text-gray-400" : "text-gray-900 dark:text-gray-300"
-                    }`}
-                  >
-                    IsVisible
-                  </span>
-                </label>
               </div>
             </div>
           ))
         ) : (
-          <p>No faculties found</p>
+          <p className="text-center w-full text-gray-500 dark:text-gray-400">No faculties found</p>
         )}
       </div>
 
@@ -503,22 +493,30 @@ const AddFaculty: React.FC = () => {
       <Modal
         show={openDeleteModal}
         size="md"
-        className="ml-50 bg-black pt-44"
+        className="fixed inset-0 flex items-center pt-50 justify-center bg-black bg-opacity-50"
         onClose={() => setOpenDeleteModal(false)}
         popup
       >
-        <Modal.Header className="p-1" />
-        <Modal.Body className="p-2 max-h-[60vh] overflow-y-auto">
+        <Modal.Header className="p-3" />
+        <Modal.Body className="p-4 max-h-[60vh] overflow-y-auto bg-white rounded-lg shadow-lg">
           <div className="text-center">
-            <HiOutlineExclamationCircle className="mx-auto mb-2 h-12 w-12 text-gray-400 dark:text-gray-200" />
-            <h3 className="mb-2 text-base font-normal text-gray-900 dark:text-gray-400">
+            <HiOutlineExclamationCircle className="mx-auto mb-3 h-12 w-12 text-gray-400 dark:text-gray-200" />
+            <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-400">
               Are you sure you want to delete this faculty?
             </h3>
-            <div className="flex justify-center gap-2">
-              <Button color="failure" className="px-2 py-1 text-sm" onClick={handleDelete}>
+            <div className="flex justify-center gap-3">
+              <Button
+                color="failure"
+                className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md"
+                onClick={handleDelete}
+              >
                 Yes, I'm sure
               </Button>
-              <Button color="gray" className="px-2 py-1 text-sm" onClick={() => setOpenDeleteModal(false)}>
+              <Button
+                color="gray"
+                className="px-3 py-1.5 text-sm bg-gray-300 hover:bg-gray-400 text-black rounded-md"
+                onClick={() => setOpenDeleteModal(false)}
+              >
                 No, cancel
               </Button>
             </div>
@@ -526,72 +524,72 @@ const AddFaculty: React.FC = () => {
         </Modal.Body>
       </Modal>
 
+
       {/* Faculty Details Modal */}
       {openDetailsModal && selectedFaculty && (
         <Modal
           show={openDetailsModal}
           size="md"
-          className="ml-50 py-20 bg-black"
+          className="fixed inset-0 pt-49 flex items-center justify-center bg-black bg-opacity-50"
           onClose={() => setOpenDetailsModal(false)}
           popup
         >
-          <Modal.Header className="p-1" />
-          <Modal.Body className="p-2 max-h-[70vh] overflow-y-auto">
-            <div>
+          <Modal.Header className="p-2" />
+          <Modal.Body className="p-4 max-h-[70vh] overflow-y-auto">
+            <div className="space-y-2">
+              {/* Faculty Image */}
               <img
                 src={selectedFaculty.profilePicUrl}
-                alt=""
-                className="w-full h-44 object-fit mb-1"
+                alt="Faculty Profile"
+                className="w-full h-44 object-cover rounded-md mb-2"
               />
-              <p className="text-sm">
-                <b>Faculty Name:</b> {selectedFaculty.faculty_name}
-              </p>
-              <p className="text-sm">
-                <b>Qualification:</b> {selectedFaculty.qualification}
-              </p>
-              <p className="text-sm">
-                <b>Designation:</b> {selectedFaculty.designation}
-              </p>
-              <p className="text-sm">
-                <b>Monthly Salary:</b> {selectedFaculty.monthlySalary ?? "N/A"}
-              </p>
-              <p className="text-sm">
-                <b>Yearly Leave:</b> {selectedFaculty.yearlyLeave ?? "N/A"}
-              </p>
-              <p className="text-sm">
-                <b>Created By:</b> {selectedFaculty.created_by}
-              </p>
-              <p className="text-sm">
-                <b>Created on:</b> {selectedFaculty.created_on}
-              </p>
-              <p className="text-sm">
-                <b>Modified By:</b> {selectedFaculty.modify_by}
-              </p>
-              <p className="text-sm">
-                <b>Modified on:</b> {selectedFaculty.modify_on}
-              </p>
-              <p className="text-sm">
-                <b>Is Visible:</b> {selectedFaculty.IsVisible ? "Yes" : "No"}
-              </p>
+
+              {/* Faculty Details */}
+              <p className="text-sm"><b>Faculty Name:</b> {selectedFaculty.faculty_name}</p>
+              <p className="text-sm"><b>Qualification:</b> {selectedFaculty.qualification}</p>
+              <p className="text-sm"><b>Designation:</b> {selectedFaculty.designation}</p>
+              <p className="text-sm"><b>Monthly Salary:</b> {selectedFaculty.monthlySalary ?? "N/A"}</p>
+              <p className="text-sm"><b>Yearly Leave:</b> {selectedFaculty.yearlyLeave ?? "N/A"}</p>
+              <p className="text-sm"><b>Created By:</b> {selectedFaculty.created_by}</p>
+              <p className="text-sm"><b>Created on:</b> {selectedFaculty.created_on}</p>
+              <p className="text-sm"><b>Modified By:</b> {selectedFaculty.modify_by}</p>
+              <p className="text-sm"><b>Modified on:</b> {selectedFaculty.modify_on}</p>
+              <p className="text-sm"><b>Is Visible:</b> {selectedFaculty.IsVisible ? "Yes" : "No"}</p>
+
+              {/* Documents Section */}
               {selectedFaculty.documents && (
                 <div>
                   <b className="text-sm">Documents:</b>
-                  {JSON.parse(selectedFaculty.documents).map((doc: any, index: number) => (
-                    <p key={index} className="text-sm">
-                      <a href={doc.url} target="_blank" rel="noopener noreferrer">
-                        {doc.title}
-                      </a>
-                    </p>
-                  ))}
+                  {(() => {
+                    try {
+                      const docs = JSON.parse(selectedFaculty.documents);
+                      return docs.map((doc: any, index: number) => (
+                        <p key={index} className="text-sm">
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            {doc.title}
+                          </a>
+                        </p>
+                      ));
+                    } catch (error) {
+                      return <p className="text-sm text-red-500">Invalid document data</p>;
+                    }
+                  })()}
                 </div>
               )}
-              <div className="flex justify-center mt-2">
+
+              {/* Close Button */}
+              <div className="flex justify-center mt-4">
                 <Button
                   color="gray"
-                  className="bg-gray-300 px-2 py-1 text-sm"
+                  className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 text-sm rounded-md transition"
                   onClick={() => setOpenDetailsModal(false)}
                 >
-                  Cancel
+                  Close
                 </Button>
               </div>
             </div>
@@ -599,87 +597,193 @@ const AddFaculty: React.FC = () => {
         </Modal>
       )}
 
-      {/* Documents Modal */}
+
+      {/* Documents Preview  Modal */}
       <Modal
-  show={openDocsModal}
-  onClose={handleCloseDocsModal}
-  size="lg"
-  popup
-  className=" ml-50 pt-40 bg-gray-400"
->
-  <Modal.Header className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 text-center w-full">
-      Documents for {selectedFacultyDocs?.faculty_name || "Faculty"}
-    </h3>
-  </Modal.Header>
-  <Modal.Body className="p-6">
-    <div>
-      {selectedFacultyDocs?.documents && JSON.parse(selectedFacultyDocs.documents).length > 0 ? (
-        <div className="overflow-x-auto rounded-lg shadow-md">
-          <table className="w-full text-sm text-left text-gray-800 dark:text-gray-200 border-collapse">
-            <thead className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-              <tr>
-                <th className="p-3 font-semibold border-b border-gray-300 dark:border-gray-600">Title</th>
-                <th className="p-3 font-semibold border-b border-gray-300 dark:border-gray-600">URL</th>
-                <th className="p-3 font-semibold border-b border-gray-300 dark:border-gray-600">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {JSON.parse(selectedFacultyDocs.documents).map((doc: any, index: number) => (
-                <tr
-                  key={index}
-                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200"
+        show={openPreviewModal}
+        onClose={handleClosePreviewModal}
+        size="xl"
+        popup
+        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+      >
+        {/* Header */}
+        <Modal.Header className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 text-center w-full">
+            Preview: <span className="text-blue-600">{selectedDocument?.title || "Document"}</span>
+          </h3>
+        </Modal.Header>
+
+        {/* Body */}
+        <Modal.Body className="p-6">
+          <div className="w-full h-[60vh] overflow-auto flex justify-center items-center bg-gray-50 dark:bg-gray-700 rounded-md">
+            {selectedDocument?.url ? (
+              getFileType(selectedDocument.url) === "pdf" ? (
+                <object
+                  data={selectedDocument.url}
+                  type="application/pdf"
+                  className="w-full h-full border-none rounded-md"
                 >
-                  <td className="p-3 border-b border-gray-200 dark:border-gray-600">{doc.title}</td>
-                  <td className="p-3 border-b border-gray-200 dark:border-gray-600">
+                  <embed
+                    src={selectedDocument.url}
+                    type="application/pdf"
+                    className="w-full h-full border-none rounded-md"
+                  />
+                  <p className="text-center text-gray-500 dark:text-gray-300">
+                    PDF preview is not available.{" "}
                     <a
-                      href={doc.url}
+                      href={selectedDocument.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                      className="text-blue-600 underline"
                     >
-                      {doc.url}
+                      Click here to download
                     </a>
-                  </td>
-                  <td className="p-3 border-b border-gray-200 dark:border-gray-600">
-                    <Button
-                      color="blue"
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md px-4 py-1 transition-colors duration-200"
-                      onClick={() => handleDownloadDocument(doc.url, doc.title)}
-                    >
-                      Download
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-          No documents available for this faculty.
-        </p>
-      )}
-    </div>
-  </Modal.Body>
-  <Modal.Footer className="flex justify-end gap-3 p-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-    <Button
-      color="gray"
-      className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-200"
-      onClick={handleCloseDocsModal}
-    >
-      Close
-    </Button>
-    <Button
-      color="red"
-      className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-200"
-      onClick={handleCloseDocsModal}
-    >
-      Cancel
-    </Button>
-  </Modal.Footer>
-</Modal>
+                  </p>
+                </object>
+              ) : (
+                <img
+                  src={selectedDocument.url}
+                  alt={selectedDocument.title}
+                  className="max-w-full max-h-full object-contain rounded-md"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/placeholder-image.jpg"; // Fallback image
+                  }}
+                />
+              )
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                Unable to preview document.
+              </p>
+            )}
+          </div>
+        </Modal.Body>
+
+        {/* Footer */}
+        <Modal.Footer className="flex justify-end p-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            color="gray"
+            className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-200"
+            onClick={handleClosePreviewModal}
+          >
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Documents Modal */}
+      <Modal
+        show={openDocsModal}
+        onClose={handleCloseDocsModal}
+        size="sm"
+        popup
+        className="fixed inset-0 flex items-center  pt-50 justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+      >
+        {/* Header */}
+        <Modal.Header className="p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 text-center w-full">
+            Documents for <span className="text-blue-600">{selectedFacultyDocs?.faculty_name || "Faculty"}</span>
+          </h3>
+        </Modal.Header>
+
+        {/* Body */}
+        <Modal.Body className="p-4">
+          <div className="overflow-auto max-h-[60vh]">
+            {selectedFacultyDocs?.documents ? (
+              (() => {
+                let documents;
+                try {
+                  documents = JSON.parse(selectedFacultyDocs.documents);
+                } catch (error) {
+                  console.error("Invalid JSON format", error);
+                  return (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-3">
+                      Unable to load documents.
+                    </p>
+                  );
+                }
+
+                return documents.length > 0 ? (
+                  <div className="overflow-x-auto rounded-md shadow-sm">
+                    <table className="w-full text-xs text-left text-gray-800 dark:text-gray-200 border-collapse">
+                      <thead className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                        <tr>
+                          <th className="p-2 font-semibold border-b border-gray-300 dark:border-gray-600">#</th>
+                          <th className="p-2 font-semibold border-b border-gray-300 dark:border-gray-600">Title</th>
+                          <th className="p-2 font-semibold border-b border-gray-300 dark:border-gray-600">Preview</th>
+                          <th className="p-2 font-semibold border-b border-gray-300 dark:border-gray-600">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {documents.map((doc: any, index: number) => (
+                          <tr
+                            key={index}
+                            className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+                          >
+                            <td className="p-2 border-b border-gray-200 dark:border-gray-600">{index + 1}</td>
+                            <td className="p-2 border-b border-gray-200 dark:border-gray-600 truncate max-w-[150px]">
+                              {doc.title}
+                            </td>
+                            <td className="p-2 border-b border-gray-200 dark:border-gray-600">
+                              <Button
+                                color="green"
+                                size="xs"
+                                className="bg-green-500 hover:bg-green-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-150"
+                                onClick={() => handleOpenPreviewModal(doc)}
+                              >
+                                Preview
+                              </Button>
+                            </td>
+                            <td className="p-2 border-b border-gray-200 dark:border-gray-600">
+                              <Button
+                                color="blue"
+                                size="xs"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md px-4 py-1 transition-colors duration-150"
+                                onClick={() => handleDownloadDocument(doc.url, doc.title)}
+                              >
+                                Download
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-3">
+                    No documents available for this faculty.
+                  </p>
+                );
+              })()
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-3">
+                No documents available.
+              </p>
+            )}
+          </div>
+        </Modal.Body>
+
+        {/* Footer */}
+        <Modal.Footer className="flex justify-end gap-2 p-3 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            color="gray"
+            size="sm"
+            className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-150"
+            onClick={handleCloseDocsModal}
+          >
+            Close
+          </Button>
+          <Button
+            color="red"
+            size="sm"
+            className="bg-red-500 hover:bg-red-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-150"
+            onClick={handleCloseDocsModal}
+          >
+            Cancel
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+
     </>
   );
 };

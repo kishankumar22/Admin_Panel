@@ -24,6 +24,7 @@ import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
 import AssignRolePage from './pages/Configuration/AssignRolePage';
 import CreatePage from './pages/Configuration/CreatePage';
+import AddStudent from './services/students/AddStudent';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -131,6 +132,15 @@ const App: React.FC = () => {
       ),
     },
     {
+      path: '/student',
+      element: (
+        <>
+          <PageTitle title="Add New Students" />
+          <AddStudent />
+        </>
+      ),
+    },
+    {
       path: '/assign-page-to-role',
       element: (
         <>
@@ -160,6 +170,7 @@ const App: React.FC = () => {
     '/latestpost',
     '/profile',
     '/settings',
+    '/student',
     '/assign-page-to-role',
   ];
 
@@ -208,7 +219,7 @@ const App: React.FC = () => {
           </>
         }
       />
-    
+
 
       {/* Protected Routes */}
       <Route

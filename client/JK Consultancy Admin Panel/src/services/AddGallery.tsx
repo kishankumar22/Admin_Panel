@@ -48,7 +48,7 @@ const AddGallery: React.FC = () => {
   // Use useLocation to get the current path
   const location = useLocation();
   const currentPageName = location.pathname.split('/').pop();
-  console.log("currentPageName :", currentPageName);
+  // console.log("currentPageName :", currentPageName);
 
   // Permissions and roles
   // Prefixing currentPageName with '/' to match the database format
@@ -177,21 +177,21 @@ const AddGallery: React.FC = () => {
           Upload Gallery
         </button>
       </div>
-
-      <div className="mt-6 p-3 bg-white dark:bg-meta-4  rounded-lg shadow-md">
+      {/* Gallery List */}
+      <div className="mt-6 p-3 bg-white dark:bg-meta-4 rounded-lg shadow-md">
         <h2 className="text-sm font-bold text-cyan-900 text-center dark:text-meta-5 mb-2">Uploaded Galleries</h2>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredGalleries.length > 0 ? (
             filteredGalleries.map((gallery) => (
               <div key={gallery.id} className="p-2 border rounded overflow-hidden">
                 <img
                   src={gallery.galleryUrl}
                   alt={gallery.galleryName}
-                  className="w-full h-32 object-fit"
+                  className="w-full h-32 object-cover" // Changed object-fit to object-cover for better responsiveness
                   style={{ opacity: gallery.IsVisible ? 1 : 0.3 }} // Adjust opacity based on IsVisible
                 />
                 <div className="text-sm mt-1 ">
-                  <b className="font-bold ">Position: {gallery.galleryPosition}</b>
+                  <b className="font-bold">Position: {gallery.galleryPosition}</b>
                 </div>
                 <div className="text-sm">
                   <p className='font-bold'>Gallery Name: <b className='font-normal'>{gallery.galleryName}</b></p>
@@ -211,17 +211,19 @@ const AddGallery: React.FC = () => {
                     className={`w-20 p-1 flex justify-center items-center gap-1.5 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 ${!canUpdate || editingGallery?.id === gallery.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={canUpdate ? () => handleEdit(gallery) : () => toast.error('Access Denied: You do not have permission to update galleries.')}
                     disabled={!canUpdate && editingGallery?.id === gallery.id}
-                  ><FaEdit />
+                  >
+                    <FaEdit />
                     {editingGallery?.id === gallery.id ? 'Editing...' : 'Edit'}
                   </button>
                   <button
-                    className={`w-20 flex justify-center items-center  gap-1.5 text-sm rounded-md ${!canDelete || editingGallery?.id === gallery.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
+                    className={`w-20 flex justify-center items-center gap-1.5 text-sm rounded-md ${!canDelete || editingGallery?.id === gallery.id ? "opacity-50 cursor-not-allowed bg-gray-400 text-gray-700" : "bg-red-500 text-white hover:bg-red-600"}`}
                     onClick={canDelete ? () => {
                       setGalleryIdToDelete(gallery.id);
                       setOpenDeleteModal(true);
                     } : () => toast.error('Access Denied: You do not have permission to delete galleries.')}
                     disabled={!canDelete && editingGallery?.id === gallery.id}
-                  ><MdDelete />
+                  >
+                    <MdDelete />
                     Delete
                   </button>
                   <label className="inline-flex items-center cursor-pointer">
@@ -230,9 +232,9 @@ const AddGallery: React.FC = () => {
                       checked={gallery.IsVisible}
                       onClick={canRead ? () => handleToggleVisibility(gallery.id) : () => toast.error('Access Denied: You do not have permission to update galleries.')}
                       className="sr-only peer"
-                      disabled={!canRead} // Disable the checkbox if the user does not have permission
+                    // disabled={!canRead} // Disable the checkbox if the user does not have permission
                     />
-                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed ' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
                       <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${gallery.IsVisible ? 'translate-x-5' : ''}`}></div>
                     </div>
                     <span className={`ms-3 text-sm font-medium ${!canRead ? 'text-gray-400' : 'text-gray-900 dark:text-gray-300'}`}>
@@ -247,52 +249,66 @@ const AddGallery: React.FC = () => {
           )}
         </div>
       </div>
-
       {/* Edit Modal */}
       {editingGallery && (
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
         >
-          <div className="relative dark:bg-meta-4 p-4 w-full max-w-md max-h-full bg-white rounded-lg shadow-md">
-            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Edit Gallery</h3> */}
-            <h3 className="mb-1 text-center bg-slate-300 p-1  rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Edit Galllery</h3>
+          <div className="relative p-4 w-full max-w-sm bg-white dark:bg-meta-4 rounded-lg shadow-md">
+            {/* Title */}
+            <h3 className="mb-2 text-center bg-slate-300 p-2 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">
+              Edit Gallery
+            </h3>
 
-            <p className='font-semibold p-1 '>File</p>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="flex-1 p-2 border w-full border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={handleFileChange}
-            />
-            <p className='font-semibold p-1'>Gallery Name</p>
-            <input
-              type="text"
-              className="flex-1 p-2 w-full dark:bg-meta-4 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Gallery Name"
-              onChange={handleGalleryNameChange}
-              value={galleryName}
-            />
-            <p className='font-semibold p-1'>Gallery Position</p>
-            <input
-              type="number"
-              className="flex-1 p-2 w-full dark:bg-meta-4 mt-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Gallery position"
-              onChange={handlePositionChange}
-              value={galleryPosition}
-            />
-            <div className="flex justify-space-x-4 mt-4">
+            {/* Form Fields */}
+            <div className="space-y-3">
+              <div>
+                <p className="font-semibold">File</p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  onChange={handleFileChange}
+                />
+              </div>
+
+              <div>
+                <p className="font-semibold">Gallery Name</p>
+                <input
+                  type="text"
+                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="Gallery Name"
+                  onChange={handleGalleryNameChange}
+                  value={galleryName}
+                />
+              </div>
+
+              <div>
+                <p className="font-semibold">Gallery Position</p>
+                <input
+                  type="number"
+                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  placeholder="Gallery Position"
+                  onChange={handlePositionChange}
+                  value={galleryPosition}
+                />
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-between mt-4">
               <button
                 onClick={handleUpdate}
-                className={`px-4 py-2 text-white bg-green-500 rounded-lg hover:bg-green-600 ${isUploading ? 'bg-gray-400 cursor-not-allowed' : ''}`}
+                className={`px-4 py-2 text-white bg-green-500 rounded-md ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'hover:bg-green-600'}`}
                 disabled={isUploading}
               >
                 {isUploading ? 'Updating...' : 'Save Changes'}
               </button>
               <button
                 onClick={resetForm}
-                className="px-4 py-2 mx-4 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
               >
                 Cancel
               </button>
@@ -301,46 +317,57 @@ const AddGallery: React.FC = () => {
         </div>
       )}
 
+
       {/* Add Gallery Modal */}
       {AddGalleryModel && (
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 ml-50 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
         >
-          <div className="relative p-4 w-full dark:bg-meta-4 max-w-md max-h-full bg-white rounded-lg shadow-md">
-            {/* <h3 className="mb-5 text-lg font-bold dark:text-meta-5 text-gray-500">Add Gallery</h3> */}
-            <h3 className="mb-1 text-center bg-slate-300 p-1 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">Add Gallery</h3>
+          <div className="relative p-4 w-full max-w-sm bg-white dark:bg-meta-4 rounded-lg shadow-md">
+            {/* Title */}
+            <h3 className="mb-2 text-center bg-slate-300 p-2 rounded-md text-lg font-bold dark:text-meta-5 text-blue-800">
+              Add Gallery
+            </h3>
 
-            <p className="font-semibold p-1">File</p>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="flex-1 p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-              onChange={handleFileChange}
-            />
-            <div className="flex space-x-2 mt-2">
-              <div className="flex-1">
-                <p className="font-semibold p-1">Gallery Name</p>
+            {/* Form Fields */}
+            <div className="space-y-3">
+              <div>
+                <p className="font-semibold">File</p>
                 <input
-                  type="text"
-                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Gallery Name"
-                  onChange={handleGalleryNameChange}
-                  value={galleryName}
+                  type="file"
+                  ref={fileInputRef}
+                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                  onChange={handleFileChange}
                 />
               </div>
-              <div className="w-1/3">
-                <p className="font-semibold p-1">Gallery Position </p>
-                <input
-                  type="number"
-                  className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Position"
-                  onChange={handlePositionChange}
-                  value={galleryPosition}
-                />
+
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <p className="font-semibold">Gallery Name</p>
+                  <input
+                    type="text"
+                    className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="Gallery Name"
+                    onChange={handleGalleryNameChange}
+                    value={galleryName}
+                  />
+                </div>
+                <div>
+                  <p className="font-semibold">Position</p>
+                  <input
+                    type="number"
+                    className="w-full p-2 border dark:bg-meta-4 border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    placeholder="#"
+                    onChange={handlePositionChange}
+                    value={galleryPosition}
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Buttons */}
             <div className="flex justify-between mt-4">
               <button
                 className={`px-4 py-2 w-48 text-white bg-blue-500 rounded-md ${isUploading ? 'bg-gray-400 cursor-not-allowed' : 'hover:bg-blue-600'}`}
@@ -360,26 +387,42 @@ const AddGallery: React.FC = () => {
         </div>
       )}
 
+
       {/* Delete Confirmation Modal */}
-      <Modal className='ml-50 pt-44 bg-black ' show={openDeleteModal} size="md" onClose={() => setOpenDeleteModal(false)} popup>
+      <Modal
+        show={openDeleteModal}
+        size="md"
+        onClose={() => setOpenDeleteModal(false)}
+        popup
+        className="fixed inset-0  pt-50 flex items-center justify-center bg-black bg-opacity-50"
+      >
         <Modal.Header />
         <Modal.Body>
           <div className="text-center">
             <HiOutlineExclamationCircle className="mx-auto mb-4 h-14 w-14 text-gray-400 dark:text-gray-200" />
-            <h3 className="mb-5 text-lg font-normal text-gray-900 dark:text-gray-400">
+            <h3 className="mb-5 text-lg font-medium text-gray-900 dark:text-gray-300">
               Are you sure you want to delete this gallery?
             </h3>
-            <div className="flex justify-center text-white gap-4">
-              <Button color="failure" className='bg-red-700' onClick={() => handleDelete(galleryIdToDelete!)}>
+            <div className="flex justify-center gap-4">
+              <Button
+                color="failure"
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition"
+                onClick={() => galleryIdToDelete && handleDelete(galleryIdToDelete)}
+              >
                 {"Yes, I'm sure"}
               </Button>
-              <Button color="gray" onClick={() => setOpenDeleteModal(false)}>
+              <Button
+                color="gray"
+                className="bg-gray-300 hover:bg-gray-400 text-black px-4 py-2 rounded-md transition dark:bg-gray-600 dark:hover:bg-gray-700 dark:text-white"
+                onClick={() => setOpenDeleteModal(false)}
+              >
                 No, cancel
               </Button>
             </div>
           </div>
         </Modal.Body>
       </Modal>
+
     </>
   );
 };

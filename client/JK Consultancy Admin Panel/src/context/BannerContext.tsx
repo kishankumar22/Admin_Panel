@@ -5,8 +5,8 @@ import { toast } from 'react-toastify';
 
 interface Banner {
   bannerUrl: string | undefined;
-  bannerPosition(bannerPosition: any): number;
-  bannerName: any;
+  bannerPosition: number; // Change this from a function to a number
+  bannerName: string;
   id?: number;
   faculty_name: string;
   qualification: string;
@@ -20,7 +20,6 @@ interface Banner {
   modify_by?: string;
   modify_on?: string;
   IsVisible?: boolean;
-
 }
   
 interface BannerContextType {
