@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axiosInstance from '../config';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
+import { FaEdit, FaKey } from 'react-icons/fa';
+import { MdDelete } from 'react-icons/md';
 
 interface User {
   user_id: number;
@@ -149,7 +151,7 @@ const AddUser: React.FC = () => {
 
     try {
       const payload = { ...user, created_by: createdBy };
-      const response = await axiosInstance.post('/users', payload, {
+    await axiosInstance.post('/users', payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       toast.success('User added successfully!');
@@ -182,7 +184,7 @@ const AddUser: React.FC = () => {
     setIsSubmitting(true);
     try {
       const payload = { ...editingUser, modify_by: loggedInUser?.name || 'admin' };
-      const response = await axiosInstance.put(`/users/${editingUser.user_id}`, payload, {
+       await axiosInstance.put(`/users/${editingUser.user_id}`, payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       toast.success('User updated successfully!');
@@ -210,35 +212,176 @@ const AddUser: React.FC = () => {
     setIsChangePassModalOpen(true);
   };
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.mobileNo.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+  const [selectedRole, setSelectedRole] = useState('');
+  // const [selectedEmail, setSelectedEmail] = useState('');
+  const [selectedMobile, setSelectedMobile] = useState('');
+  // const [searchQuery, setSearchQuery] = useState('');
+  
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.mobileNo.includes(searchQuery);
+  
+    const matchesRole = selectedRole ? user.roleId.toString() === selectedRole : true;
+    const matchesEmail = selectedEmail ? user.email === selectedEmail : true;
+    const matchesMobile = selectedMobile ? user.mobileNo === selectedMobile : true;
+  
+    return matchesSearch && matchesRole && matchesEmail && matchesMobile;
+  });
+  
+  // ✅ Function to Clear All Filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedRole('');
+    setSelectedEmail('');
+    setSelectedMobile('');
+  };
   return (
     <div className="p-4">
-      <div className="flex items-center justify-between space-x-2 p-2 mb-3 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
-        <input
-          type="search"
-          className='p-1 bg-gray-100 border-2 rounded-md text-sm w-70 placeholder:text-[0.7rem]'
-          placeholder='Search by Name Email Mobile Number here...'
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        {loggedInUser?.roleId !== Number('3') && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors duration-200 focus:outline-none active:bg-yellow-600"
-          >
-            Add User
-          </button>
-        )}
-      </div>
+    {/* Search & Filter Section */}
+{/* Search & Filter Section */}
+<div className="flex flex-wrap justify-between items-center gap-2 p-2 mb-3 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
+  
+  {/* Search Input */}
+  <input
+    type="search"
+    className="p-1 bg-gray-100 border rounded-md text-sm w-full sm:w-48 focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+    placeholder="Search Name, Email, Mobile..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+  />
+
+  {/* Role Filter */}
+  <select
+    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+    value={selectedRole}
+    onChange={(e) => setSelectedRole(e.target.value)}
+  >
+    <option value="">All Roles</option>
+    {roles.map((role) => (
+      <option key={role.role_id} value={role.role_id}>{role.name}</option>
+    ))}
+  </select>
+
+  {/* Email Filter */}
+  <select
+    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+    value={selectedEmail}
+    onChange={(e) => setSelectedEmail(e.target.value)}
+  >
+    <option value="">All Emails</option>
+    {Array.from(new Set(users.map(u => u.email))).map(email => (
+      <option key={email} value={email}>{email}</option>
+    ))}
+  </select>
+
+  {/* Mobile Filter */}
+  <select
+    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+    value={selectedMobile}
+    onChange={(e) => setSelectedMobile(e.target.value)}
+  >
+    <option value="">All Mobile Numbers</option>
+    {Array.from(new Set(users.map(u => u.mobileNo))).map(mobile => (
+      <option key={mobile} value={mobile}>{mobile}</option>
+    ))}
+  </select>
+
+  {/* Clear Filters Button */}
+  <button
+  className="px-3 py-1 text-white bg-red-500 hover:bg-red-600 rounded-md transition duration-200 w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-red-700"
+  onClick={clearFilters}
+>
+  Clear Filters
+</button>
+
+  {/* Add User Button */}
+  {loggedInUser ?.roleId !== Number('3') && (
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors duration-200 w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500"
+    >
+      Add User
+    </button>
+  )}
+</div>
+
+{/* User List Table */}
+<div className="mt-4 overflow-x-auto">
+  <h2 className="text-lg font-bold mb-2">User List</h2>
+  {filteredUsers.length > 0 ? (
+    <div className="w-full overflow-x-auto">
+      <table className="min-w-full text-sm bg-white border dark:bg-gray-600 border-gray-300">
+        <thead>
+          <tr className="bg-gray-200 h-8 text-gray-600 dark:bg-gray-300 text-left">
+            <th className="py-2 px-2 border-b">#</th>
+            <th className="py-2 px-2 border-b">Name</th>
+            <th className="py-2 px-2 border-b">Email</th>
+            <th className="py-2 px-2 border-b">Mobile</th>
+            <th className="py-2 px-2 border-b">Role</th>
+            <th className="py-2 px-2 border-b">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredUsers.map((user, index) => (
+            <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500">
+              <td className="py-2 px-2 border-b">{index + 1}</td>
+              <td className="py-2 px-2 border-b">{user.name}</td>
+              <td className="py-2 px-2 border-b">{user.email}</td>
+              <td className="py-2 px-2 border-b">{user.mobileNo}</td>
+              <td className="py-2 px-2 border-b">
+                {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'NA'}
+              </td>
+              <td className="py-2 px-2 border-b">
+                <div className="flex flex-wrap gap-1">
+                  {/* Edit Button */}
+                  <button
+                    onClick={() => handleEdit(user)}
+                    className={`bg-yellow-500 text-white text-xs px-2 py-1 rounded-md hover:bg-yellow-600 ${
+                      loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={loggedInUser?.roleId === 3}
+                  >
+                    <FaEdit className="inline-block mr-1" /> Edit
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => handleOpenDeleteModal(user.user_id)}
+                    className={`bg-red-500 text-white text-xs px-2 py-1 rounded-md hover:bg-red-600 ${
+                      loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    disabled={loggedInUser?.roleId === 3}
+                  >
+                    <MdDelete className="inline-block mr-1" /> Delete
+                  </button>
+
+                  {/* Change Password Button */}
+                  <button
+                    onClick={() => handleOpenChangePassModal(user.email)}
+                    className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-600"
+                  >
+                    <FaKey className="inline-block mr-1" /> Change Password
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  ) : (
+    <p className="text-gray-600 text-center py-4 text-sm">No users found.</p>
+  )}
+</div>
+
+
+
 
       {/* Add User Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 pt-2  0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 pt-2  0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white p-3 rounded-lg shadow-md w-full max-w-sm dark:bg-gray-500">
             <h2 className="text-base font-semibold mb-2 text-center dark:text-meta-5">Add User</h2>
             <form onSubmit={handleSubmit}>
@@ -418,7 +561,7 @@ const AddUser: React.FC = () => {
       {/* Edit User Modal */}
       {/* Edit User Modal - Compact Version */}
       {isEditModalOpen && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white p-4 rounded-lg shadow-md w-full dark:bg-gray-600 max-w-xs">
             <h2 className="text-base font-semibold mb-2">Edit User</h2>
             <form onSubmit={handleEditSubmit}>
@@ -519,7 +662,7 @@ const AddUser: React.FC = () => {
 
       {/* Change Password Modal */}
       {isChangePassModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white p-3 rounded-lg shadow-md w-full max-w-xs dark:bg-gray-600">
             <h2 className="text-base font-semibold mb-1 bg-gray-200 text-center border-b py-1 dark:text-gray-700 rounded-md dark:bg-gray-400">
               Change Password
@@ -647,69 +790,10 @@ const AddUser: React.FC = () => {
         </div>
       )}
 
-      {/* User List */}
-      <div className="mt-8">
-        <h2 className="text-lg font-bold mb-4">User List</h2>
-        {filteredUsers.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full bg-white border dark:bg-gray-600 border-gray-300 text-xs">
-              <thead>
-                <tr className="bg-gray-200 h-10 text-gray-600 dark:bg-gray-300">
-                  <th className="py-1 px-1 border-b text-left">#</th>
-                  <th className="py-1 px-1 border-b text-left">Name</th>
-                  <th className="py-1 px-1 border-b text-left">Email</th>
-                  <th className="py-1 px-1 border-b text-left">Mobile</th>
-                  <th className="py-1 px-1 border-b text-left">Role</th>
-                  <th className="py-1 px-1 border-b text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.map((user, index) => (
-                  <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500 dark:hover:text-black">
-                    <td className="py-1 px-1 border-b align-middle">{index + 1}</td>
-                    <td className="py-1 px-1 border-b align-middle">{user.name}</td>
-                    <td className="py-1 px-1 border-b align-middle">{user.email}</td>
-                    <td className="py-1 px-1 border-b align-middle">{user.mobileNo}</td>
-                    <td className="py-1 px-1 border-b align-middle">
-                      {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'NA'}
-                    </td>
-                    <td className="py-1 px-1 border-b align-middle">
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => handleEdit(user)}
-                          className={`bg-yellow-500 text-white text-xs px-2 py-1 rounded-md hover:bg-yellow-600 transition duration-150 focus:outline-none ${loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={loggedInUser?.roleId === 3}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleOpenDeleteModal(user.user_id)}
-                          className={`bg-red-500 text-white text-xs px-2 py-1 rounded-md hover:bg-red-600 transition duration-150 focus:outline-none ${loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          disabled={loggedInUser?.roleId === 3}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          onClick={() => handleOpenChangePassModal(user.email)}
-                          className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-600 transition duration-150"
-                        >
-                          Change Password
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-gray-600 text-center py-4 text-sm">No users found.</p>
-        )}
-      </div>
-
+  
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center px-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm  flex items-center justify-center px-4">
           <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-lg w-full max-w-sm">
             <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-gray-200">Confirm Delete</h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 text-center">

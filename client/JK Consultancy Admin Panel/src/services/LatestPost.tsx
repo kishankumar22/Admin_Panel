@@ -257,7 +257,7 @@ const LatestPost: React.FC = () => {
         <div className="flex items-center justify-between p-2 mb-2 bg-gray-100 dark:bg-gray-600 rounded-lg shadow-md">
           <input
             type="search"
-            className='py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
+            className='py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200'
             placeholder='Search Latest post here...'
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)} // Update search query state
@@ -411,7 +411,7 @@ const LatestPost: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
           <div className="bg-white p-5 rounded-lg shadow-lg max-w-sm w-full">
             <h1 className="text-center text-2xl font-semibold text-red-600">
               DELETE POST

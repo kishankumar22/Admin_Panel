@@ -10,6 +10,8 @@ import { MdDelete } from "react-icons/md";
 import { FaEdit, FaEye, FaEyeSlash } from "react-icons/fa";
 import { FcViewDetails } from "react-icons/fc";
 import { usePermissions } from "../context/PermissionsContext";
+import { IoDocumentsOutline } from "react-icons/io5";
+
 import { useLocation } from "react-router-dom";
 
 const AddFaculty: React.FC = () => {
@@ -239,40 +241,171 @@ const AddFaculty: React.FC = () => {
       link.download = name;
       link.click();
       window.URL.revokeObjectURL(link.href);
+      // alert("download  Documents successfully")
+      setOpenDocsModal(false);
+
     } catch (error) {
       toast.error("Failed to download document");
       console.error(error);
     }
   };
-  const filteredFaculties = faculties.filter((faculty) =>
-    faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faculty.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    faculty.qualification.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
+  // ✅ Function to Clear All Filters
+const clearFilters = () => {
+  setSearchQuery('');
+  setSelectedDesignation('');
+  setSelectedQualification('');
+};
+  const [selectedDesignation, setSelectedDesignation] = useState('');
+  const [selectedQualification, setSelectedQualification] = useState('');
+  
+  const filteredFaculties = faculties.filter((faculty) => {
+    const matchesSearch =
+      faculty.faculty_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faculty.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faculty.qualification.toLowerCase().includes(searchQuery.toLowerCase());
+  
+    const matchesDesignation = selectedDesignation ? faculty.designation === selectedDesignation : true;
+    const matchesQualification = selectedQualification ? faculty.qualification === selectedQualification : true;
+  
+    return matchesSearch && matchesDesignation && matchesQualification;
+  });
+  
   return (
     <>
       <Breadcrumb pageName="Add Faculty" />
-      <div className="flex items-center justify-between p-2 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        <input
-          type="search"
-          className="py-1 px-3 bg-white border placeholder:text-[.75rem] border-gray-300 rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-          placeholder="Search faculty here by designation and qualification..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <button
-          className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${canCreate ? "bg-blue-800 hover:bg-blue-600" : "bg-gray-500 hover:cursor-not-allowed"
-            }`}
-          onClick={addfaculty}
-        >
-          Add Faculty
-        </button>
+      <div className="flex flex-wrap items-center justify-between p-2 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
+  {/* Search Input */}
+  <input
+    type="search"
+    className="py-1 px-3 bg-white border placeholder:text-[.75rem] border-gray-300 rounded-md text-sm w-64 focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+    placeholder="Search faculty here..."
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+  />
+
+  {/* Designation Filter */}
+  <select
+    className="py-1 px-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+    value={selectedDesignation}
+    onChange={(e) => setSelectedDesignation(e.target.value)}
+  >
+    <option value="">All Designations</option>
+    {Array.from(new Set(faculties.map(f => f.designation))).map(designation => (
+      <option key={designation} value={designation}>{designation}</option>
+    ))}
+  </select>
+
+  {/* Qualification Filter */}
+  <select
+    className="py-1 px-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+    value={selectedQualification}
+    onChange={(e) => setSelectedQualification(e.target.value)}
+  >
+    <option value="">All Qualifications</option>
+    {Array.from(new Set(faculties.map(f => f.qualification))).map(qualification => (
+      <option key={qualification} value={qualification}>{qualification}</option>
+    ))}
+  </select>
+
+  {/* Clear Filters Button */}
+  <button
+    className="ml-2 px-4 py-1 text-sm text-white bg-red-500 hover:scale-105 rounded-lg transition duration-200 focus:outline-none focus:ring-4 focus:ring-red-400"
+    onClick={clearFilters}
+  >
+    Clear Filters
+  </button>
+
+  {/* Add Faculty Button */}
+  <button
+    className={`ml-2 px-4 py-1 text-sm text-white rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+      canCreate ? "bg-blue-800 hover:bg-blue-600" : "bg-gray-500 hover:cursor-not-allowed"
+    }`}
+    onClick={addfaculty}
+  >
+    Add Faculty
+  </button>
+</div>
+
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+        {filteredFaculties.length > 0 ? (
+          filteredFaculties.map((faculty: Faculty) => (
+            <div key={faculty.id} className="p-3 border rounded-lg shadow-lg bg-white dark:bg-gray-800">
+              <div className="relative">
+                <img
+                  src={faculty.profilePicUrl || "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"}
+                  alt={faculty.faculty_name || "Faculty Image"}
+                  className="w-full h-40 object-fit rounded-md"
+                  style={{ opacity: faculty.IsVisible ? 1 : 0.5 }}
+                />
+                <button
+                  className={`flex items-center justify-center p-2 focus:ring-4 text-xs text-white bg-slate-200 rounded-md transition duration-200 ease-in-out hover:bg-gray-400 absolute top-2 right-2 ${!canRead ? "opacity-50 cursor-not-allowed" : ""}`}
+                  onClick={() => handleToggleVisibility(faculty.id ?? 0)}
+                // disabled={!canRead}
+                >
+                  {faculty.IsVisible ? (
+                    <FaEye className="w-5  h-5 text-blue-700" />
+                  ) : (
+                    <FaEyeSlash className="w-5  h-5 text-red-500" />
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
+                <p><b>Name:</b> {faculty.faculty_name}</p>
+                <p><b>Qualification:</b> {faculty.qualification}</p>
+                <p><b>Designation:</b> {faculty.designation}</p>
+                <p><b>Salary:</b> {faculty.monthlySalary ?? "N/A"}</p>
+                <p><b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}</p>
+              </div>
+
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex gap-1">
+                  <button
+                    className={`flex items-center  px-2 py-1 text-xs focus:ring-4 focus:ring-green-300 text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? "opacity-50 cursor-not-allowed" : ""}`}
+                    onClick={() => handleEditFaculty(faculty)}
+                  // disabled={!canUpdate}
+                  >
+                    <FaEdit className="text-sm" />
+                    Edit
+                  </button>
+                  <button
+                    className={`flex items-center  px-2 py-1 text-xs text-white focus:ring-4 focus:ring-red-300 bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? "opacity-50 cursor-not-allowed" : ""}`}
+                    onClick={() => handleOpenDeleteModal(faculty.id ?? 0)}
+                  // disabled={!canDelete}
+                  >
+                    <MdDelete className="text-sm" />
+                    Delete
+                  </button>
+                  <button
+                    className="flex items-center px-2 py-1 text-xs focus:ring-4 text-white bg-gray-500 rounded-md hover:bg-gray-600"
+                    onClick={() => handleOpenDetailsModal(faculty)}
+                  >
+                    <FcViewDetails className="text-sm" />
+                    Details
+                  </button>
+                  <Button
+                    color="red"
+                    size="xs"
+                    className="flex items-center bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-300 font-medium rounded-md transition-colors duration-150"
+                    onClick={() => handleOpenDocsModal(faculty)}
+                  >
+                    <IoDocumentsOutline className="w-4 h-4 mr-1" /> {/* Add margin to the right of the icon */}
+                    Docs
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-center w-full text-gray-500 dark:text-gray-400">No faculties found</p>
+        )}
       </div>
 
       {/* Add Faculty Modal */}
       {addFacultyModel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="p-2 w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-600 max-h-[80vh] overflow-y-auto">
             <h3 className="text-center bg-slate-300 p-1 rounded-md text-base font-bold text-blue-800 sticky top-0 z-10">
               {editingFaculty ? "Edit Faculty" : "Add Faculty"}
@@ -415,85 +548,14 @@ const AddFaculty: React.FC = () => {
         </div>
       )}
 
-      {/* Faculty List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
-        {filteredFaculties.length > 0 ? (
-          filteredFaculties.map((faculty: Faculty) => (
-            <div key={faculty.id} className="p-3 border rounded-lg shadow-lg bg-white dark:bg-gray-800">
-              <div className="relative">
-                <img
-                  src={faculty.profilePicUrl || "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"}
-                  alt={faculty.faculty_name || "Faculty Image"}
-                  className="w-full h-40 object- rounded-md"
-                  style={{ opacity: faculty.IsVisible ? 1 : 0.5 }}
-                />
-                <button
-                  className={`flex items-center justify-center p-2 text-xs text-white bg-slate-200 rounded-md transition duration-200 ease-in-out hover:bg-gray-400 absolute top-2 right-2 ${!canRead ? "opacity-50 cursor-not-allowed" : ""}`}
-                  onClick={() => handleToggleVisibility(faculty.id ?? 0)}
-                  disabled={!canRead}
-                >
-                  {faculty.IsVisible ? (
-                    <FaEye className="w-5  h-5 text-blue-700" />
-                  ) : (
-                    <FaEyeSlash className="w-5  h-5 text-red-500" />
-                  )}
-                </button>
-              </div>
+      
 
-              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                <p><b>Name:</b> {faculty.faculty_name}</p>
-                <p><b>Qualification:</b> {faculty.qualification}</p>
-                <p><b>Designation:</b> {faculty.designation}</p>
-                <p><b>Salary:</b> {faculty.monthlySalary ?? "N/A"}</p>
-                <p><b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}</p>
-              </div>
-
-              <div className="flex justify-between items-center mt-3">
-                <div className="flex gap-2">
-                  <button
-                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={() => handleEditFaculty(faculty)}
-                    disabled={!canUpdate}
-                  >
-                    <FaEdit className="text-sm" />
-                    Edit
-                  </button>
-                  <button
-                    className={`flex items-center gap-1 px-2 py-1 text-xs text-white bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={() => handleOpenDeleteModal(faculty.id ?? 0)}
-                    disabled={!canDelete}
-                  >
-                    <MdDelete className="text-sm" />
-                    Delete
-                  </button>
-                  <button
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-white bg-gray-500 rounded-md hover:bg-gray-600"
-                    onClick={() => handleOpenDetailsModal(faculty)}
-                  >
-                    <FcViewDetails className="text-sm" />
-                    Details
-                  </button>
-                  <Button
-                    color="red"
-                    size="xs"
-                    onClick={() => handleOpenDocsModal(faculty)}
-                  >
-                    Docs
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="text-center w-full text-gray-500 dark:text-gray-400">No faculties found</p>
-        )}
-      </div>
 
       {/* Faculty Delete Modal */}
       <Modal
         show={openDeleteModal}
         size="md"
-        className="fixed inset-0 flex items-center pt-50 justify-center bg-black bg-opacity-50"
+        className="fixed inset-0 flex items-center pt-70 justify-center bg-black bg-opacity-50 backdrop-blur-sm"
         onClose={() => setOpenDeleteModal(false)}
         popup
       >
@@ -530,7 +592,7 @@ const AddFaculty: React.FC = () => {
         <Modal
           show={openDetailsModal}
           size="md"
-          className="fixed inset-0 pt-49 flex items-center justify-center bg-black bg-opacity-50"
+          className="fixed inset-0 pt-40 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
           onClose={() => setOpenDetailsModal(false)}
           popup
         >
@@ -541,7 +603,7 @@ const AddFaculty: React.FC = () => {
               <img
                 src={selectedFaculty.profilePicUrl}
                 alt="Faculty Profile"
-                className="w-full h-44 object-cover rounded-md mb-2"
+                className="w-full h-44 object-fit rounded-md mb-2"
               />
 
               {/* Faculty Details */}
@@ -554,7 +616,7 @@ const AddFaculty: React.FC = () => {
               <p className="text-sm"><b>Created on:</b> {selectedFaculty.created_on}</p>
               <p className="text-sm"><b>Modified By:</b> {selectedFaculty.modify_by}</p>
               <p className="text-sm"><b>Modified on:</b> {selectedFaculty.modify_on}</p>
-              <p className="text-sm"><b>Is Visible:</b> {selectedFaculty.IsVisible ? "Yes" : "No"}</p>
+              {/* <p className="text-sm"><b>Is Visible:</b> {selectedFaculty.IsVisible ? "Yes" : "No"}</p> */}
 
               {/* Documents Section */}
               {selectedFaculty.documents && (
@@ -604,7 +666,7 @@ const AddFaculty: React.FC = () => {
         onClose={handleClosePreviewModal}
         size="xl"
         popup
-        className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+        className="px-100 py-24"
       >
         {/* Header */}
         <Modal.Header className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -676,7 +738,7 @@ const AddFaculty: React.FC = () => {
         onClose={handleCloseDocsModal}
         size="sm"
         popup
-        className="fixed inset-0 flex items-center  pt-50 justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+        className="flex items-center justify-center mx-auto pt-70 bg-black bg-opacity-50 backdrop-blur-sm"
       >
         {/* Header */}
         <Modal.Header className="p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -764,14 +826,7 @@ const AddFaculty: React.FC = () => {
 
         {/* Footer */}
         <Modal.Footer className="flex justify-end gap-2 p-3 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            color="gray"
-            size="sm"
-            className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-150"
-            onClick={handleCloseDocsModal}
-          >
-            Close
-          </Button>
+
           <Button
             color="red"
             size="sm"

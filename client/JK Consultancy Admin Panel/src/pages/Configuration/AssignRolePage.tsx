@@ -3,6 +3,7 @@ import Breadcrumb from "../../components/Breadcrumbs/Breadcrumb";
 import { usePermissions } from "../../context/PermissionsContext";
 import { useAuth } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
+import { FaPlus, FaSave } from "react-icons/fa";
 
 const AssignRolePage: React.FC = () => {
   const { user } = useAuth();
@@ -55,29 +56,32 @@ const AssignRolePage: React.FC = () => {
     <>
       <Breadcrumb pageName="Assign page to role" />
       <div className="flex items-center justify-between mb-4">
-        <input
-          type="search"
-          className="py-0.5 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-          placeholder="Search Pages here..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+      <input
+        type="search"
+        className="py-0.5 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+        placeholder="Search Pages here..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+      />
 
-        <div className="flex items-center space-x-2">
-          <Link to="/page-management">
-            <button className="bg-orange-500 text-white px-4 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
-              Go to Create Page
-            </button>
-          </Link>
-
-          <button
-            onClick={savePermissions}
-            className="bg-blue-500 text-white px-4 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
-          >
-            Save
+      <div className="flex items-center space-x-2">
+        <Link to="/page-management">
+          <button className="bg-orange-500 text-white px-4 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
+            <FaPlus className="inline-block mr-1" /> {/* Create Page Icon */}
+            Go to Create Page
           </button>
-        </div>
+        </Link>
+
+        <button
+          onClick={savePermissions}
+          className="bg-blue-500 text-white px-4 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
+        >
+          <FaSave className="inline-block mr-1" /> {/* Save Icon */}
+          Save
+        </button>
       </div>
+    </div>
+
 
       <div className="mt-4 rounded-md">
         <table className="min-w-full bg-white border border-gray-200">

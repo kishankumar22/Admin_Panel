@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
+import { Button } from 'flowbite-react';
+import { FaTimes } from 'react-icons/fa';
 
 const courseOptions = [
   { id: 'bpharma', name: 'B. Pharma' },
@@ -22,18 +24,24 @@ const AddStudent = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [student, setStudent] = useState({
-    rollNumber: '', fName: '', lName: '', dob: '', gender: '',
-    mobileNumber: '', alternateNumber: '', emailId: '', fatherName: '', fatherMobileNumber: '',
-    motherName: '', address: '', city: '', state: '', pincode: '',
-    courseName: '', createdOn: new Date().toISOString(), createdBy: '', modifiedOn: '', modifiedBy: '',
-    studentImage: '', courseYear: '', isDiscontinue: false, discontinueOn: '',
-    discontinueBy: '', fineAmount: 0, refundAmount: 0, finePaidAmount: 0,
-    isSCStudent: false, ledgerNumber: '', collegeName: '', collegeId: '', admissionMode: ''
+    StudentId: '', RollNumber: '', FName: '', LName: '', DOB: '', Gender: '',
+    MobileNumber: '', AlternateNumber: '', EmailId: '', FatherName: '', FatherMobileNumber: '',
+    MotherName: '', Address: '', City: '', State: '', Pincode: '',
+    CourseName: '', CreatedOn: new Date().toISOString(), CreatedBy: '', ModifiedOn: '', ModifiedBy: '',
+    StudentImage: '', CourseYear: '', IsDiscontinue: false, DiscontinueOn: '',
+    DiscontinueBy: '', FineAmount: 0, RefundAmount: 0, FinePaidAmount: 0,
+    IsSCStudent: false, LedgerNumber: '', CollegeName: '', CollegeId: '', AdmissionMode: '',
+    AdmissionDate: '' // Added as a potentially necessary field
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setStudent({ ...student, [name]: value });
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    setStudent({ ...student, StudentImage: file ? file.name : '' });
   };
 
   const saveStep = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -52,15 +60,16 @@ const AddStudent = () => {
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
   const resetForm = () => {
     setStudent({
-      rollNumber: '', fName: '', lName: '', dob: '', gender: '',
-      mobileNumber: '', alternateNumber: '', emailId: '', fatherName: '', fatherMobileNumber: '',
-      motherName: '', address: '', city: '', state: '', pincode: '',
-      courseName: '', createdOn: new Date().toISOString(), createdBy: '', modifiedOn: '', modifiedBy: '',
-      studentImage: '', courseYear: '', isDiscontinue: false, discontinueOn: '',
-      discontinueBy: '', fineAmount: 0, refundAmount: 0, finePaidAmount: 0,
-      isSCStudent: false, ledgerNumber: '', collegeName: '', collegeId: '', admissionMode: ''
+      StudentId: '', RollNumber: '', FName: '', LName: '', DOB: '', Gender: '',
+      MobileNumber: '', AlternateNumber: '', EmailId: '', FatherName: '', FatherMobileNumber: '',
+      MotherName: '', Address: '', City: '', State: '', Pincode: '',
+      CourseName: '', CreatedOn: new Date().toISOString(), CreatedBy: '', ModifiedOn: '', ModifiedBy: '',
+      StudentImage: '', CourseYear: '', IsDiscontinue: false, DiscontinueOn: '',
+      DiscontinueBy: '', FineAmount: 0, RefundAmount: 0, FinePaidAmount: 0,
+      IsSCStudent: false, LedgerNumber: '', CollegeName: '', CollegeId: '', AdmissionMode: '',
+      AdmissionDate: ''
     });
-    setSavedSteps({ 1: false, 2: false, 3: false, 4: false }); // Reset saved steps
+    setSavedSteps({ 1: false, 2: false, 3: false, 4: false });
   };
 
   const handleSubmit = () => {
@@ -68,67 +77,69 @@ const AddStudent = () => {
       alert('Student data submitted successfully!');
       setIsPreviewOpen(false);
       setIsModalOpen(false);
-      setStep(1); // Reset step to 1 after submission
-      resetForm(); // Reset form and saved steps
+      setStep(1);
+      resetForm();
     }
   };
 
   const openModalAtStepOne = () => {
     setIsModalOpen(true);
-    setStep(1); // Ensure modal always starts at Step 1
-    setSavedSteps({ 1: false, 2: false, 3: false, 4: false }); // Reset saved steps when opening modal
+    setStep(1);
+    setSavedSteps({ 1: false, 2: false, 3: false, 4: false });
   };
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <Breadcrumb pageName="Add Students" />
-      <div className="flex items-center justify-end p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
       
-      <button 
-        onClick={openModalAtStepOne} // Use new function to open modal at Step 1
-        className={`ml-2 flex items-center gap-3 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400`}
-
+      <Button
+        type="button"
+        onClick={openModalAtStepOne}
+        className="text-white bg-blue-700 hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 font-base rounded-md text-sm px-2 text-center me-2 mb-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
       >
-        Add Student
-      </button>
-      </div>
+        Add Students
+      </Button>
 
       {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="bg-white p-4 rounded-lg max-w-lg w-full max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-lg font-bold">Step {step} of 4</h2>
               <button 
-                className="text-red-500 hover:text-red-700 text-xl"
+                className="text-red-500 hover:text-red-700 text-xl focus:outline-none focus:ring-4 p-2 rounded-md focus:ring-blue-300"
                 onClick={() => setIsModalOpen(false)}
               >
-                X
+                <FaTimes />
               </button>
             </div>
 
             <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
               {step === 1 && (
                 <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-blue-600 text-center">Personal Details</h3>
+                  <h3 className="text-base font-semibold">Personal Details</h3>
+                  <div>
+                    <label className="block text-sm text-gray-700">Student ID</label>
+                    <input type="text" name="StudentId" value={student.StudentId} onChange={handleChange} className="w-full border p-2 rounded" required />
+                  </div>
                   <div>
                     <label className="block text-sm text-gray-700">Roll Number</label>
-                    <input type="text" name="rollNumber" value={student.rollNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="RollNumber" value={student.RollNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">First Name</label>
-                    <input type="text" name="fName" value={student.fName} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="FName" value={student.FName} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Last Name</label>
-                    <input type="text" name="lName" value={student.lName} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="LName" value={student.LName} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Date of Birth</label>
-                    <input type="date" name="dob" value={student.dob} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="date" name="DOB" value={student.DOB} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Gender</label>
-                    <select name="gender" value={student.gender} onChange={handleChange} className="w-full border p-2 rounded">
+                    <select name="Gender" value={student.Gender} onChange={handleChange} className="w-full border p-2 rounded">
                       <option value="">Select</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
@@ -140,91 +151,123 @@ const AddStudent = () => {
 
               {step === 2 && (
                 <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-blue-600 text-center">Contact Details</h3>
+                  <h3 className="text-base font-semibold">Contact Details</h3>
                   <div>
                     <label className="block text-sm text-gray-700">Mobile Number</label>
-                    <input type="tel" name="mobileNumber" value={student.mobileNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Alternate Number</label>
-                    <input type="tel" name="alternateNumber" value={student.alternateNumber} onChange={handleChange} className="w-full border p-2 rounded" />
+                    <input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} className="w-full border p-2 rounded" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Email ID</label>
-                    <input type="email" name="emailId" value={student.emailId} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Father's Name</label>
-                    <input type="text" name="fatherName" value={student.fatherName} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Father's Mobile</label>
-                    <input type="tel" name="fatherMobileNumber" value={student.fatherMobileNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Mother's Name</label>
-                    <input type="text" name="motherName" value={student.motherName} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                 </div>
               )}
 
               {step === 3 && (
                 <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-blue-600 text-center">Academic Details</h3>
+                  <h3 className="text-base font-semibold">Academic & Address Details</h3>
                   <div>
                     <label className="block text-sm text-gray-700">Course</label>
-                    <select name="courseName" value={student.courseName} onChange={handleChange} className="w-full border p-2 rounded" required>
+                    <select name="CourseName" value={student.CourseName} onChange={handleChange} className="w-full border p-2 rounded" required>
                       <option value="">Select</option>
                       {courseOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Course Year</label>
-                    <input type="text" name="courseYear" value={student.courseYear} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Address</label>
-                    <textarea name="address" value={student.address} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">City</label>
-                    <input type="text" name="city" value={student.city} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">State</label>
-                    <input type="text" name="state" value={student.state} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-2 rounded" required />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Pincode</label>
-                    <input type="text" name="pincode" value={student.pincode} onChange={handleChange} className="w-full border p-2 rounded" required />
+                    <input type="text" name="Pincode" value={student.Pincode} onChange={handleChange} className="w-full border p-2 rounded" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Admission Date</label>
+                    <input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} className="w-full border p-2 rounded" />
                   </div>
                 </div>
               )}
 
               {step === 4 && (
                 <div className="space-y-2">
-                  <h3 className="text-base font-semibold text-blue-600 text-center">Final Details</h3>
+                  <h3 className="text-base font-semibold">Final & Administrative Details</h3>
                   <div>
                     <label className="block text-sm text-gray-700">College</label>
-                    <select name="collegeName" value={student.collegeName} onChange={handleChange} className="w-full border p-2 rounded" required>
+                    <select name="CollegeName" value={student.CollegeName} onChange={handleChange} className="w-full border p-2 rounded" required>
                       <option value="">Select</option>
                       {collegeOptions.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Admission Mode</label>
-                    <select name="admissionMode" value={student.admissionMode} onChange={handleChange} className="w-full border p-2 rounded" required>
+                    <select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-2 rounded" required>
                       <option value="">Select</option>
                       {admissionModes.map(mode => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Is SC Student?</label>
-                    <input type="checkbox" name="isSCStudent" checked={student.isSCStudent} onChange={(e) => setStudent({ ...student, isSCStudent: e.target.checked })} className="mr-1" />
+                    <input type="checkbox" name="IsSCStudent" checked={student.IsSCStudent} onChange={(e) => setStudent({ ...student, IsSCStudent: e.target.checked })} className="mr-1" />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-700">Ledger Number</label>
-                    <input type="text" name="ledgerNumber" value={student.ledgerNumber} onChange={handleChange} className="w-full border p-2 rounded" />
+                    <input type="text" name="LedgerNumber" value={student.LedgerNumber} onChange={handleChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Student Image</label>
+                    <input type="file" name="StudentImage" onChange={handleFileChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Is Discontinue?</label>
+                    <input type="checkbox" name="IsDiscontinue" checked={student.IsDiscontinue} onChange={(e) => setStudent({ ...student, IsDiscontinue: e.target.checked })} className="mr-1" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Discontinue On</label>
+                    <input type="date" name="DiscontinueOn" value={student.DiscontinueOn} onChange={handleChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Discontinue By</label>
+                    <input type="text" name="DiscontinueBy" value={student.DiscontinueBy} onChange={handleChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Fine Amount</label>
+                    <input type="number" name="FineAmount" value={student.FineAmount} onChange={handleChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Refund Amount</label>
+                    <input type="number" name="RefundAmount" value={student.RefundAmount} onChange={handleChange} className="w-full border p-2 rounded" />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-700">Fine Paid Amount</label>
+                    <input type="number" name="FinePaidAmount" value={student.FinePaidAmount} onChange={handleChange} className="w-full border p-2 rounded" />
                   </div>
                 </div>
               )}
@@ -255,25 +298,40 @@ const AddStudent = () => {
       )}
 
       {isPreviewOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="bg-white p-4 rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-2">Preview Student Details</h2>
             <div className="space-y-1 text-sm">
-              <p><strong>Roll Number:</strong> {student.rollNumber}</p>
-              <p><strong>Name:</strong> {student.fName} {student.lName}</p>
-              <p><strong>DOB:</strong> {student.dob}</p>
-              <p><strong>Gender:</strong> {student.gender}</p>
-              <p><strong>Mobile:</strong> {student.mobileNumber}</p>
-              <p><strong>Email:</strong> {student.emailId}</p>
-              <p><strong>Father's Name:</strong> {student.fatherName}</p>
-              <p><strong>Mother's Name:</strong> {student.motherName}</p>
-              <p><strong>Course:</strong> {courseOptions.find(option => option.id === student.courseName)?.name || ''}</p>
-              <p><strong>Course Year:</strong> {student.courseYear}</p>
-              <p><strong>Address:</strong> {student.address}, {student.city}, {student.state} - {student.pincode}</p>
-              <p><strong>College:</strong> {collegeOptions.find(option => option.id === student.collegeName)?.name || ''}</p>
-              <p><strong>Admission Mode:</strong> {admissionModes.find(mode => mode.value === student.admissionMode)?.label || ''}</p>
-              <p><strong>Is SC Student:</strong> {student.isSCStudent ? 'Yes' : 'No'}</p>
-              <p><strong>Ledger Number:</strong> {student.ledgerNumber}</p>
+              <p><strong>Student ID:</strong> {student.StudentId}</p>
+              <p><strong>Roll Number:</strong> {student.RollNumber}</p>
+              <p><strong>Name:</strong> {student.FName} {student.LName}</p>
+              <p><strong>DOB:</strong> {student.DOB}</p>
+              <p><strong>Gender:</strong> {student.Gender}</p>
+              <p><strong>Mobile Number:</strong> {student.MobileNumber}</p>
+              <p><strong>Alternate Number:</strong> {student.AlternateNumber}</p>
+              <p><strong>Email ID:</strong> {student.EmailId}</p>
+              <p><strong>Father's Name:</strong> {student.FatherName}</p>
+              <p><strong>Father's Mobile:</strong> {student.FatherMobileNumber}</p>
+              <p><strong>Mother's Name:</strong> {student.MotherName}</p>
+              <p><strong>Address:</strong> {student.Address}, {student.City}, {student.State} - {student.Pincode}</p>
+              <p><strong>Course:</strong> {courseOptions.find(option => option.id === student.CourseName)?.name || ''}</p>
+              <p><strong>Course Year:</strong> {student.CourseYear}</p>
+              <p><strong>Admission Date:</strong> {student.AdmissionDate}</p>
+              <p><strong>College:</strong> {collegeOptions.find(option => option.id === student.CollegeName)?.name || ''}</p>
+              <p><strong>Admission Mode:</strong> {admissionModes.find(mode => mode.value === student.AdmissionMode)?.label || ''}</p>
+              <p><strong>Is SC Student:</strong> {student.IsSCStudent ? 'Yes' : 'No'}</p>
+              <p><strong>Ledger Number:</strong> {student.LedgerNumber}</p>
+              <p><strong>Student Image:</strong> {student.StudentImage}</p>
+              <p><strong>Is Discontinue:</strong> {student.IsDiscontinue ? 'Yes' : 'No'}</p>
+              <p><strong>Discontinue On:</strong> {student.DiscontinueOn}</p>
+              <p><strong>Discontinue By:</strong> {student.DiscontinueBy}</p>
+              <p><strong>Fine Amount:</strong> {student.FineAmount}</p>
+              <p><strong>Refund Amount:</strong> {student.RefundAmount}</p>
+              <p><strong>Fine Paid Amount:</strong> {student.FinePaidAmount}</p>
+              <p><strong>Created On:</strong> {student.CreatedOn}</p>
+              <p><strong>Created By:</strong> {student.CreatedBy}</p>
+              <p><strong>Modified On:</strong> {student.ModifiedOn}</p>
+              <p><strong>Modified By:</strong> {student.ModifiedBy}</p>
             </div>
             <div className="mt-4 flex justify-end space-x-2">
               <button onClick={() => setIsPreviewOpen(false)} className="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400">Close</button>

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, SetStateAction } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../context/AuthContext';
 import { useBanner } from '../context/BannerContext';
@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { MdCloudUpload, MdDelete } from 'react-icons/md';
-import { FaEdit } from 'react-icons/fa';
+import { FaArrowLeft, FaArrowRight, FaEdit } from 'react-icons/fa';
 import { usePermissions } from '../context/PermissionsContext';
 import { useLocation } from 'react-router-dom';
 
@@ -185,93 +185,140 @@ const AddBanner: React.FC = () => {
     banner.bannerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     String(banner.bannerPosition).toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const itemsPerPage = 8; // Number of items to display per page
+  const [currentPage, setCurrentPage] = useState(1);
+ // Calculate total pages
+ const totalPages = Math.ceil(filteredBanners.length / itemsPerPage);
 
+ // Get current items for the current page
+ const currentItems = filteredBanners.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+ // Handle page change
+ const handlePageChange = (pageNumber: SetStateAction<number>) => {
+   setCurrentPage(pageNumber);
+ };
   return (
     <>
       <Breadcrumb pageName="Add Banner" />
       <div className="flex items-center justify-between p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
-        <input
-          type="search"
-          className='py-1 px-3 bg-white border border-gray-300 placeholder:text-[.8rem] rounded-md text-sm w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
-          placeholder='Search Banner by name and position here...'
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <button
-          className={`ml-2 flex items-center gap-3 px-4 py-1 text-sm text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
-          onClick={canCreate ? addBanner : () => toast.error('Access Denied: You do not have permission to create banners.')}
-        ><MdCloudUpload />
-          Upload Banner
-        </button>
-      </div>
+  <input
+    type="search"
+    className='py-1 px-2 bg-white border border-gray-300 placeholder:text-[.7rem] rounded-md text-xs w-80 focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200'
+    placeholder='Search Banner by name and position...'
+    value={searchQuery}
+    onChange={(e) => setSearchQuery(e.target.value)}
+  />
+  <button
+    className={`ml-2 flex items-center gap-2 px-3 py-1 text-xs text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={canCreate ? addBanner : () => toast.error('Access Denied: You do not have permission to create banners.')}
+  >
+    <MdCloudUpload className="w-4 h-4" /> {/* Adjust icon size if needed */}
+    Upload Banner
+  </button>
+</div>
       {/*  Bnner List */}
-      <div className="mt-6 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
-        <h2 className="text-sm font-bold text-center p-2 text-cyan-900 dark:text-meta-5">Banners List</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredBanners.length > 0 ? (
-            filteredBanners.map((banner) => (
-              <div key={banner.id} className="p-3 border rounded-lg overflow-hidden dark:bg-meta-4">
-                <img
-                  src={banner.bannerUrl}
-                  alt={banner.bannerName}
-                  className="w-full h-32 object-cover rounded-md"
-                  style={{ opacity: banner.IsVisible ? 1 : 0.3 }}
-                />
-                <div className="text-sm mt-2 text-gray-500 dark:text-gray-400">
-                  <div className="font-medium">Position: {banner.bannerPosition ?? 'N/A'}</div>
-                  <div className="font-medium">
-                    <p>Banner Name: {banner.bannerName}</p>
-                    <p><span className="font-medium">Created On:</span> {banner.created_on ? new Date(banner.created_on).toLocaleDateString() : 'N/A'}</p>
-                    <p><span className="font-medium">Created By:</span> {banner.created_by}</p>
-                    <p><span className="font-medium">Modified By:</span> {banner.modify_by || 'N/A'}</p>
-                    <p><span className="font-medium">Modified On:</span> {banner.modify_on ? new Date(banner.modify_on).toLocaleDateString() : 'N/A'}</p>
-                  </div>
-                </div>
-
-                {/* Buttons - Single Row Compact Layout */}
-                <div className="flex items-center justify-center   gap-2 mt-3 flex-nowrap">
-                  {/* Edit Button */}
-                  <button
-                    className={`px-3 py-1.5 text-sm font-normal bg-green-500 text-white rounded-md hover:bg-green-600 transition-all duration-300 w-auto min-w-[80px] flex items-center justify-center gap-2 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onClick={canUpdate ? () => handleEdit(banner) : () => toast.error('Access Denied: You do not have permission to update banners.')}
-                    disabled={!canUpdate}
-                  >
-                    <FaEdit />
-                    Edit
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    className={`px-3 py-1.5 text-sm font-normal rounded-md transition-all duration-300 w-auto min-w-[80px] flex items-center justify-center gap-2 ${!canDelete ? 'opacity-50 cursor-not-allowed bg-gray-400 text-gray-700' : 'bg-red-500 text-white hover:bg-red-600'}`}
-                    onClick={canDelete ? () => { setBannerIdToDelete(banner.id); setOpenDeleteModal(true); } : () => toast.error('Access Denied: You do not have permission to delete banners.')}
-                    disabled={!canDelete}
-                  >
-                    <MdDelete />
-                    Delete
-                  </button>
-
-                  {/* Visibility Toggle */}
-                  <label className="inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={banner.IsVisible}
-                      onChange={canRead ? () => handleToggleVisibility(banner.id) : () => toast.error('Access Denied: You do not have permission to update banners.')}
-                      className="sr-only peer"
-                    />
-                    <div className={`relative w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
-                      <div className={`absolute top-0 left-0 w-5 h-5 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${banner.IsVisible ? 'translate-x-5' : ''}`}></div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-3 text-center text-gray-500 dark:text-gray-400">
-              Not Found
+      <div className="mt-4 p-3 bg-white rounded-lg shadow-md dark:bg-gray-700">
+  <h2 className="text-sm font-bold text-center p-2 text-cyan-900 dark:text-meta-5">Banners List</h2>
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+    {currentItems.length > 0 ? (
+      currentItems.map((banner) => (
+        <div key={banner.id} className="p-3 border rounded-lg overflow-hidden dark:bg-meta-4">
+          <img
+            src={banner.bannerUrl}
+            alt={banner.bannerName}
+            className="w-full h-28 object-cover rounded-md"
+            style={{ opacity: banner.IsVisible ? 1 : 0.3 }}
+          />
+          <div className="text-xs mt-2 text-gray-500 dark:text-gray-400">
+            <div className="font-medium">Position: {banner.bannerPosition ?? 'N/A'}</div>
+            <div className="font-medium">
+              <p>Banner Name: {banner.bannerName}</p>
+              <p><span className="font-medium">Created On:</span> {banner.created_on ? new Date(banner.created_on).toLocaleDateString() : 'N/A'}</p>
+              <p><span className="font-medium">Created By:</span> {banner.created_by}</p>
+              <p><span className="font-medium">Modified By:</span> {banner.modify_by || 'N/A'}</p>
+              <p><span className="font-medium">Modified On:</span> {banner.modify_on ? new Date(banner.modify_on).toLocaleDateString() : 'N/A'}</p>
             </div>
-          )}
+          </div>
+
+          {/* Buttons - Single Row Compact Layout */}
+          <div className="flex items-center justify-around gap-2 mt-2">
+            {/* Edit Button */}
+            <button
+              className={`px-3 py-1 text-xs font-normal bg-green-500 text-white rounded-md hover:bg-green-600 transition-all duration-300 w-auto flex items-center gap-1 ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={canUpdate ? () => handleEdit(banner) : () => toast.error('Access Denied: You do not have permission to update banners.')}
+              disabled={!canUpdate}
+            >
+              <FaEdit />
+              Edit
+            </button>
+
+            {/* Delete Button */}
+            <button
+              className={`px-3 py-1 text-xs font-normal rounded-md transition-all duration-300 w-auto flex items-center gap-1 ${!canDelete ? 'opacity-50 cursor-not-allowed bg-gray-400 text-gray-700' : 'bg-red-500 text-white hover:bg-red-600'}`}
+              onClick={canDelete ? () => { setBannerIdToDelete(banner.id ?? null); setOpenDeleteModal(true); } : () => toast.error('Access Denied: You do not have permission to delete banners.')}
+              disabled={!canDelete}
+            >
+              <MdDelete />
+              Delete
+            </button>
+
+            {/* Visibility Toggle */}
+            <label className="inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={banner.IsVisible}
+                onChange={
+                  canRead
+                    ? () => { if (banner.id !== undefined) handleToggleVisibility(banner.id); }
+                    : () => toast.error('Access Denied: You do not have permission to update banners.')
+                }
+                className="sr-only peer"
+              />
+              <div className={`relative w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 ${!canRead ? 'opacity-50 cursor-not-allowed' : 'peer-checked:bg-blue-600 dark:peer-checked:bg-blue-600'}`}>
+                <div className={`absolute top-0 left-0 w-4 h-4 bg-white border border-gray-300 rounded-full transition-transform duration-200 ease-in-out ${banner.IsVisible ? 'translate-x-4' : ''}`}></div>
+              </div>
+            </label>
+          </div>
         </div>
+      ))
+    ) : (
+      <div className="col-span-3 text-center text-gray-500 dark:text-gray-400">
+        Not Found
       </div>
+    )}
+  </div>
+
+  {/* Pagination Controls */}
+  <div className="flex justify-center mt-4 items-center gap-2">
+    <button
+      onClick={() => handlePageChange(currentPage - 1)}
+      className={`px-3 py-1 rounded-md flex items-center gap-1 ${currentPage === 1 ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+      disabled={currentPage === 1}
+    >
+      <FaArrowLeft /> Prev
+    </button>
+
+    {Array.from({ length: totalPages }, (_, index) => (
+      <button
+        key={index + 1}
+        onClick={() => handlePageChange(index + 1)}
+        className={`px-3 py-1 rounded-md ${currentPage === index + 1 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+      >
+        {index + 1}
+      </button>
+    ))}
+
+    <button
+      onClick={() => handlePageChange(currentPage + 1)}
+      className={`px-3 py-1 rounded-md flex items-center gap-1 ${currentPage === totalPages ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
+      disabled={currentPage === totalPages}
+    >
+      Next <FaArrowRight />
+    </button>
+  </div>
+</div>
+
+
 
 
       {/* Edit Modal */}
@@ -279,7 +326,7 @@ const AddBanner: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-lg p-5 overflow-auto">
             {/* Modal Header */}
@@ -348,7 +395,7 @@ const AddBanner: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-white dark:bg-gray-700 dark:text-meta-2 rounded-lg shadow-lg p-5 overflow-auto">
             {/* Modal Header */}
@@ -418,7 +465,7 @@ const AddBanner: React.FC = () => {
         size="md"
         onClose={() => setOpenDeleteModal(false)}
         popup
-        className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50"
+        className="fixed inset-0 pt-70 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
       >
         <Modal.Header />
         <Modal.Body>

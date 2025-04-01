@@ -228,7 +228,7 @@ const AddImportantLinks: React.FC = () => {
   {/* Search Input */}
   <input
     type="search"
-    className="py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-full sm:w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 placeholder:text-[.8rem]"
+    className="py-1 px-3 bg-white border border-gray-300 rounded-md text-sm w-full sm:w-80 focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200 placeholder:text-[.8rem]"
     placeholder="Search link by name and position..."
     value={searchQuery}
     onChange={(e) => setSearchQuery(e.target.value)}
@@ -331,7 +331,7 @@ const AddImportantLinks: React.FC = () => {
   <div
     id="edit-modal"
     tabIndex={-1}
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
   >
     <div className="relative p-5 w-full max-w-md bg-white dark:bg-meta-4 rounded-lg shadow-md">
       {/* Modal Header */}
@@ -406,7 +406,7 @@ const AddImportantLinks: React.FC = () => {
   <div
     id="add-modal"
     tabIndex={-1}
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
   >
     <div className="relative p-5 w-full max-w-md bg-white dark:bg-meta-4 rounded-lg shadow-md">
       {/* Modal Header */}
@@ -479,7 +479,7 @@ const AddImportantLinks: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       <Modal 
-  className="bg-black bg-opacity-50  pt-50 flex items-center justify-center" 
+  className="bg-black bg-opacity-50  backdrop-blur-sm pt-50 flex items-center justify-center" 
   show={openDeleteModal} 
   size="md" 
   onClose={() => setOpenDeleteModal(false)} 
