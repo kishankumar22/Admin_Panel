@@ -153,3 +153,73 @@ model Permission {
 
   @@unique([roleId, pageId]) // Ensure each role has unique permissions per page
 }
+
+
+model Student {
+  StudentId        String    @id @default(uuid()) // Auto-generated UUID
+  RollNumber       String    @unique
+  FName            String
+  LName            String
+  DOB              DateTime  @db.DateTimeOffset
+  Gender           String
+  MobileNumber     String
+  AlternateNumber  String?
+  EmailId          String    @unique
+  FatherName       String
+  FatherMobileNumber String
+  MotherName       String
+  Address          String
+  City             String
+  State            String
+  Pincode          String
+  CourseName       String
+  CourseYear       String
+  IsSCStudent      Boolean   @default(false)
+  LedgerNumber     String?
+  CollegeId        String
+  AdmissionMode    String
+  AdmissionDate    DateTime? @db.DateTimeOffset
+  Income           Float?
+  FineAmount       Float     @default(0.0)
+  RefundAmount     Float     @default(0.0)
+  FinePaidAmount   Float     @default(0.0)
+  IsDiscontinue    Boolean   @default(false)
+  DiscontinueOn    DateTime? @db.DateTimeOffset
+  DiscontinueBy    String?
+  CreatedOn        DateTime  @default(now()) @db.DateTimeOffset
+  CreatedBy        String    @default("System")
+  ModifiedOn       DateTime? @db.DateTimeOffset
+  ModifiedBy       String?
+
+  college          College   @relation(fields: [CollegeId], references: [CollegeId])
+  documents        Documents[]
+
+  @@map("Students")
+}
+
+model College {
+  CollegeId        String    @id @default(uuid())
+  CollegeName      String    @unique
+  Location         String
+  EstablishedYear  Int
+  ContactNumber    String
+  Email            String    @unique
+  Status           String    @default("Active")
+
+  students         Student[]
+
+  @@map("Colleges")
+}
+
+model Documents {
+  DocumentId       String    @id @default(uuid()) // Auto-generated UUID for each document
+  StudentId        String
+  DocumentType     String    // e.g., "StudentImage", "CasteCertificate", etc.
+  PublicId         String    // Cloudinary public_id
+  UploadDate       DateTime  @default(now()) @db.DateTimeOffset
+  FileName         String    // Original filename
+
+  student          Student   @relation(fields: [StudentId], references: [StudentId], onDelete: Cascade)
+
+  @@map("Documents")
+}

@@ -11,6 +11,7 @@ const latestPostRoutes=require('./routes/latestPostRoutes')
 const galleryRoutes=require('./routes/galleryRoutes')
 const userRoutes=require('./routes/userRoutes')
 const createpageRoutes=require('./routes/createPageRoutes')
+const addStudentsRoutes=require('./routes/students/addStudentsRoutes')
 const assignroleRoutes=require('./routes/assignroleRoutes')
 const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 
@@ -57,6 +58,7 @@ app.use('/api',latestPostRoutes)
 app.use('/api',userRoutes)
 app.use('/api',createpageRoutes)
 app.use('/api',assignroleRoutes)
+app.use('/api',addStudentsRoutes)
 
 // Routes 
 
