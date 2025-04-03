@@ -4,7 +4,8 @@ import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { Button } from 'flowbite-react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
-// import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
+
 
 interface StudentFormData {
   RollNumber: string;
@@ -35,6 +36,7 @@ interface StudentFormData {
   FineAmount: number;
   RefundAmount: number;
   FinePaidAmount: number;
+  CreatedBy:string
 }
 
 interface FileData {
@@ -50,9 +52,7 @@ interface Documents {
   Residential: FileData;
   Income: FileData;
 }
-  // const { user } = useAuth();
-  // const createdBy = user?.name;
-  // console.log(createdBy)
+
 
 const courseOptions = [
   { id: 'B.Pharma', name: 'B. Pharma' },
@@ -76,9 +76,10 @@ const AddStudent = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  //   const { user } = useAuth();
-  // const createdBy = user?.name;
-  // console.log(createdBy)
+    const { user } = useAuth();
+  const createdBy = user?.name;
+  const modifyBy = user?.name;
+  console.log(modifyBy)
   
   const [student, setStudent] = useState<StudentFormData>({
     RollNumber: '',
@@ -108,7 +109,8 @@ const AddStudent = () => {
     DiscontinueBy: '',
     FineAmount: 0,
     RefundAmount: 0,
-    FinePaidAmount: 0
+    FinePaidAmount: 0,
+    CreatedBy:createdBy||''
   });
 
   const [documents, setDocuments] = useState<Documents>({
@@ -192,7 +194,8 @@ const AddStudent = () => {
       DiscontinueBy: '',
       FineAmount: 0,
       RefundAmount: 0,
-      FinePaidAmount: 0
+      FinePaidAmount: 0,
+      CreatedBy:''
     });
 
     setDocuments({

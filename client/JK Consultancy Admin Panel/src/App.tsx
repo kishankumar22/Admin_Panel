@@ -24,7 +24,8 @@ import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
 import AssignRolePage from './pages/Configuration/AssignRolePage';
 import CreatePage from './pages/Configuration/CreatePage';
-import AddStudent from './services/students/AddStudent';
+// import AddStudent from './services/students/AddStudent';
+import StudentManagement from './services/students/StudentManagement';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -136,7 +137,7 @@ const App: React.FC = () => {
       element: (
         <>
           <PageTitle title="Add New Students" />
-          <AddStudent />
+          <StudentManagement />
         </>
       ),
     },
