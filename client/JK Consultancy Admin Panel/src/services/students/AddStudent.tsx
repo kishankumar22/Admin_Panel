@@ -65,8 +65,8 @@ const admissionModes = [
 ];
 
 const collegeOptions = [
-  { id: 'jkiop', name: 'ABC College' },
-  { id: '2', name: 'XYZ College' }
+  { id: 'JKIOP', name:'JK Institute Of Pharmacy' },
+  { id: 'jkipm', name: 'XYZ College' }
 ];
 
 const AddStudent = () => {

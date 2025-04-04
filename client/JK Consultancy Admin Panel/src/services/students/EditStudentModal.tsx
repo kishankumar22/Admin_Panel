@@ -419,7 +419,7 @@ const prevStep = () => {
               <h3 className="text-base font-semibold text-center text-blue-500 mb-4">Academic & Address Details</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Course*</label>
+                  <label className="block text-sm font-medium text-gray-700">Course Name*</label>
                   <select
                     name="CourseName"
                     value={student.CourseName}

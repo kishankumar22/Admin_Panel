@@ -50,4 +50,96 @@ this is for backend (root folder)
   </system.webServer>
 </configuration>
 
-  
+  Database Schema for Student Management System
+1. Student Table
+Field Name	Data Type	Constraints / Description
+StudentId	String (UUID)	Primary Key
+FName	String	Required
+LName	String	Optional
+RollNumber	String	Required, Unique
+Gender	String	Required (Male/Female/Other)
+FatherName	String	Required
+MotherName	String	Required
+MobileNumber	String	Required
+FatherMobile	String	Optional
+AlternateNumber	String	Optional
+DOB	DateTime	Required
+Email	String	Required, Unique
+Address	String	Required
+State	String	Required
+Pincode	String	Required
+City	String	Required
+AdmissionMode	String	Required (Direct/Entrance Exam)
+CollegeId	String (UUID)	Foreign Key from College Table
+CourseId	String (UUID)	Foreign Key from Course Table
+AdmissionDate	DateTime	Required
+StudentImage	String	Optional (URL of uploaded image)
+IsSCStudent	Boolean	Default: False
+		
+IsDiscontinue	Boolean	Default: False
+DiscontinueOn	DateTime?	Optional
+DiscontinueBy	String	Optional
+CreatedBy	String	Required
+CreatedOn	DateTime	Default: now()
+ModifiedBy	String?	Optional
+ModifiedOn	DateTime?	Optional
+Status	String	Active/Inactive 
+
+________________________________________
+2. Course Table
+Field Name	Data Type	Constraints / Description
+CourseId	String (UUID)	Primary Key
+CourseName	String	Required (B Pharma / D Pharma)
+CollegeId	String (UUID)	Foreign Key from College Table
+Course Year     	int	 Required
+CreatedBy	String	Required
+CreatedOn	DateTime	Default: now()x`
+ModifiedBy	String?	Optional
+ModifiedOn	DateTime?	Optional
+Status	String	Active/Inactive 
+
+
+________________________________________
+3. Documents Table
+Field Name	Data Type	Constraints / Description
+DocumentId	String (UUID)	Primary Key
+StudentId	String (UUID)	Foreign Key from Student Table
+DocumentType	String	Type of document (Caste Cert, Marksheet, etc.)
+PublicId	String	File identifier from Cloudinary
+FileName	String	Original file name
+UploadDate	DateTime	Default: now()
+CreatedBy	String	Required
+CreatedOn	DateTime	Default: now()
+ModifiedBy	String?	Optional
+ModifiedOn	DateTime?	Optional
+________________________________________
+4. College Table
+Field Name	Data Type	Constraints / Description
+CollegeId	String (UUID)	Primary Key
+CollegeName	String	Unique
+Location	String	Required
+EstablishYear	Integer	Required
+ContactNumber	String	Required
+Email	String	Required, Unique
+Status	String	Active/Inactive 
+CreatedBy	String	Required
+CreatedOn	DateTime	Default: now()
+ModifiedBy	String?	Optional
+ModifiedOn	DateTime?	Optional
+
+5.  Student Academic Details 
+Field Name	Data Type	Constraints / Description
+SAID	String (UUID)	Primary Key  id increment
+StudentId	String (UUID)	Foreign Key from Student Table
+SessionYear	String	Required (e.g., 2024-2025)
+PaymentMode	String	One-Time / EMI
+AdminAmount	Float	Default: 0.0
+FeesAmount	Float	Required
+NumberOfEMI	Integer?	Required if EMI selected (2, 4, 6, etc.)
+LedgerNumber	String	Optional
+CreatedBy	String	Required
+CreatedOn	DateTime	Default: now()
+ModifiedBy	String?	Optional
+ModifiedOn	DateTime?	Optional
+ Course Duration  int                        
+

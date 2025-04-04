@@ -42,6 +42,7 @@ const StudentManagement = () => {
       setLoading(true);
       const response = await axiosInstance.get('/students');
       setStudents(response.data);
+      console.log(response.data)
     } catch (err) {
       setError('Failed to fetch students');
     } finally {

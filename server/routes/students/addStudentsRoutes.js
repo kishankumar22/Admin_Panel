@@ -119,8 +119,9 @@ router.post('/students', upload.fields([
         })),
       });
     }
-
     res.status(201).json({ success: true, student: newStudent });
+    console.log("New  Student Added successfully");
+
   } catch (error) {
     console.error('Error creating student:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -299,6 +300,7 @@ router.get('/students/:id', async (req, res) => {
         student: updatedStudent,
         documents: documentsData 
       });
+      console.log(" Student updated successfully")
     } catch (error) {
       console.error('Error updating student:', error);
       res.status(500).json({ 
@@ -312,11 +314,12 @@ router.get('/students/:id', async (req, res) => {
 router.get('/students/:id/documents', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    
+    // Use template literals to convert to string
     const documents = await prisma.documents.findMany({
-      where: { StudentId: id }
+      where: {
+        StudentId: `${id}` // Convert to string using template literals
+      }
     });
-
     res.json({ success: true, documents });
   } catch (error) {
     console.error('Error fetching documents:', error);
@@ -353,6 +356,8 @@ router.delete('/students/:id', async (req, res) => {
     });
 
     res.json({ success: true, message: 'Student deleted successfully' });
+    console.log(" Student Deletd successfully")
+
   } catch (error) {
     console.error('Error deleting student:', error);
     res.status(500).json({ success: false, message: error.message });
