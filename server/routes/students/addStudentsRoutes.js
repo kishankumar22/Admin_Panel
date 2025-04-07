@@ -12,6 +12,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // POST /students - Create a new student with academic details and EMI details
+
 router.post('/students', upload.fields([
   { name: 'StudentImage' },
   { name: 'CasteCertificate' },
@@ -29,21 +30,32 @@ router.post('/students', upload.fields([
       RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI
     } = req.body;
 
-    // Parse EMI details from the request body
+    console.log("Request Body:", req.body);
+
+    // Parse EMI details
     const emiDetails = [];
-    for (let i = 0; i < (parseInt(NumberOfEMI) || 0); i++) {
-      const emiNumber = parseInt(req.body[`emi[${i}][emiNumber]`]) || i + 1;
-      const amount = parseFloat(req.body[`emi[${i}][amount]`]) || 0;
-      const date = req.body[`emi[${i}][date]`];
-      if (amount > 0 && date) { // Ensure valid EMI data
-        emiDetails.push({
-          emiNumber,
-          amount,
-          dueDate: new Date(date),
-          createdBy: CreatedBy,
-        });
+    if (PaymentMode === 'EMI' && NumberOfEMI) {
+      let index = 0;
+      while (req.body[`emiDetails[${index}].emiNumber`]) {
+        const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || (index + 1);
+        const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
+        const date = req.body[`emiDetails[${index}].date`];
+
+        console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
+
+        if (amount > 0 && date) {
+          emiDetails.push({
+            emiNumber,
+            amount,
+            dueDate: new Date(date),
+            createdBy: CreatedBy,
+          });
+        }
+        index++;
       }
     }
+
+    console.log("Parsed EMI Details:", emiDetails);
 
     // Validate CollegeId
     if (!CollegeId) {
@@ -69,7 +81,7 @@ router.post('/students', upload.fields([
       return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
     }
 
-    // Upload documents to Cloudinary and store both publicId and fileUrl
+    // Upload documents to Cloudinary
     const documentsData = [];
     const uploadFile = async (fieldName) => {
       if (req.files[fieldName]?.[0]) {
@@ -78,7 +90,7 @@ router.post('/students', upload.fields([
           documentsData.push({
             documentType: fieldName,
             publicId: uploadedFile.public_id,
-            fileUrl: uploadedFile.url, // Store the full URL
+            fileUrl: uploadedFile.url,
             fileName: req.files[fieldName][0].originalname,
             createdBy: CreatedBy,
           });
@@ -118,7 +130,7 @@ router.post('/students', upload.fields([
           collegeId: parseInt(CollegeId),
           courseId: parseInt(CourseId),
           admissionDate: new Date(AdmissionDate),
-          studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null, // Use fileUrl instead of publicId
+          studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null,
           category: Category,
           isDiscontinue: IsDiscontinue === 'true',
           discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
@@ -136,8 +148,9 @@ router.post('/students', upload.fields([
           paymentMode: PaymentMode,
           adminAmount: parseFloat(FineAmount) || 0.0,
           feesAmount: parseFloat(RefundAmount) || 0.0,
-          numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) : null,
+          numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
           ledgerNumber: LedgerNumber || null,
+          courseYear: CourseYear || null,
           createdBy: CreatedBy,
         },
       });
@@ -149,7 +162,7 @@ router.post('/students', upload.fields([
             studentId: student.id,
             documentType: doc.documentType,
             publicId: doc.publicId,
-            fileUrl: doc.fileUrl, // Save the full URL
+            fileUrl: doc.fileUrl,
             fileName: doc.fileName,
             createdBy: doc.createdBy,
           })),
@@ -157,7 +170,7 @@ router.post('/students', upload.fields([
       }
 
       // Create EMI Details if applicable
-      if (emiDetails.length > 0) {
+      if (PaymentMode === 'EMI' && emiDetails.length > 0) {
         await prisma.EMIDetails.createMany({
           data: emiDetails.map(emi => ({
             studentId: student.id,
@@ -174,7 +187,6 @@ router.post('/students', upload.fields([
     });
 
     res.status(201).json({ success: true, student: newStudent });
-    console.log("New Student Added successfully");
   } catch (error) {
     console.error('Error creating student:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -227,13 +239,130 @@ router.get('/courses', async (req, res) => {
 });
 
 // Get single student today
+router.get('/:id', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const student = await prisma.student.findUnique({
+      where: { id: studentId }, // Use 'id' here, not 'StudentId'
+      include: {
+        course: true,
+        college: true,
+        academicDetails: true,
+        documents: true,
+        emiDetails: true,
+      },
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found.' });
+    }
+
+    res.status(200).json({ success: true, student });
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /students/:id/complete - Get complete student data including documents
+router.get('/students/:id/documents', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const documents = await prisma.documents.findMany({
+      where: { studentId: studentId }, // Assuming studentId is a number in your schema
+      select: {
+        id: true,
+        documentType: true,
+        fileName: true,
+        fileUrl: true,
+        publicId: true,
+      },
+    });
+
+    // Format documents to match frontend expectations
+    const formattedDocuments = documents.map(doc => ({
+      DocumentId: doc.id,
+      DocumentType: doc.documentType,
+      FileName: doc.fileName,
+      Url: doc.fileUrl,
+      PublicId: doc.publicId,
+    }));
+
+    res.status(200).json(formattedDocuments);
+  } catch (error) {
+    console.error('Error fetching documents:', error);
+    res.status(500).json({ success: false, message: 'Failed to load student documents' });
+  }
+});
+// GET /students/:id/documents - Get student documents
 router.get('/students/:id', async (req, res) => {
   try {
+    const studentId = parseInt(req.params.id);
     const student = await prisma.student.findUnique({
-      where: { StudentId: parseInt(req.params.id) },
+      where: { id: studentId },
       include: {
-        College: true,
-        Documents: true
+        academicDetails: true, // Include academic details for payment and session info
+        documents: true,       // Include documents if needed here (optional, since separate route exists)
+      },
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Format the student data to match the frontend StudentFormData interface
+    const formattedStudent = {
+      StudentId: student.id,
+      RollNumber: student.rollNumber,
+      FName: student.fName,
+      LName: student.lName || '',
+      DOB: student.dob ? student.dob.toISOString().split('T')[0] : '',
+      Gender: student.gender,
+      MobileNumber: student.mobileNumber,
+      AlternateNumber: student.alternateNumber || '',
+      EmailId: student.email,
+      FatherName: student.fatherName,
+      FatherMobileNumber: student.fatherMobile || '',
+      MotherName: student.motherName,
+      Address: student.address,
+      City: student.city,
+      State: student.state,
+      Pincode: student.pincode,
+      CourseId: student.courseId ? student.courseId.toString() : '',
+      CourseYear: student.academicDetails?.courseYear || '',
+      Category: student.category,
+      LedgerNumber: student.academicDetails?.ledgerNumber || '',
+      CollegeId: student.collegeId ? student.collegeId.toString() : '',
+      AdmissionMode: student.admissionMode,
+      AdmissionDate: student.admissionDate ? student.admissionDate.toISOString().split('T')[0] : '',
+      IsDiscontinue: student.isDiscontinue,
+      DiscontinueOn: student.discontinueOn ? student.discontinueOn.toISOString().split('T')[0] : '',
+      DiscontinueBy: student.discontinueBy || '',
+      FineAmount: student.academicDetails?.adminAmount || 0,
+      RefundAmount: student.academicDetails?.feesAmount || 0,
+      ModifiedBy: student.modifiedBy || '',
+      SessionYear: student.academicDetails?.sessionYear || '',
+      PaymentMode: student.academicDetails?.paymentMode || '',
+      NumberOfEMI: student.academicDetails?.numberOfEMI || null,
+    };
+
+    res.status(200).json(formattedStudent);
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ success: false, message: 'Failed to load student data' });
+  }
+});
+// DELETE /students/:id - Delete a student and all related records
+router.delete('/students/:id', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    
+    // First, verify the student exists
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        documents: true,
+        academicDetails: true
       }
     });
 
@@ -241,208 +370,268 @@ router.get('/students/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    res.json({ success: true, data: student });
+    // Delete all related records in a transaction
+    await prisma.$transaction(async (prisma) => {
+      // 1. Delete documents from Cloudinary (if they exist) and database
+      if (student.documents.length > 0) {
+        // First delete from Cloudinary
+        await Promise.all(
+          student.documents.map(async (doc) => {
+            try {
+              await deleteFromCloudinary(doc.publicId);
+            } catch (error) {
+              console.error(`Error deleting document ${doc.publicId} from Cloudinary:`, error);
+            }
+          })
+        );
+        
+        // Then delete from database
+        await prisma.documents.deleteMany({
+          where: { studentId: studentId }
+        });
+      }
+
+      // 2. Delete EMI details if they exist
+      if (student.academicDetails && student.academicDetails.length > 0) {
+        await prisma.EMIDetails.deleteMany({
+          where: { studentId: studentId }
+        });
+      }
+
+      // 3. Delete academic details
+      if (student.academicDetails && student.academicDetails.length > 0) {
+        await prisma.studentAcademicDetails.deleteMany({
+          where: { studentId: studentId }
+        });
+      }
+
+      // 4. Finally, delete the student
+      await prisma.student.delete({
+        where: { id: studentId }
+      });
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: 'Student and all related records deleted successfully' 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Error deleting student:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error deleting student',
+      error: error.message 
+    });
   }
 });
 
+// PUT /students/:id - Update student
+router.put('/students/:id', upload.fields([
+  { name: 'StudentImage' },
+  { name: 'CasteCertificate' },
+  { name: 'TenthMarks' },
+  { name: 'TwelfthMarks' },
+  { name: 'Residential' },
+  { name: 'Income' }
+]), async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const {
+      RollNumber, FName, LName, DOB, Gender, MobileNumber, AlternateNumber,
+      EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
+      CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
+      AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
+      RefundAmount, ModifiedBy, SessionYear, PaymentMode, NumberOfEMI
+    } = req.body;
 
-// edit today
-// PUT /students/:id - Update student width documents
-  router.put('/students/:id', upload.fields([
-    { name: 'StudentImage', maxCount: 1 },
-    { name: 'CasteCertificate', maxCount: 1 },
-    { name: 'TenthMarks', maxCount: 1 },
-    { name: 'TwelfthMarks', maxCount: 1 },
-    { name: 'Residential', maxCount: 1 },
-    { name: 'Income', maxCount: 1 }
-  ]), async (req, res) => {
-    try {
-      const { id } = req.params; // Keep id as a string
-
-      const studentData = req.body;
-
-      // Validate student exists
-      const existingStudent = await prisma.student.findUnique({ 
-        where: { StudentId: id } // No need to convert to an integer
-      });
-      
-
-      if (!existingStudent) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
+    // Check if student exists
+    const existingStudent = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        academicDetails: true,
+        documents: true
       }
+    });
 
-      // Validate CollegeId
-      if (!studentData.CollegeId) {
-        return res.status(400).json({ success: false, message: 'CollegeId is required' });
-      }
+    if (!existingStudent) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
 
-      const collegeExists = await prisma.college.findUnique({
-        where: { CollegeId: studentData.CollegeId }
-      });
+    // Upload new documents to Cloudinary
+    const documentsData = [];
+    const uploadFile = async (fieldName) => {
+      if (req.files[fieldName]?.[0]) {
+        // Delete old document if exists
+        const oldDoc = existingStudent.documents.find(doc => doc.documentType === fieldName);
+        if (oldDoc) {
+          await deleteFromCloudinary(oldDoc.publicId);
+          await prisma.documents.delete({ where: { id: oldDoc.id } });
+        }
 
-      if (!collegeExists) {
-        return res.status(400).json({ success: false, message: 'Invalid CollegeId' });
-      }
-
-      // Check RollNumber uniqueness if changed
-      if (studentData.RollNumber !== existingStudent.RollNumber) {
-        const studentWithNewRoll = await prisma.student.findFirst({
-          where: { 
-            RollNumber: studentData.RollNumber,
-            NOT: { StudentId: id }
-          }
-        });
-
-        if (studentWithNewRoll) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Roll Number already exists' 
+        // Upload new document
+        const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
+        if (uploadedFile?.public_id && uploadedFile?.url) {
+          documentsData.push({
+            documentType: fieldName,
+            publicId: uploadedFile.public_id,
+            fileUrl: uploadedFile.url,
+            fileName: req.files[fieldName][0].originalname,
+            createdBy: ModifiedBy,
           });
         }
       }
+    };
 
-      // Handle document uploads
-      const documentsData = [];
-      const uploadFile = async (fieldName) => {
-        if (req.files[fieldName]?.[0]) {
-          // Delete old document if exists
-          const oldDoc = await prisma.documents.findFirst({
-            where: { 
-              StudentId: id,
-              DocumentType: fieldName
-            }
-          });
+    await Promise.all([
+      uploadFile('StudentImage'),
+      uploadFile('CasteCertificate'),
+      uploadFile('TenthMarks'),
+      uploadFile('TwelfthMarks'),
+      uploadFile('Residential'),
+      uploadFile('Income')
+    ]);
 
-          if (oldDoc) {
-            await cloudinary.uploader.destroy(oldDoc.PublicId);
-            await prisma.documents.delete({
-              where: { DocumentId: oldDoc.DocumentId }
-            });
-          }
-
-          // Upload new document
-          const uploadedFile = await uploadToCloudinary(
-            req.files[fieldName][0].buffer, 
-            `student_documents/${id}/${fieldName}`
-          );
-
-          if (uploadedFile?.public_id) {
-            documentsData.push({
-              DocumentType: fieldName,
-              PublicId: uploadedFile.public_id,
-              FileName: req.files[fieldName][0].originalname,
-              Url: uploadedFile.secure_url
-            });
-          }
-        }
-      };
-
-      await Promise.all([
-        uploadFile('StudentImage'),
-        uploadFile('CasteCertificate'),
-        uploadFile('TenthMarks'),
-        uploadFile('TwelfthMarks'),
-        uploadFile('Residential'),
-        uploadFile('Income')
-      ]);
-
-      // Update student
-      const updatedStudent = await prisma.student.update({
-        where: { StudentId: id },
+    // Update student and related records in a transaction
+    const updatedStudent = await prisma.$transaction(async (prisma) => {
+      // Update Student
+      const student = await prisma.student.update({
+        where: { id: studentId },
         data: {
-          ...studentData,
-          DOB: studentData.DOB ? new Date(studentData.DOB) : null,
-          AdmissionDate: studentData.AdmissionDate ? new Date(studentData.AdmissionDate) : null,
-          IsSCStudent: studentData.IsSCStudent === 'true',
-          IsDiscontinue: studentData.IsDiscontinue === 'true',
-          DiscontinueOn: studentData.DiscontinueOn ? new Date(studentData.DiscontinueOn) : null,
-          FineAmount: studentData.FineAmount ? parseFloat(studentData.FineAmount) : 0,
-          RefundAmount: studentData.RefundAmount ? parseFloat(studentData.RefundAmount) : 0,
-          FinePaidAmount: studentData.FinePaidAmount ? parseFloat(studentData.FinePaidAmount) : 0,
-          ModifiedOn: new Date(),
-          ModifiedBy: studentData.ModifiedBy || 'Admin'
-        }
+          rollNumber: RollNumber,
+          fName: FName,
+          lName: LName || null,
+          dob: new Date(DOB),
+          gender: Gender,
+          mobileNumber: MobileNumber,
+          alternateNumber: AlternateNumber || null,
+          email: EmailId,
+          fatherName: FatherName,
+          fatherMobile: FatherMobileNumber || null,
+          motherName: MotherName,
+          address: Address,
+          city: City,
+          state: State,
+          pincode: Pincode,
+          admissionMode: AdmissionMode,
+          collegeId: parseInt(CollegeId),
+          courseId: parseInt(CourseId),
+          admissionDate: new Date(AdmissionDate),
+          studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || existingStudent.studentImage,
+          category: Category,
+          isDiscontinue: IsDiscontinue === 'true',
+          discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
+          discontinueBy: DiscontinueBy || null,
+          modifiedBy: ModifiedBy,
+          modifiedOn: new Date(),
+        },
       });
 
-      // Insert new documents
+      // Update Academic Details
+      await prisma.studentAcademicDetails.update({
+        where: { studentId: student.id },
+        data: {
+          sessionYear: SessionYear,
+          paymentMode: PaymentMode,
+          adminAmount: parseFloat(FineAmount) || 0.0,
+          feesAmount: parseFloat(RefundAmount) || 0.0,
+          numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+          ledgerNumber: LedgerNumber || null,
+          courseYear: CourseYear || null,
+          modifiedBy: ModifiedBy,
+        },
+      });
+
+      // Create new documents if uploaded
       if (documentsData.length > 0) {
         await prisma.documents.createMany({
           data: documentsData.map(doc => ({
-            ...doc,
-            StudentId: id,
+            studentId: student.id,
+            documentType: doc.documentType,
+            publicId: doc.publicId,
+            fileUrl: doc.fileUrl,
+            fileName: doc.fileName,
+            createdBy: doc.createdBy,
           })),
         });
       }
 
-      res.json({ 
-        success: true, 
-        student: updatedStudent,
-        documents: documentsData 
-      });
-      console.log(" Student updated successfully")
-    } catch (error) {
-      console.error('Error updating student:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: error.message || 'Internal server error' 
-      });
-    }
-  });
-
-// GET /students/:id/documents - Get student documents
-router.get('/students/:id/documents', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    // Use template literals to convert to string
-    const documents = await prisma.documents.findMany({
-      where: {
-        StudentId: `${id}` // Convert to string using template literals
-      }
+      return student;
     });
-    res.json({ success: true, documents });
+
+    res.status(200).json({ success: true, student: updatedStudent });
   } catch (error) {
-    console.error('Error fetching documents:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Internal server error' 
-    });
-  }
-});
-
-// delete today
-router.delete('/students/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // First delete all documents from Cloudinary and database
-    const documents = await prisma.documents.findMany({
-      where: { StudentId: id } // Keep as string to match documents table
-    });
-
-    await Promise.all(
-      documents.map(async (doc) => {
-        await cloudinary.uploader.destroy(doc.PublicId);
-      })
-    );
-
-    await prisma.documents.deleteMany({
-      where: { StudentId: id }
-    });
-
-    // Delete the student - now using String ID
-    await prisma.student.delete({
-      where: { StudentId: id } // No parseInt needed
-    });
-
-    res.json({ success: true, message: 'Student deleted successfully' });
-    console.log(" Student Deletd successfully")
-
-  } catch (error) {
-    console.error('Error deleting student:', error);
+    console.error('Error updating student:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
+router.get('/students/:id', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        academicDetails: true, // Include academic details for payment and session info
+        documents: true,       // Include documents if needed here (optional, since separate route exists)
+      },
+    });
 
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Format the student data to match the frontend StudentFormData interface
+    const formattedStudent = {
+      StudentId: student.id,
+      RollNumber: student.rollNumber,
+      FName: student.fName,
+      LName: student.lName || '',
+      DOB: student.dob ? student.dob.toISOString().split('T')[0] : '',
+      Gender: student.gender,
+      MobileNumber: student.mobileNumber,
+      AlternateNumber: student.alternateNumber || '',
+      EmailId: student.email,
+      FatherName: student.fatherName,
+      FatherMobileNumber: student.fatherMobile || '',
+      MotherName: student.motherName,
+      Address: student.address,
+      City: student.city,
+      State: student.state,
+      Pincode: student.pincode,
+      CourseId: student.courseId ? student.courseId.toString() : '',
+      CourseYear: student.academicDetails?.courseYear || '',
+      Category: student.category,
+      LedgerNumber: student.academicDetails?.ledgerNumber || '',
+      CollegeId: student.collegeId ? student.collegeId.toString() : '',
+      AdmissionMode: student.admissionMode,
+      AdmissionDate: student.admissionDate ? student.admissionDate.toISOString().split('T')[0] : '',
+      IsDiscontinue: student.isDiscontinue,
+      DiscontinueOn: student.discontinueOn ? student.discontinueOn.toISOString().split('T')[0] : '',
+      DiscontinueBy: student.discontinueBy || '',
+      FineAmount: student.academicDetails?.adminAmount || 0,
+      RefundAmount: student.academicDetails?.feesAmount || 0,
+      ModifiedBy: student.modifiedBy || '',
+      SessionYear: student.academicDetails?.sessionYear || '',
+      PaymentMode: student.academicDetails?.paymentMode || '',
+      NumberOfEMI: student.academicDetails?.numberOfEMI || null,
+    };
+
+    res.status(200).json(formattedStudent);
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ success: false, message: 'Failed to load student data' });
+  }
+});
+
+// Helper function to delete from Cloudinary (should be defined elsewhere in your code)
+async function deleteFromCloudinary(publicId) {
+  if (!publicId) return;
+  
+  try {
+    const cloudinary = require('cloudinary').v2;
+    await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    console.error('Cloudinary deletion error:', error);
+    throw error;
+  }
+}
 module.exports = router;

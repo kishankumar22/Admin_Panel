@@ -7,7 +7,7 @@ import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 
 interface Student {
-  id: number;
+id: number;
   rollNumber: string; // Changed from RollNumber to match Prisma schema
   fName: string; // Changed from FName
   lName: string | null; // Changed from LName
@@ -69,11 +69,17 @@ const StudentManagement: React.FC = () => {
     }
   };
 
-  const handleEditClick = (student: Student) => {
-    setCurrentStudent(student);
-    setIsEditModalOpen(true);
+  const handleEditClick = async (student: Student) => {
+    try {
+      // Fetch complete student data including documents
+      const response = await axiosInstance.get(`/students/${student.id}/complete`);
+      setCurrentStudent(response.data.student);
+      setIsEditModalOpen(true);
+    } catch (err) {
+      console.error('Error fetching student details:', err);
+      setError('Failed to load student details');
+    }
   };
-
   const handleDeleteClick = (studentId: number) => {
     setCurrentStudentId(studentId);
     setIsDeleteModalOpen(true);

@@ -153,6 +153,9 @@ model Permission {
 
   @@unique([roleId, pageId]) // Ensure each role has unique permissions per page
 }
+
+
+
 model College {
     id           Int      @id @default(autoincrement())
     collegeName  String   @unique
@@ -175,12 +178,27 @@ model Course {
     collegeId     Int
     courseDuration Int
     createdBy     String
-    createdOn    DateTime @default(now())
+    createdOn     DateTime @default(now())
     modifiedBy    String?
     modifiedOn    DateTime?
     status        Boolean  @default(true)
     college       College  @relation(fields: [collegeId], references: [id])
     students      Student[]
+}
+
+model Documents {
+    id           Int      @id @default(autoincrement())
+    studentId    Int
+    documentType String
+    publicId     String   // Cloudinary public ID
+    fileUrl      String   // Full URL of the uploaded file
+    fileName     String
+    uploadDate   DateTime @default(now())
+    createdBy    String
+    createdOn    DateTime @default(now())
+    modifiedBy   String?
+    modifiedOn   DateTime?
+    student      Student  @relation(fields: [studentId], references: [id])
 }
 
 model Student {
@@ -210,7 +228,7 @@ model Student {
     discontinueOn  DateTime?
     discontinueBy  String?
     createdBy      String
-    createdOn    DateTime @default(now())
+    createdOn      DateTime @default(now())
     modifiedBy     String?
     modifiedOn     DateTime?
     status         Boolean  @default(true)
@@ -219,22 +237,6 @@ model Student {
     documents      Documents[]
     academicDetails StudentAcademicDetails[]
     emiDetails     EMIDetails[]
-}
-
-
-model Documents {
-    id           Int      @id @default(autoincrement())
-    studentId    Int
-    documentType String
-    publicId     String   // Cloudinary public ID
-    fileUrl      String   // Full URL of the uploaded file (new field)
-    fileName     String
-    uploadDate   DateTime @default(now())
-    createdBy    String
-    createdOn    DateTime @default(now())
-    modifiedBy   String?
-    modifiedOn   DateTime?
-    student      Student  @relation(fields: [studentId], references: [id])
 }
 
 model StudentAcademicDetails {
@@ -246,6 +248,7 @@ model StudentAcademicDetails {
     feesAmount   Float
     numberOfEMI  Int?
     ledgerNumber String?
+    courseYear   String?  // Added CourseYear field
     createdBy    String
     createdOn    DateTime @default(now())
     modifiedBy   String?
