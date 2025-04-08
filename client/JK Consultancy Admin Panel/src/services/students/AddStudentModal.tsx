@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface StudentFormData {
   RollNumber: string;
@@ -131,7 +133,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load colleges and courses');
-        setTimeout(() => setError(''), 3000);
+        setTimeout(() => setError(''), 5000);
       }
     };
     fetchData();
@@ -139,7 +141,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(''), 3000);
+      const timer = setTimeout(() => setError(''), 5000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -311,6 +313,14 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
       if (response.data.success) {
         onSuccess();
+        toast.success('Studenet  Added successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
         onClose();
       } else {
         throw new Error(response.data.message || 'Failed to create student');
@@ -360,13 +370,13 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
               <div><label className="block text-xs font-medium text-gray-700">Category <RequiredAsterisk /></label><select name="Category" value={student.Category} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="Gen">Gen</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Father's Name <RequiredAsterisk /></label><input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">Mother's Name <RequiredAsterisk /></label><input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange}maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Email ID <RequiredAsterisk /></label><input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} maxLength={10} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode}maxLength={6} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
             </div>
           )}
@@ -374,10 +384,10 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
           {step === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div><label className="block text-xs font-medium text-gray-700">College <RequiredAsterisk /></label><select name="CollegeId" value={student.CollegeId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{colleges.map(college => (<option key={college.id} value={college.id}>{college.collegeName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Course <RequiredAsterisk /></label><select name="CourseId" value={student.CourseId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{courses.map(course => (<option key={course.id} value={course.id}>{course.courseName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
+              <div><label className="block text-xs font-medium text-gray-700">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
               <div>
   <label className="block text-xs font-medium text-gray-700">Session Year <RequiredAsterisk /></label>
   <input 

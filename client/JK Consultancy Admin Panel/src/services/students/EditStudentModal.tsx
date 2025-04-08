@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
+// Interfaces
 interface StudentFormData {
   StudentId: number;
   RollNumber: string;
@@ -35,6 +38,7 @@ interface StudentFormData {
   SessionYear: string;
   PaymentMode: string;
   NumberOfEMI: number | null;
+  emiDetails: Array<{ emiNumber: number; amount: number; date: string }>;
 }
 
 interface FileData {
@@ -71,7 +75,7 @@ interface ExistingDocument {
 }
 
 interface EditStudentModalProps {
-  studentId: number; // Pass the student ID to fetch and edit
+  studentId: number;
   onClose: () => void;
   onSuccess: () => void;
   modifiedBy: string;
@@ -85,6 +89,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [colleges, setColleges] = useState<College[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [emiDetails, setEmiDetails] = useState<Array<{ emiNumber: number; amount: number; date: string }>>([]);
+
   const [student, setStudent] = useState<StudentFormData>({
     StudentId: 0,
     RollNumber: '',
@@ -118,6 +123,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     SessionYear: '',
     PaymentMode: '',
     NumberOfEMI: null,
+    emiDetails: [],
   });
 
   const [documents, setDocuments] = useState<Documents>({
@@ -134,52 +140,41 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch student data
         const studentResponse = await axiosInstance.get(`/students/${studentId}`);
         const studentData = studentResponse.data;
 
-        // Format dates for input
-        const formattedStudent: StudentFormData = {
+        setStudent({
           ...studentData,
           DOB: studentData.DOB ? new Date(studentData.DOB).toISOString().split('T')[0] : '',
           AdmissionDate: studentData.AdmissionDate ? new Date(studentData.AdmissionDate).toISOString().split('T')[0] : '',
           DiscontinueOn: studentData.DiscontinueOn ? new Date(studentData.DiscontinueOn).toISOString().split('T')[0] : '',
           ModifiedBy: modifiedBy,
           NumberOfEMI: studentData.NumberOfEMI || null,
-        };
+          emiDetails: studentData.emiDetails || [],
+        });
 
-        setStudent(formattedStudent);
+        if (studentData.PaymentMode === 'EMI' && studentData.emiDetails.length > 0) {
+          setEmiDetails(studentData.emiDetails);
+        }
 
-        // Fetch colleges and courses
-        const [collegeResponse, courseResponse] = await Promise.all([
+        const [collegeResponse, courseResponse, docsResponse] = await Promise.all([
           axiosInstance.get('/colleges'),
           axiosInstance.get('/courses'),
+          axiosInstance.get(`/students/${studentId}/documents`),
         ]);
 
         setColleges(collegeResponse.data);
         setCourses(courseResponse.data);
 
-        // Fetch existing documents
-        const docsResponse = await axiosInstance.get(`/students/${studentId}/documents`);
         const docs: Record<string, ExistingDocument> = {};
         docsResponse.data.forEach((doc: ExistingDocument) => {
           docs[doc.DocumentType] = doc;
         });
         setExistingDocuments(docs);
-
-        // Set EMI details if PaymentMode is EMI
-        if (formattedStudent.PaymentMode === 'EMI' && formattedStudent.NumberOfEMI) {
-          setEmiDetails(Array.from({ length: formattedStudent.NumberOfEMI }, (_, i) => ({
-            emiNumber: i + 1,
-            amount: 0, // Default, adjust based on API response if available
-            date: '', // Default, adjust based on API response if available
-          })));
-        }
-
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching data:', error);
-        setError('Failed to load student data, colleges, or courses');
-        setTimeout(() => setError(''), 3000);
+        setError(error.response?.data?.message || 'Failed to load student data, colleges, or courses');
+        setTimeout(() => setError(''), 5000);
       }
     };
 
@@ -188,43 +183,44 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(''), 3000);
+      const timer = setTimeout(() => setError(''), 5000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target as HTMLInputElement;
+    const { name, value, type } = e.target;
 
     if (name === 'DOB') {
       const dob = new Date(value);
       const today = new Date();
       const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-
       if (dob > minDate) {
         setError('Student must be at least 18 years old');
         return;
       }
     }
 
-    if (name === 'AdmissionDate') {
-      const admissionDate = new Date(value);
-      const today = new Date();
-
-      if (admissionDate > today) {
-        setError('Admission date cannot be in the future');
-        return;
+    if (name === 'CourseYear') {
+      const currentSession = student.SessionYear.split('-').map(Number);
+      let yearsToAdd = 0;
+      switch (value) {
+        case '2nd':
+          yearsToAdd = 1;
+          break;
+        case '3rd':
+          yearsToAdd = 2;
+          break;
+        case '4th':
+          yearsToAdd = 3;
+          break;
+        default:
+          yearsToAdd = 0;
       }
-
-      const admissionYear = admissionDate.getFullYear();
-      const nextYear = admissionYear + 1;
-      const sessionYear = `${admissionYear}-${nextYear}`;
-
-      setStudent(prev => ({
-        ...prev,
-        AdmissionDate: value,
-        SessionYear: sessionYear,
-      }));
+      const newStartYear = currentSession[0] + yearsToAdd;
+      const newEndYear = currentSession[1] + yearsToAdd;
+      const newSessionYear = `${newStartYear}-${newEndYear}`;
+      setStudent(prev => ({ ...prev, CourseYear: value, SessionYear: newSessionYear }));
       return;
     }
 
@@ -239,7 +235,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         [name]: value,
         NumberOfEMI: value === 'EMI' ? (prev.NumberOfEMI || 0) : null,
       }));
-      setEmiDetails([]);
+      if (value !== 'EMI') setEmiDetails([]);
     } else if (name === 'NumberOfEMI') {
       const newNumEMIs = value === '' ? null : parseInt(value);
       setStudent(prev => ({ ...prev, [name]: newNumEMIs }));
@@ -285,8 +281,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                !!student.FatherMobileNumber && !!student.City && !!student.State && !!student.Pincode && 
                !!student.Address && !!student.Category;
       case 2:
-        return !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId && 
-               !!student.CourseYear && !!student.SessionYear;
+        return !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId && !!student.CourseYear && !!student.SessionYear;
       case 3:
         return !!student.PaymentMode && 
                (student.PaymentMode !== 'EMI' || 
@@ -326,24 +321,16 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
     try {
       const formData = new FormData();
-
-      // Append all student data
       Object.entries(student).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && key !== 'StudentId') {
+        if (key !== 'StudentId' && key !== 'emiDetails' && value !== null && value !== undefined) {
           formData.append(key, value.toString());
         }
       });
 
-      // Append EMI details if PaymentMode is EMI
       if (student.PaymentMode === 'EMI' && emiDetails.length > 0) {
-        emiDetails.forEach((emi, index) => {
-          formData.append(`emiDetails[${index}].emiNumber`, emi.emiNumber.toString());
-          formData.append(`emiDetails[${index}].amount`, emi.amount.toString());
-          formData.append(`emiDetails[${index}].date`, emi.date);
-        });
+        formData.append('emiDetails', JSON.stringify(emiDetails));
       }
 
-      // Append new documents
       Object.entries(documents).forEach(([fieldName, fileData]) => {
         if (fileData.file) {
           formData.append(fieldName, fileData.file);
@@ -355,6 +342,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       });
 
       if (response.data.success) {
+         toast.success('Studenet Updated successfully!', {
+                position: "top-right",
+                autoClose: 3000,
+                hideProgressBar: false,
+                closeOnClick: true,
+                pauseOnHover: true,
+                draggable: true,
+              });
         onSuccess();
         onClose();
       } else {
@@ -405,13 +400,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               <div><label className="block text-xs font-medium text-gray-700">Category <RequiredAsterisk /></label><select name="Category" value={student.Category} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="Gen">Gen</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Father's Name <RequiredAsterisk /></label><input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">Mother's Name <RequiredAsterisk /></label><input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber"maxLength={10} value={student.MobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber"maxLength={10} value={student.AlternateNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Email ID <RequiredAsterisk /></label><input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode"maxLength={6} value={student.Pincode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
             </div>
           )}
@@ -424,6 +419,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               <div><label className="block text-xs font-medium text-gray-700">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Session Year <RequiredAsterisk /></label><input type="text" name="SessionYear" value={student.SessionYear} readOnly className="w-full border p-1 rounded mt-1 text-xs bg-gray-100" required /></div>
+              <div className="col-span-2"><label className="flex items-center text-xs font-medium text-gray-700"><input type="checkbox" name="IsDiscontinue" checked={student.IsDiscontinue} onChange={handleChange} className="mr-2" />Is Discontinued?</label></div>
+              {student.IsDiscontinue && (
+                <>
+                  <div><label className="block text-xs font-medium text-gray-700">Discontinue Date</label><input type="date" name="DiscontinueOn" value={student.DiscontinueOn} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+                  <div><label className="block text-xs font-medium text-gray-700">Discontinued By</label><input type="text" name="DiscontinueBy" value={student.DiscontinueBy} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+                </>
+              )}
             </div>
           )}
 
@@ -432,7 +434,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               <div><label className="block text-xs font-medium text-gray-700">Admin Amount</label><input type="number" name="FineAmount" value={student.FineAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Ledger Number</label><input type="text" name="LedgerNumber" value={student.LedgerNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Fees Amount</label><input type="number" name="RefundAmount" value={student.RefundAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
-              <div className="flex items-center"><label className="mr-2 block text-xs font-medium text-gray-700">Payment Mode <RequiredAsterisk /></label><label className="flex items-center"><input type="radio" name="PaymentMode" value="One-Time" checked={student.PaymentMode === 'One-Time'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">One-Time</span></label><label className="flex items-center ml-2"><input type="radio" name="PaymentMode" value="EMI" checked={student.PaymentMode === 'EMI'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">EMI</span></label></div>
+              <div className="flex items-center"><label className="mr-2 block text-xs font-medium text-gray-700">Payment Mode <RequiredAsterisk /></label><label className="flex items-center"><input type="radio" name="PaymentMode" value="One-Time" checked={student.PaymentMode === 'One-Time'} onChange={handleChange} className="h-3 w-3 text-blue-600" /><span className="ml-1 text-xs">One-Time</span></label><label className="flex items-center ml-2"><input type="radio" name="PaymentMode" value="EMI" checked={student.PaymentMode === 'EMI'} onChange={handleChange} className="h-3 w-3 text-blue-600" /><span className="ml-1 text-xs">EMI</span></label></div>
               {student.PaymentMode === 'EMI' && (
                 <div><label className="block text-xs font-medium text-gray-700">No of EMIs <RequiredAsterisk /></label><select name="NumberOfEMI" value={student.NumberOfEMI || ''} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
               )}
@@ -528,8 +530,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
             <div className="bg-white p-3 rounded-lg max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-lg">
               <h2 className="text-sm font-bold mb-2 text-center">Student Details Preview</h2>
-
-              {/* Profile Picture */}
               <div className="flex justify-center mb-4">
                 {documents.StudentImage.preview ? (
                   <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-blue-200">
@@ -545,9 +545,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   </div>
                 )}
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-xs">
-                {/* Personal Details */}
                 <div className="space-y-1">
                   <h3 className="font-bold text-blue-600 border-b pb-1">Personal Details</h3>
                   <div><span className="font-medium">Name:</span> {student.FName} {student.LName}</div>
@@ -564,8 +562,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <div><span className="font-medium">State:</span> {student.State}</div>
                   <div><span className="font-medium">Pincode:</span> {student.Pincode}</div>
                 </div>
-
-                {/* Academic Details */}
                 <div className="space-y-1">
                   <h3 className="font-bold text-blue-600 border-b pb-1">Academic Details</h3>
                   <div><span className="font-medium">College:</span> {colleges.find(c => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}</div>
@@ -574,9 +570,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <div><span className="font-medium">Admission Mode:</span> {student.AdmissionMode}</div>
                   <div><span className="font-medium">Admission Date:</span> {student.AdmissionDate}</div>
                   <div><span className="font-medium">Session Year:</span> {student.SessionYear}</div>
+                  <div><span className="font-medium">Is Discontinued:</span> {student.IsDiscontinue ? 'Yes' : 'No'}</div>
+                  {student.IsDiscontinue && (
+                    <>
+                      <div><span className="font-medium">Discontinue Date:</span> {student.DiscontinueOn}</div>
+                      <div><span className="font-medium">Discontinued By:</span> {student.DiscontinueBy}</div>
+                    </>
+                  )}
                 </div>
-
-                {/* Payment Details */}
                 <div className="space-y-1">
                   <h3 className="font-bold text-blue-600 border-b pb-1">Payment Details</h3>
                   <div><span className="font-medium">Payment Mode:</span> {student.PaymentMode}</div>
@@ -587,15 +588,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <>
                       <div><span className="font-medium">No of EMIs:</span> {student.NumberOfEMI}</div>
                       {emiDetails.map((emi, index) => (
-                        <div key={index}>
-                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: {emi.amount}, Date: {emi.date}
-                        </div>
+                        <div key={index}><span className="font-medium">EMI {emi.emiNumber}:</span> Amount: {emi.amount}, Date: {emi.date}</div>
                       ))}
                     </>
                   )}
                 </div>
-
-                {/* Document Details */}
                 <div className="space-y-1">
                   <h3 className="font-bold text-blue-600 border-b pb-1">Document Details</h3>
                   <div><span className="font-medium">Student Photo:</span> {documents.StudentImage.file ? 'New Uploaded' : existingDocuments.StudentImage ? 'Existing' : 'Not Uploaded'}</div>
@@ -606,7 +603,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <div><span className="font-medium">Residential Proof:</span> {documents.Residential.file ? 'New Uploaded' : existingDocuments.Residential ? 'Existing' : 'Not Uploaded'}</div>
                 </div>
               </div>
-
               <div className="flex justify-end space-x-1">
                 <button onClick={() => setIsPreviewOpen(false)} className="px-2 py-1 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400">Back</button>
                 <button onClick={handleSubmit} disabled={isSubmitting} className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:bg-green-300">

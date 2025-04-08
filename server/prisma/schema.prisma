@@ -157,117 +157,117 @@ model Permission {
 
 
 model College {
-    id           Int      @id @default(autoincrement())
-    collegeName  String   @unique
-    location     String
-    establishYear Int
-    contactNumber String
-    email        String   @unique
-    status       Boolean  @default(true)
-    createdBy    String
-    createdOn    DateTime @default(now())
-    modifiedBy   String?
-    modifiedOn   DateTime?
-    courses      Course[]
-    students     Student[]
+  id             Int       @id @default(autoincrement())
+  collegeName    String
+  location       String
+  establishYear  Int
+  contactNumber  String
+  email          String
+  status         Boolean   @default(true)
+  createdBy      String
+  createdOn      DateTime  @default(now())
+  modifiedBy     String?
+  modifiedOn     DateTime?
+  courses        Course[]
+  students       Student[]
 }
 
 model Course {
-    id            Int      @id @default(autoincrement())
-    courseName    String
-    collegeId     Int
-    courseDuration Int
-    createdBy     String
-    createdOn     DateTime @default(now())
-    modifiedBy    String?
-    modifiedOn    DateTime?
-    status        Boolean  @default(true)
-    college       College  @relation(fields: [collegeId], references: [id])
-    students      Student[]
+  id             Int       @id @default(autoincrement())
+  courseName     String
+  collegeId      Int
+  courseDuration Int
+  createdBy      String
+  createdOn      DateTime  @default(now())
+  modifiedBy     String?
+  modifiedOn     DateTime?
+  status         Boolean   @default(true)
+  college        College   @relation(fields: [collegeId], references: [id])
+  students       Student[]
 }
 
 model Documents {
-    id           Int      @id @default(autoincrement())
-    studentId    Int
-    documentType String
-    publicId     String   // Cloudinary public ID
-    fileUrl      String   // Full URL of the uploaded file
-    fileName     String
-    uploadDate   DateTime @default(now())
-    createdBy    String
-    createdOn    DateTime @default(now())
-    modifiedBy   String?
-    modifiedOn   DateTime?
-    student      Student  @relation(fields: [studentId], references: [id])
+  id           Int       @id @default(autoincrement())
+  studentId    Int
+  documentType String
+  publicId     String
+  fileUrl      String
+  fileName     String
+  uploadDate   DateTime  @default(now())
+  createdBy    String
+  createdOn    DateTime  @default(now())
+  modifiedBy   String?
+  modifiedOn   DateTime?
+  student      Student   @relation(fields: [studentId], references: [id])
 }
 
 model Student {
-    id             Int      @id @default(autoincrement())
-    fName          String
-    lName          String?
-    rollNumber     String   @unique
-    gender         String
-    fatherName     String
-    motherName     String
-    mobileNumber   String
-    fatherMobile   String?
-    alternateNumber String?
-    dob            DateTime
-    email          String   @unique
-    address        String
-    state          String
-    pincode        String
-    city           String
-    admissionMode  String
-    collegeId      Int
-    courseId       Int
-    admissionDate  DateTime
-    studentImage   String?
-    category       String
-    isDiscontinue  Boolean  @default(false)
-    discontinueOn  DateTime?
-    discontinueBy  String?
-    createdBy      String
-    createdOn      DateTime @default(now())
-    modifiedBy     String?
-    modifiedOn     DateTime?
-    status         Boolean  @default(true)
-    college        College  @relation(fields: [collegeId], references: [id], onUpdate: NoAction, onDelete: NoAction)
-    course         Course   @relation(fields: [courseId], references: [id], onUpdate: NoAction, onDelete: NoAction)
-    documents      Documents[]
-    academicDetails StudentAcademicDetails[]
-    emiDetails     EMIDetails[]
+  id              Int       @id @default(autoincrement())
+  fName           String
+  lName           String?
+  rollNumber      String
+  gender          String
+  fatherName      String
+  motherName      String
+  mobileNumber    String
+  fatherMobile    String?
+  alternateNumber String?
+  dob             DateTime
+  email           String
+  address         String
+  state           String
+  pincode         String
+  city            String
+  admissionMode   String
+  collegeId       Int
+  courseId        Int
+  admissionDate   DateTime
+  studentImage    String?
+  category        String
+  isDiscontinue   Boolean    @default(false)
+  discontinueOn   DateTime?
+  discontinueBy   String?
+  createdBy       String
+  createdOn       DateTime   @default(now())
+  modifiedBy      String?
+  modifiedOn      DateTime?
+  status          Boolean    @default(true)
+  college         College    @relation(fields: [collegeId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  course          Course     @relation(fields: [courseId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  documents       Documents[]
+  academicDetails StudentAcademicDetails[]
+  emiDetails      EMIDetails[]
 }
 
 model StudentAcademicDetails {
-    id           Int      @id @default(autoincrement())
-    studentId    Int
-    sessionYear  String
-    paymentMode  String
-    adminAmount  Float    @default(0.0)
-    feesAmount   Float
-    numberOfEMI  Int?
-    ledgerNumber String?
-    courseYear   String?  // Added CourseYear field
-    createdBy    String
-    createdOn    DateTime @default(now())
-    modifiedBy   String?
-    modifiedOn   DateTime?
-    student      Student  @relation(fields: [studentId], references: [id])
-    emiDetails   EMIDetails[]
+  id           Int       @id @default(autoincrement())
+  studentId    Int
+  sessionYear  String
+  paymentMode  String
+  adminAmount  Float     @default(0.0)
+  feesAmount   Float
+  numberOfEMI  Int?
+  ledgerNumber String?
+  courseYear   String?
+  createdBy    String
+  createdOn    DateTime  @default(now())
+  modifiedBy   String?
+  modifiedOn   DateTime?
+  student      Student   @relation(fields: [studentId], references: [id])
+  emiDetails   EMIDetails[]
 }
 
 model EMIDetails {
-    id                   Int      @id @default(autoincrement())
-    studentId            Int
-    studentAcademicId    Int
-    emiNumber            Int
-    amount               Float
-    dueDate              DateTime
-    createdBy            String
-    createdOn            DateTime @default(now())
-    modifiedBy           String?
-    modifiedOn           DateTime?
-    student              Student  @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
-    studentAcademic      StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
+  id                  Int       @id @default(autoincrement())
+  studentId           Int
+  studentAcademicId   Int
+  emiNumber           Int
+  amount              Float
+  dueDate             DateTime
+  createdBy           String
+  createdOn           DateTime  @default(now())
+  modifiedBy          String?
+  modifiedOn          DateTime?
+  student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  studentAcademic     StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
 }

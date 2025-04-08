@@ -7,20 +7,19 @@ import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 
 interface Student {
-id: number;
-  rollNumber: string; // Changed from RollNumber to match Prisma schema
-  fName: string; // Changed from FName
-  lName: string | null; // Changed from LName
-  email: string; // Changed from EmailId
-  mobileNumber: string; // Changed from MobileNumber
+  id: number;
+  rollNumber: string;
+  fName: string;
+  lName: string | null;
+  email: string;
+  mobileNumber: string;
   course: {
-    courseName: string; // Changed from CourseName
+    courseName: string;
   };
   college: {
-    collegeName: string; // Changed from CollegeName
+    collegeName: string;
   };
-  createdOn: string; // Changed from CreatedOn
-  // Add other fields as needed from your Prisma model
+  createdOn: string;
 }
 
 const StudentManagement: React.FC = () => {
@@ -32,7 +31,6 @@ const StudentManagement: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [currentStudent, setCurrentStudent] = useState<Student | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -42,45 +40,47 @@ const StudentManagement: React.FC = () => {
   const fetchStudents = async () => {
     try {
       setLoading(true);
+      setError('');
       const response = await axiosInstance.get('/students');
-      // Ensure the response data matches the Student interface
       const formattedStudents: Student[] = response.data.map((student: any) => ({
         id: student.id,
-        rollNumber: student.rollNumber,
-        fName: student.fName,
-        lName: student.lName || '',
-        email: student.email,
-        mobileNumber: student.mobileNumber,
+        rollNumber: student.rollNumber || '',
+        fName: student.fName || '',
+        lName: student.lName || null,
+        email: student.email || '',
+        mobileNumber: student.mobileNumber || '',
         course: {
           courseName: student.course?.courseName || 'N/A',
         },
         college: {
           collegeName: student.college?.collegeName || 'N/A',
         },
-        createdOn: student.createdOn,
+        createdOn: student.createdOn || '',
       }));
       setStudents(formattedStudents);
       console.log('Fetched students:', formattedStudents);
-    } catch (err) {
-      setError('Failed to fetch students');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to fetch students');
       console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditClick = async (student: Student) => {
-    try {
-      // Fetch complete student data including documents
-      const response = await axiosInstance.get(`/students/${student.id}/complete`);
-      setCurrentStudent(response.data.student);
-      setIsEditModalOpen(true);
-    } catch (err) {
-      console.error('Error fetching student details:', err);
-      setError('Failed to load student details');
+  const handleEditClick = (studentId: number) => {
+    if (isNaN(studentId)) {
+      setError('Invalid student ID. ID must be a number.');
+      return;
     }
+    setCurrentStudentId(studentId);
+    setIsEditModalOpen(true);
   };
+
   const handleDeleteClick = (studentId: number) => {
+    if (isNaN(studentId)) {
+      setError('Invalid student ID. ID must be a number.');
+      return;
+    }
     setCurrentStudentId(studentId);
     setIsDeleteModalOpen(true);
   };
@@ -90,12 +90,13 @@ const StudentManagement: React.FC = () => {
 
     try {
       await axiosInstance.delete(`/students/${currentStudentId}`);
-      fetchStudents(); // Refresh the list
+      fetchStudents();
       setIsDeleteModalOpen(false);
-    } catch (err) {
-      setError('Failed to delete student');
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to delete student');
       console.error('Delete error:', err);
-    } 
+    }
   };
 
   const filteredStudents = students.filter(student =>
@@ -139,7 +140,6 @@ const StudentManagement: React.FC = () => {
               <th className="py-1 px-2 border text-xs">Roll No</th>
               <th className="py-1 px-2 border text-xs">Email</th>
               <th className="py-1 px-2 border text-xs">Mobile</th>
-              {/* <th className="py-1 px-2 border text-xs">College</th> */}
               <th className="py-1 px-2 border text-xs">Actions</th>
             </tr>
           </thead>
@@ -152,11 +152,10 @@ const StudentManagement: React.FC = () => {
                   <td className="py-1 px-2 border text-center text-xs">{student.rollNumber}</td>
                   <td className="py-1 px-2 border text-xs">{student.email}</td>
                   <td className="py-1 px-2 border text-xs">{student.mobileNumber}</td>
-                  {/* <td className="py-1 px-2 border text-xs">{student.college?.collegeName || '-'}</td> */}
                   <td className="py-1 px-2 border text-center">
                     <div className="flex justify-center space-x-1">
                       <button
-                        onClick={() => handleEditClick(student)}
+                        onClick={() => handleEditClick(student.id)}
                         className="text-blue-500 hover:text-blue-700 text-xs"
                         title="Edit"
                       >
@@ -175,7 +174,7 @@ const StudentManagement: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="py-2 text-center text-xs text-gray-500">
+                <td colSpan={6} className="py-2 text-center text-xs text-gray-500">
                   No students found
                 </td>
               </tr>
@@ -184,7 +183,6 @@ const StudentManagement: React.FC = () => {
         </table>
       </div>
 
-      {/* Modals */}
       {isAddModalOpen && (
         <AddStudentModal
           onClose={() => setIsAddModalOpen(false)}
@@ -196,13 +194,17 @@ const StudentManagement: React.FC = () => {
         />
       )}
 
-      {isEditModalOpen && currentStudent && (
+      {isEditModalOpen && currentStudentId !== null && (
         <EditStudentModal
-          student={currentStudent}
-          onClose={() => setIsEditModalOpen(false)}
+          studentId={currentStudentId}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setCurrentStudentId(null);
+          }}
           onSuccess={() => {
             setIsEditModalOpen(false);
             fetchStudents();
+            setCurrentStudentId(null);
           }}
           modifiedBy={user?.name || 'Admin'}
         />
