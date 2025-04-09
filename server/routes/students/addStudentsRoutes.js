@@ -388,7 +388,7 @@ router.put('/students/:id', upload.fields([
     const existingStudent = await prisma.student.findUnique({
       where: { id: studentId },
       include: { 
-        academicDetails: { orderBy: { createdOn: 'desc' }, take: 1 }, 
+        academicDetails: true, // Get all academic details to check for existing CourseYear
         documents: true, 
         emiDetails: true 
       },
@@ -398,7 +398,10 @@ router.put('/students/:id', upload.fields([
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const latestAcademicDetails = existingStudent.academicDetails[0] || {};
+    // Check if academic detail with this CourseYear already exists
+    const existingAcademicDetail = existingStudent.academicDetails.find(
+      detail => detail.courseYear === CourseYear
+    );
 
     // Upload new documents to Cloudinary
     const documentsData = [];
@@ -466,9 +469,8 @@ router.put('/students/:id', upload.fields([
         },
       });
 
-      // Check if CourseYear has changed
-      if (latestAcademicDetails.courseYear !== CourseYear) {
-        // Insert new academic details if CourseYear changes
+      // If academic detail with this CourseYear doesn't exist, create new one
+      if (!existingAcademicDetail) {
         const newAcademicDetail = await prisma.studentAcademicDetails.create({
           data: {
             studentId: studentId,
@@ -486,7 +488,7 @@ router.put('/students/:id', upload.fields([
         // Handle EMI details for new academic record
         if (PaymentMode === 'EMI' && NumberOfEMI) {
           const emiDetails = JSON.parse(req.body.emiDetails || '[]');
-          await prisma.eMIDetails.deleteMany({ where: { studentId: studentId } });
+          await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: newAcademicDetail.id } });
           if (emiDetails.length > 0) {
             await prisma.eMIDetails.createMany({
               data: emiDetails.map(emi => ({
@@ -499,76 +501,39 @@ router.put('/students/:id', upload.fields([
               })),
             });
           }
-        } else {
-          await prisma.eMIDetails.deleteMany({ where: { studentId: studentId } });
         }
       } else {
-        // Update existing academic details if CourseYear hasn't changed
-        if (latestAcademicDetails.id) {
-          await prisma.studentAcademicDetails.update({
-            where: { id: latestAcademicDetails.id },
-            data: {
-              sessionYear: SessionYear,
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            },
-          });
+        // Update existing academic details
+        await prisma.studentAcademicDetails.update({
+          where: { id: existingAcademicDetail.id },
+          data: {
+            sessionYear: SessionYear,
+            paymentMode: PaymentMode,
+            adminAmount: parseFloat(FineAmount) || 0.0,
+            feesAmount: parseFloat(RefundAmount) || 0.0,
+            numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+            ledgerNumber: LedgerNumber || null,
+            courseYear: CourseYear || null,
+            modifiedBy: ModifiedBy,
+            modifiedOn: new Date(),
+          },
+        });
 
-          // Handle EMI details for existing academic record
-          if (PaymentMode === 'EMI' && NumberOfEMI) {
-            const emiDetails = JSON.parse(req.body.emiDetails || '[]');
-            await prisma.eMIDetails.deleteMany({ where: { studentId: studentId } });
-            if (emiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: emiDetails.map(emi => ({
-                  studentId: studentId,
-                  studentAcademicId: latestAcademicDetails.id,
-                  emiNumber: emi.emiNumber,
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.date),
-                  createdBy: ModifiedBy,
-                })),
-              });
-            }
-          } else {
-            await prisma.eMIDetails.deleteMany({ where: { studentId: studentId } });
-          }
-        } else {
-          // Create academic details if none exist
-          const newAcademicDetail = await prisma.studentAcademicDetails.create({
-            data: {
-              studentId: studentId,
-              sessionYear: SessionYear,
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
-              createdBy: ModifiedBy,
-            },
-          });
-
-          if (PaymentMode === 'EMI' && NumberOfEMI) {
-            const emiDetails = JSON.parse(req.body.emiDetails || '[]');
-            if (emiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: emiDetails.map(emi => ({
-                  studentId: studentId,
-                  studentAcademicId: newAcademicDetail.id,
-                  emiNumber: emi.emiNumber,
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.date),
-                  createdBy: ModifiedBy,
-                })),
-              });
-            }
+        // Handle EMI details for existing academic record
+        if (PaymentMode === 'EMI' && NumberOfEMI) {
+          const emiDetails = JSON.parse(req.body.emiDetails || '[]');
+          await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+          if (emiDetails.length > 0) {
+            await prisma.eMIDetails.createMany({
+              data: emiDetails.map(emi => ({
+                studentId: studentId,
+                studentAcademicId: existingAcademicDetail.id,
+                emiNumber: emi.emiNumber,
+                amount: parseFloat(emi.amount),
+                dueDate: new Date(emi.date),
+                createdBy: ModifiedBy,
+              })),
+            });
           }
         }
       }
@@ -682,5 +647,71 @@ async function deleteFromCloudinary(publicId) {
     throw error;
   }
 }
+
+//  table to get acdemic details 
+
+// Get all academic details for a student (sorted by creation date)
+router.get('/students/:studentId/academic-details', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    
+    const academicDetails = await prisma.studentAcademicDetails.findMany({
+      where: { studentId },
+      orderBy: { createdOn: 'desc' },
+      include: {
+        emiDetails: {
+          orderBy: { emiNumber: 'asc' }
+        }
+      }
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      data: academicDetails 
+    });
+  } catch (error) {
+    console.error('Error fetching academic details:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch academic details' 
+    });
+  }
+});
+
+// Get the latest academic detail for a student
+router.get('/students/:studentId/academic-details/latest', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    
+    const latestAcademicDetail = await prisma.studentAcademicDetails.findFirst({
+      where: { studentId },
+      orderBy: { createdOn: 'desc' },
+      include: {
+        emiDetails: {
+          orderBy: { emiNumber: 'asc' }
+        }
+      }
+    });
+
+    if (!latestAcademicDetail) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No academic records found' 
+      });
+    }
+
+    res.status(200).json({ 
+      success: true, 
+      data: latestAcademicDetail 
+    });
+  } catch (error) {
+    console.error('Error fetching latest academic detail:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch latest academic details' 
+    });
+  }
+});
+
 
 module.exports = router;

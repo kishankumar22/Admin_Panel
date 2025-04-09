@@ -367,8 +367,7 @@ const clearFilters = () => {
                     onClick={() => handleEditFaculty(faculty)}
                   // disabled={!canUpdate}
                   >
-                    <FaEdit className="text-sm" />
-                    Edit
+                    <FaEdit className="text-sm" />                    
                   </button>
                   <button
                     className={`flex items-center  px-2 py-1 text-xs text-white focus:ring-4 focus:ring-red-300 bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -376,7 +375,7 @@ const clearFilters = () => {
                   // disabled={!canDelete}
                   >
                     <MdDelete className="text-sm" />
-                    Delete
+                    
                   </button>
                   <button
                     className="flex items-center px-2 py-1 text-xs focus:ring-4 text-white bg-gray-500 rounded-md hover:bg-gray-600"

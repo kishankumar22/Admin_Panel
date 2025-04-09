@@ -74,6 +74,22 @@ interface ExistingDocument {
   PublicId: string;
 }
 
+interface AcademicHistory {
+  numberOfEMI: number;
+  id: string;
+  courseYear: string;
+  sessionYear: string;
+  adminAmount: number;
+  paymentMode: string;
+  NumberOfEMI?: number;
+  feesAmount: number;
+  createdOn: string | Date;
+  createdBy?: string;
+  modifiedOn?: string | Date;
+  modifiedBy?: string;
+}
+
+
 interface EditStudentModalProps {
   studentId: number;
   onClose: () => void;
@@ -125,6 +141,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     NumberOfEMI: null,
     emiDetails: [],
   });
+  console.log("studentId :", studentId)
 
   const [documents, setDocuments] = useState<Documents>({
     StudentImage: { file: null, preview: null },
@@ -202,28 +219,24 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
 
     if (name === 'CourseYear') {
-      const currentSession = student.SessionYear.split('-').map(Number);
-      let yearsToAdd = 0;
-      switch (value) {
-        case '2nd':
-          yearsToAdd = 1;
-          break;
-        case '3rd':
-          yearsToAdd = 2;
-          break;
-        case '4th':
-          yearsToAdd = 3;
-          break;
-        default:
-          yearsToAdd = 0;
-      }
-      const newStartYear = currentSession[0] + yearsToAdd;
-      const newEndYear = currentSession[1] + yearsToAdd;
+      const currentYear = new Date().getFullYear();
+      let baseStartYear = student.SessionYear ? parseInt(student.SessionYear.split('-')[0]) : currentYear;
+
+      // Map CourseYear to numeric values
+      const prevYearNum = student.CourseYear === '1st' ? 1 : student.CourseYear === '2nd' ? 2 : student.CourseYear === '3rd' ? 3 : student.CourseYear === '4th' ? 4 : 1;
+      const newYearNum = value === '1st' ? 1 : value === '2nd' ? 2 : value === '3rd' ? 3 : value === '4th' ? 4 : 1;
+
+      // Calculate the difference in years between the previous and new CourseYear
+      const yearsToAdd = newYearNum - prevYearNum;
+
+      // Adjust the base year based on the difference
+      const newStartYear = baseStartYear + yearsToAdd;
+      const newEndYear = newStartYear + 1;
       const newSessionYear = `${newStartYear}-${newEndYear}`;
+
       setStudent(prev => ({ ...prev, CourseYear: value, SessionYear: newSessionYear }));
       return;
     }
-
     if (type === 'checkbox') {
       setStudent(prev => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else if (type === 'number') {
@@ -276,17 +289,17 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const validateStep = (currentStep: number): boolean => {
     switch (currentStep) {
       case 1:
-        return !!student.FName && !!student.LName && !!student.RollNumber && !!student.DOB && !!student.Gender && 
-               !!student.FatherName && !!student.MotherName && !!student.MobileNumber && !!student.EmailId && 
-               !!student.FatherMobileNumber && !!student.City && !!student.State && !!student.Pincode && 
-               !!student.Address && !!student.Category;
+        return !!student.FName && !!student.LName && !!student.RollNumber && !!student.DOB && !!student.Gender &&
+          !!student.FatherName && !!student.MotherName && !!student.MobileNumber && !!student.EmailId &&
+          !!student.FatherMobileNumber && !!student.City && !!student.State && !!student.Pincode &&
+          !!student.Address && !!student.Category;
       case 2:
         return !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId && !!student.CourseYear && !!student.SessionYear;
       case 3:
-        return !!student.PaymentMode && 
-               (student.PaymentMode !== 'EMI' || 
-                (student.NumberOfEMI !== null && student.NumberOfEMI > 0 && 
-                 emiDetails.every(emi => emi.amount > 0 && emi.date)));
+        return !!student.PaymentMode &&
+          (student.PaymentMode !== 'EMI' ||
+            (student.NumberOfEMI !== null && student.NumberOfEMI > 0 &&
+              emiDetails.every(emi => emi.amount > 0 && emi.date)));
       case 4:
         return Object.values(documents).some(doc => doc.file !== null) || Object.values(existingDocuments).length > 0;
       default:
@@ -342,14 +355,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       });
 
       if (response.data.success) {
-         toast.success('Studenet Updated successfully!', {
-                position: "top-right",
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-              });
+        toast.success('Student Updated successfully!', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
         onSuccess();
         onClose();
       } else {
@@ -362,7 +375,26 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setIsSubmitting(false);
     }
   };
+  const [academicData, setAcademicData] = useState<AcademicHistory[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    const fetchAcademicDetails = async () => {
+      try {
+        const response = await axiosInstance.get(`/students/${studentId}/academic-details`);
+        setAcademicData(response.data.data);
+        console.log(response.data.data)
+      } catch (error) {
+        console.error('Error fetching academic details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAcademicDetails();
+  }, [studentId]);
+
+  if (loading) return <p>Loading...</p>;
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
   return (
@@ -400,34 +432,259 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               <div><label className="block text-xs font-medium text-gray-700">Category <RequiredAsterisk /></label><select name="Category" value={student.Category} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="Gen">Gen</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
               <div><label className="block text-xs font-medium text-gray-700">Father's Name <RequiredAsterisk /></label><input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">Mother's Name <RequiredAsterisk /></label><input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber"maxLength={10} value={student.MobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber"maxLength={10} value={student.AlternateNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" maxLength={10} value={student.MobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber" maxLength={10} value={student.AlternateNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-gray-700">Email ID <RequiredAsterisk /></label><input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-gray-700">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode"maxLength={6} value={student.Pincode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" maxLength={6} value={student.Pincode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-gray-700">College <RequiredAsterisk /></label><select name="CollegeId" value={student.CollegeId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{colleges.map(college => (<option key={college.id} value={college.id}>{college.collegeName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Course <RequiredAsterisk /></label><select name="CourseId" value={student.CourseId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{courses.map(course => (<option key={course.id} value={course.id}>{course.courseName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Session Year <RequiredAsterisk /></label><input type="text" name="SessionYear" value={student.SessionYear} readOnly className="w-full border p-1 rounded mt-1 text-xs bg-gray-100" required /></div>
-              <div className="col-span-2"><label className="flex items-center text-xs font-medium text-gray-700"><input type="checkbox" name="IsDiscontinue" checked={student.IsDiscontinue} onChange={handleChange} className="mr-2" />Is Discontinued?</label></div>
-              {student.IsDiscontinue && (
-                <>
-                  <div><label className="block text-xs font-medium text-gray-700">Discontinue Date</label><input type="date" name="DiscontinueOn" value={student.DiscontinueOn} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-                  <div><label className="block text-xs font-medium text-gray-700">Discontinued By</label><input type="text" name="DiscontinueBy" value={student.DiscontinueBy} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-                </>
-              )}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* College */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    College <RequiredAsterisk />
+                  </label>
+                  <select
+                    name="CollegeId"
+                    value={student.CollegeId}
+                    onChange={handleChange}
+                    className="w-full border p-1 rounded mt-1 text-xs"
+                    required
+                  >
+                    <option value="">Select</option>
+                    {colleges.map((college) => (
+                      <option key={college.id} value={college.id}>
+                        {college.collegeName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Admission Mode */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Admission Mode <RequiredAsterisk />
+                  </label>
+                  <select
+                    name="AdmissionMode"
+                    value={student.AdmissionMode}
+                    onChange={handleChange}
+                    className="w-full border p-1 rounded mt-1 text-xs"
+                    required
+                  >
+                    <option value="">Select</option>
+                    <option value="direct">Direct</option>
+                    <option value="entrance">Entrance</option>
+                  </select>
+                </div>
+
+                {/* Course */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Course <RequiredAsterisk />
+                  </label>
+                  <select
+                    name="CourseId"
+                    value={student.CourseId}
+                    onChange={handleChange}
+                    className="w-full border p-1 rounded mt-1 text-xs"
+                    required
+                  >
+                    <option value="">Select</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.courseName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Course Year */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Course Year <RequiredAsterisk />
+                  </label>
+                  <select
+                    name="CourseYear"
+                    value={student.CourseYear}
+                    onChange={handleChange}
+                    className="w-full border p-1 rounded mt-1 text-xs"
+                    required
+                  >
+                    <option value="">Select</option>
+                    <option value="1st">1st</option>
+                    <option value="2nd">2nd</option>
+                    <option value="3rd">3rd</option>
+                    <option value="4th">4th</option>
+                  </select>
+                </div>
+
+                {/* Admission Date */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Admission Date
+                  </label>
+                  <input
+                    type="date"
+                    name="AdmissionDate"
+                    value={student.AdmissionDate}
+                    onChange={handleChange}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full border p-1 rounded mt-1 text-xs"
+                  />
+                </div>
+
+                {/* Session Year */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">
+                    Session Year <RequiredAsterisk />
+                  </label>
+                  <input
+                    type="text"
+                    name="SessionYear"
+                    value={student.SessionYear}
+                    readOnly
+                    required
+                    className="w-full border p-1 rounded mt-1 text-xs bg-gray-100"
+                  />
+                </div>
+
+                {/* Is Discontinue */}
+                <div className="col-span-2">
+                  <label className="flex items-center text-xs font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="IsDiscontinue"
+                      checked={student.IsDiscontinue}
+                      onChange={handleChange}
+                      className="mr-2"
+                    />
+                    Is Discontinued?
+                  </label>
+                </div>
+
+                {/* If Discontinued */}
+                {student.IsDiscontinue && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">
+                        Discontinue Date
+                      </label>
+                      <input
+                        type="date"
+                        name="DiscontinueOn"
+                        value={student.DiscontinueOn}
+                        onChange={handleChange}
+                        className="w-full border p-1 rounded mt-1 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700">
+                        Discontinued By
+                      </label>
+                      <input
+                        type="text"
+                        name="DiscontinueBy"
+                        value={student.DiscontinueBy}
+                        onChange={handleChange}
+                        className="w-full border p-1 rounded mt-1 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Academic History Table */}
+              <div className="mt-3">
+                <h2 className="text-xs font-semibold text-gray-800 mb-1">
+                  Academic History
+                </h2>
+
+                <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
+                  <table className="min-w-full divide-y divide-gray-200 text-[10px]">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">SAID</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Course Year</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Session</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Admin Amount</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Payment mode</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Fees amount</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Emi</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created On</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created By</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified On</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {academicData.map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="px-1 py-0.5 text-gray-900">{item.id}</td>
+                          <td className="px-1 py-0.5 text-gray-900">{item.courseYear}</td>
+                          <td className="px-1 py-0.5 text-gray-500">{item.sessionYear}</td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            ₹{item.adminAmount.toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            <div className="flex items-center">
+                              {item.paymentMode}
+                              {item.NumberOfEMI && (
+                                <span className="ml-0.5 bg-blue-100 text-blue-800 text-[8px] px-1 py-0.5 rounded-full">
+                                  {item.NumberOfEMI} EMIs
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            ₹{item.feesAmount.toLocaleString('en-IN')}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            {item.numberOfEMI}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            {new Date(item.createdOn).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            {item.createdBy || '-'}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            {item.modifiedOn ? new Date(item.modifiedOn).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            }) : '-'}
+                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">
+                            {item.modifiedBy || '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {academicData.length === 0 && (
+                    <div className="text-center py-1 text-[10px] text-gray-500">
+                      No academic records found
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
+
+
 
           {step === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -459,6 +716,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         ))}
                       </tbody>
                     </table>
+
+
                   </div>
                 </div>
               )}
@@ -610,6 +869,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </button>
               </div>
             </div>
+
+
           </div>
         )}
       </div>
