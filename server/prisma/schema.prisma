@@ -203,6 +203,7 @@ model Documents {
 
 model Student {
   id              Int       @id @default(autoincrement())
+  stdCollId       String? 
   fName           String
   lName           String?
   rollNumber      String

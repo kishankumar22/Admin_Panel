@@ -85,19 +85,27 @@ router.post('/students', upload.fields([
     console.log("Parsed EMI Details:", emiDetails);
 
     // Validate CollegeId
-    if (!CollegeId) {
+    if (!CollegeId || CollegeId === '') {
       return res.status(400).json({ success: false, message: 'CollegeId is required' });
     }
-    const collegeExists = await prisma.college.findUnique({ where: { id: parseInt(CollegeId) } });
+    const collegeIdNum = parseInt(CollegeId);
+    if (isNaN(collegeIdNum)) {
+      return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
+    }
+    const collegeExists = await prisma.college.findUnique({ where: { id: collegeIdNum } });
     if (!collegeExists) {
       return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
     }
 
     // Validate CourseId
-    if (!CourseId) {
+    if (!CourseId || CourseId === '') {
       return res.status(400).json({ success: false, message: 'CourseId is required' });
     }
-    const courseExists = await prisma.course.findUnique({ where: { id: parseInt(CourseId) } });
+    const courseIdNum = parseInt(CourseId);
+    if (isNaN(courseIdNum)) {
+      return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
+    }
+    const courseExists = await prisma.course.findUnique({ where: { id: courseIdNum } });
     if (!courseExists) {
       return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
     }
@@ -107,6 +115,36 @@ router.post('/students', upload.fields([
     if (existingStudent) {
       return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
     }
+
+    // Function to generate stdCollId
+    const generateStdCollId = async (courseId, collegeId, admissionDate) => {
+      // Fetch course and college details
+      const course = await prisma.course.findUnique({ where: { id: parseInt(courseId) } });
+      const college = await prisma.college.findUnique({ where: { id: parseInt(collegeId) } });
+
+      // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
+      const courseName = course?.courseName || '';
+      const cleanedCourseName = courseName.replace(/[\s.]/g, ''); // Remove spaces and dots
+      const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase(); // e.g., "BPH" or "DPH"
+
+      // Step 2: Get college prefix (remove special characters and abbreviate)
+      let collegeName = college?.collegeName || '';
+      collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters
+      const collegeWords = collegeName.split(/(?=[A-Z])/);
+      const collegePrefix = collegeWords.length > 1
+        ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
+        : collegeName.substring(0, 5).toUpperCase(); // Limit to 5 chars if single word
+
+      // Step 3: Get year suffix from admission date
+      const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
+      const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
+
+      // Step 4: Combine all parts
+      return `${coursePrefix}/${collegePrefix}/${yearSuffix}`; // e.g., "BPH/JKIOP/2526"
+    };
+
+    // Generate stdCollId
+    const stdCollId = await generateStdCollId(CourseId, CollegeId, AdmissionDate);
 
     // Upload documents to Cloudinary
     const documentsData = [];
@@ -138,6 +176,7 @@ router.post('/students', upload.fields([
       // Create Student
       const student = await prisma.student.create({
         data: {
+          stdCollId: stdCollId, // Use server-generated stdCollId
           rollNumber: RollNumber,
           fName: FName,
           lName: LName || null,
@@ -154,8 +193,8 @@ router.post('/students', upload.fields([
           state: State,
           pincode: Pincode,
           admissionMode: AdmissionMode,
-          collegeId: parseInt(CollegeId),
-          courseId: parseInt(CourseId),
+          collegeId: collegeIdNum,
+          courseId: courseIdNum,
           admissionDate: new Date(AdmissionDate),
           studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null,
           category: Category,
@@ -313,7 +352,7 @@ router.get('/students/:id', async (req, res) => {
       CollegeId: student.collegeId ? student.collegeId.toString() : '',
       AdmissionMode: student.admissionMode,
       AdmissionDate: student.admissionDate ? student.admissionDate.toISOString().split('T')[0] : '',
-      IsDiscontinue: student.isDiscontinue,
+      isDiscontinue: student.isDiscontinue,
       DiscontinueOn: student.discontinueOn ? student.discontinueOn.toISOString().split('T')[0] : '',
       DiscontinueBy: student.discontinueBy || '',
       FineAmount: latestAcademicDetails.adminAmount || 0,
@@ -321,6 +360,7 @@ router.get('/students/:id', async (req, res) => {
       ModifiedBy: student.modifiedBy || '',
       SessionYear: latestAcademicDetails.sessionYear || '',
       PaymentMode: latestAcademicDetails.paymentMode || '',
+      stdCollId:student.stdCollId,
       NumberOfEMI: latestAcademicDetails.numberOfEMI || null,
       emiDetails: student.emiDetails.map(emi => ({
         emiNumber: emi.emiNumber,

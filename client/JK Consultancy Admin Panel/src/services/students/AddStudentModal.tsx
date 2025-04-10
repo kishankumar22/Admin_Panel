@@ -108,7 +108,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
     RefundAmount: 0,
     CreatedBy: createdBy || '',
     SessionYear: '',
-    PaymentMode: '',
+    PaymentMode: 'One-Time',
     NumberOfEMI: null,
   });
 
@@ -352,7 +352,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
             <button
               key={tab}
               onClick={() => handleTabClick(tab)}
-              className={`px-2 py-1 text-xs font-medium ${step === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-2 py-1 text-xs font-medium ${step === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-black'}`}
             >
               {['Personal', 'Academic', 'Payment', 'Documents'][tab - 1]} Details
             </button>
@@ -362,34 +362,34 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
         <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
           {step === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-gray-700">First Name <RequiredAsterisk /></label><input type="text" name="FName" value={student.FName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Last Name <RequiredAsterisk /></label><input type="text" name="LName" value={student.LName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Roll Number <RequiredAsterisk /></label><input type="text" name="RollNumber" value={student.RollNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">DOB <RequiredAsterisk /></label><input type="date" name="DOB" value={student.DOB} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Gender <RequiredAsterisk /></label><select name="Gender" value={student.Gender} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Category <RequiredAsterisk /></label><select name="Category" value={student.Category} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="Gen">Gen</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Father's Name <RequiredAsterisk /></label><input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Mother's Name <RequiredAsterisk /></label><input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange}maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Alternate Number</label><input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Email ID <RequiredAsterisk /></label><input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} maxLength={10} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode}maxLength={6} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
+              <div><label className="block text-xs font-medium text-black">First Name <RequiredAsterisk /></label><input type="text" name="FName" value={student.FName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Last Name <RequiredAsterisk /></label><input type="text" name="LName" value={student.LName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Roll Number <RequiredAsterisk /></label><input type="text" name="RollNumber" value={student.RollNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">DOB <RequiredAsterisk /></label><input type="date" name="DOB" value={student.DOB} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Gender <RequiredAsterisk /></label><select name="Gender" value={student.Gender} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
+              <div><label className="block text-xs font-medium text-black">Category <RequiredAsterisk /></label><select name="Category" value={student.Category} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="Gen">Gen</option><option value="OBC">OBC</option><option value="SC">SC</option><option value="ST">ST</option></select></div>
+              <div><label className="block text-xs font-medium text-black">Father's Name <RequiredAsterisk /></label><input type="text" name="FatherName" value={student.FatherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Mother's Name <RequiredAsterisk /></label><input type="text" name="MotherName" value={student.MotherName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Mobile Number <RequiredAsterisk /></label><input type="tel" name="MobileNumber" value={student.MobileNumber} onChange={handleChange}maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Alternate Number</label><input type="tel" name="AlternateNumber" value={student.AlternateNumber} onChange={handleChange} maxLength={10} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Email ID <RequiredAsterisk /></label><input type="email" name="EmailId" value={student.EmailId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Father's Mobile <RequiredAsterisk /></label><input type="tel" name="FatherMobileNumber" value={student.FatherMobileNumber} maxLength={10} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div><label className="block text-xs font-medium text-black">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode}maxLength={6} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
+              <div className="md:col-span-2"><label className="block text-xs font-medium text-black">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
             </div>
           )}
 
           {step === 2 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-gray-700">College <RequiredAsterisk /></label><select name="CollegeId" value={student.CollegeId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{colleges.map(college => (<option key={college.id} value={college.id}>{college.collegeName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Course <RequiredAsterisk /></label><select name="CourseId" value={student.CourseId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{courses.map(course => (<option key={course.id} value={course.id}>{course.courseName}</option>))}</select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
-              <div><label className="block text-xs font-medium text-gray-700">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
+              <div><label className="block text-xs font-medium text-black">College <RequiredAsterisk /></label><select name="CollegeId" value={student.CollegeId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{colleges.map(college => (<option key={college.id} value={college.id}>{college.collegeName}</option>))}</select></div>
+              <div><label className="block text-xs font-medium text-black">Course <RequiredAsterisk /></label><select name="CourseId" value={student.CourseId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{courses.map(course => (<option key={course.id} value={course.id}>{course.courseName}</option>))}</select></div>
+              <div><label className="block text-xs font-medium text-black">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
+              <div><label className="block text-xs font-medium text-black">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
               <div>
-  <label className="block text-xs font-medium text-gray-700">Session Year <RequiredAsterisk /></label>
+  <label className="block text-xs font-medium text-black">Session Year <RequiredAsterisk /></label>
   <input 
     type="text" 
     name="SessionYear" 
@@ -403,12 +403,12 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
           {step === 3 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-gray-700">Admin Amount</label><input type="number" name="FineAmount" value={student.FineAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Ledger Number</label><input type="text" name="LedgerNumber" value={student.LedgerNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Fees Amount</label><input type="number" name="RefundAmount" value={student.RefundAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
-              <div className="flex items-center"><label className="mr-2 block text-xs font-medium text-gray-700">Payment Mode <RequiredAsterisk /></label><label className="flex items-center"><input type="radio" name="PaymentMode" value="One-Time" checked={student.PaymentMode === 'One-Time'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">One-Time</span></label><label className="flex items-center ml-2"><input type="radio" name="PaymentMode" value="EMI" checked={student.PaymentMode === 'EMI'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">EMI</span></label></div>
+              <div><label className="block text-xs font-medium text-black">Admin Amount</label><input type="number" name="FineAmount" value={student.FineAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
+              <div><label className="block text-xs font-medium text-black">Ledger Number</label><input type="text" name="LedgerNumber" value={student.LedgerNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Fees Amount</label><input type="number" name="RefundAmount" value={student.RefundAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
+              <div className="flex items-center"><label className="mr-2 block text-xs font-medium text-black">Payment Mode <RequiredAsterisk /></label><label className="flex items-center"><input type="radio" name="PaymentMode" value="One-Time" checked={student.PaymentMode === 'One-Time'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">One-Time</span></label><label className="flex items-center ml-2"><input type="radio" name="PaymentMode" value="EMI" checked={student.PaymentMode === 'EMI'} onChange={handleChange} className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" /><span className="ml-1 text-xs">EMI</span></label></div>
               {student.PaymentMode === 'EMI' && (
-                <div><label className="block text-xs font-medium text-gray-700">No of EMIs <RequiredAsterisk /></label><select name="NumberOfEMI" value={student.NumberOfEMI || ''} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+                <div><label className="block text-xs font-medium text-black">No of EMIs <RequiredAsterisk /></label><select name="NumberOfEMI" value={student.NumberOfEMI || ''} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
               )}
               {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
                 <div className="col-span-2 mt-2">
@@ -416,9 +416,9 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-gray-700">EMI</th>
-                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-gray-700">Amount</th>
-                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-gray-700">Date</th>
+                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">EMI</th>
+                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">Amount</th>
+                          <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">Date</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
@@ -439,12 +439,12 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
           {step === 4 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-gray-700">Student Photo</label><input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'StudentImage')} className="w-full border p-1 rounded mt-1 text-xs" />{documents.StudentImage.preview && <img src={documents.StudentImage.preview} alt="Preview" className="h-12 w-12 object-cover rounded mt-1" />}</div>
-              <div><label className="block text-xs font-medium text-gray-700">10th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TenthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">12th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TwelfthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Caste Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'CasteCertificate')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Income Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Income')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-gray-700">Residential Proof</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Residential')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Student Photo</label><input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'StudentImage')} className="w-full border p-1 rounded mt-1 text-xs" />{documents.StudentImage.preview && <img src={documents.StudentImage.preview} alt="Preview" className="h-12 w-12 object-cover rounded mt-1" />}</div>
+              <div><label className="block text-xs font-medium text-black">10th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TenthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">12th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TwelfthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Caste Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'CasteCertificate')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Income Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Income')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+              <div><label className="block text-xs font-medium text-black">Residential Proof</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Residential')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
             </div>
           )}
 
