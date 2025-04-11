@@ -26,6 +26,7 @@ import AssignRolePage from './pages/Configuration/AssignRolePage';
 import CreatePage from './pages/Configuration/CreatePage';
 // import AddStudent from './services/students/AddStudent';
 import StudentManagement from './services/students/StudentManagement';
+import ManagePayment from './services/students/ManagePayment';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -142,6 +143,15 @@ const App: React.FC = () => {
       ),
     },
     {
+      path: '/managePayment',
+      element: (
+        <>
+          <PageTitle title="Manage Payement" />
+          <ManagePayment />
+        </>
+      ),
+    },
+    {
       path: '/assign-page-to-role',
       element: (
         <>
@@ -172,6 +182,7 @@ const App: React.FC = () => {
     '/profile',
     '/settings',
     '/student',
+    '/managePayment',
     '/assign-page-to-role',
   ];
 

@@ -251,119 +251,131 @@ const StudentManagement: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Student List" />
-      <div className="p-2 max-w-full mx-auto">
-        <div className="mb-2">
-          <span className="text-blue-800 text-[10px]">Total Students: <b className="text-lg">{students.length}</b></span>
-          <div className="text-blue-800 text-[10px]">
-            Status:
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="ml-1 border rounded-md p-2 text-[10px] bg-white"
-            >
-              <option value="">All</option>
-              <option value="Status">Active</option>
-              <option value="StatusIn">Inactive</option>
-              <option value="isDiscontinue">isDiscontinue</option>
-              <option value="Fresh Student">Fresh Student</option>
-            </select>
-          </div>
-        </div>
+      <div className="">
+      <div className="p-2 mb-2 bg-gray-50 rounded-lg shadow-md">
+  <div className="mb-1">
+    <div className="flex justify-between items-center text-blue-800 text-[10px]">
+      <span className="flex items-center">
+        Total Students: <b className="text-base ml-0.5">{students.length}</b>
+      </span>
+      <div className="flex items-center">
+        Status : 
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="ml-0.5 border rounded-md p-1.5 text-[10px] bg-white focus:ring-2 focus:border-blue-500 w-28"
+        >
+          <option value="">Active</option>
+          <option value="StatusIn">Inactive</option>
+          <option value="isDiscontinue">isDiscontinue</option>
+          <option value="Fresh Student">Fresh Student</option>
+        </select>
+      </div>
+    </div>
+  </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-2 mb-2">
-          <div className="flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-2 w-full md:w-auto flex-wrap">
-            <div className="relative w-full md:w-40">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="pl-6 pr-2 py-0.5 border rounded-md text-[10px] w-full focus:ring-1 focus:ring-blue-500"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <FaSearch className="absolute left-2 top-1.5 text-black text-[10px]" />
-            </div>
+  <div className="flex flex-col sm:flex-row justify-around items-center gap-1">
+    <div className="grid  grid-cols-1 sm:grid-cols-5 md:grid-cols-10 gap-2 w-full sm:w-auto flex-wrap">
+      {/* First Row (5 columns) */}
+      <div className="relative col-span-1">
+        <input
+          type="text"
+          placeholder="Search..."
+          className="pl-5 pr-1 py-0.5 border rounded-md text-[10px] w-full focus:ring-4 focus:border-blue-500"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <FaSearch className="absolute left-1.5 top-2.5 text-black text-[10px]" />
+      </div>
 
-            <select
-              value={courseYearFilter}
-              onChange={(e) => setCourseYearFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-24 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Course Year</option>
-              {[...filterOptions.courseYears].map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+      <select
+        value={courseYearFilter}
+        onChange={(e) => setCourseYearFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">Course Year</option>
+        {[...filterOptions.courseYears].map(year => (
+          <option key={year} value={year}>{year}</option>
+        ))}
+      </select>
 
-            <select
-              value={collegeFilter}
-              onChange={(e) => setCollegeFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-28 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">College</option>
-              {[...filterOptions.colleges].map(college => (
-                <option key={college} value={college}>{college}</option>
-              ))}
-            </select>
+      <select
+        value={collegeFilter}
+        onChange={(e) => setCollegeFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">College</option>
+        {[...filterOptions.colleges].map(college => (
+          <option key={college} value={college}>{college}</option>
+        ))}
+      </select>
 
-            <select
-              value={sessionYearFilter}
-              onChange={(e) => setSessionYearFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-28 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Session Year</option>
-              {[...filterOptions.sessionYears].map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+      <select
+        value={sessionYearFilter}
+        onChange={(e) => setSessionYearFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">Session Year</option>
+        {[...filterOptions.sessionYears].map(year => (
+          <option key={year} value={year}>{year}</option>
+        ))}
+      </select>
 
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-20 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Category</option>
-              {['Gen', 'OBC', 'SC', 'ST'].filter(cat => filterOptions.categories.has(cat)).map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
+      <select
+        value={categoryFilter}
+        onChange={(e) => setCategoryFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">Category</option>
+        {['Gen', 'OBC', 'SC', 'ST'].filter(cat => filterOptions.categories.has(cat)).map(category => (
+          <option key={category} value={category}>{category}</option>
+        ))}
+      </select>
 
-            <select
-              value={admissionModeFilter}
-              onChange={(e) => setAdmissionModeFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-24 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Admission Mode</option>
-              {[...filterOptions.admissionModes].map(mode => (
-                <option key={mode} value={mode}>{mode}</option>
-              ))}
-            </select>
+      {/* Second Row (5 columns) */}
+      <select
+        value={admissionModeFilter}
+        onChange={(e) => setAdmissionModeFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">Admission Mode</option>
+        {[...filterOptions.admissionModes].map(mode => (
+          <option key={mode} value={mode}>{mode}</option>
+        ))}
+      </select>
 
-            <select
-              value={emailFilter}
-              onChange={(e) => setEmailFilter(e.target.value)}
-              className="border rounded-md p-2 text-[10px] w-full md:w-32 focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="">Email</option>
-              {[...filterOptions.emails].map(email => (
-                <option key={email} value={email}>{email}</option>
-              ))}
-            </select>
+      <select
+        value={emailFilter}
+        onChange={(e) => setEmailFilter(e.target.value)}
+        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+      >
+        <option value="">Email</option>
+        {[...filterOptions.emails].map(email => (
+          <option key={email} value={email}>{email}</option>
+        ))}
+      </select>
 
-            <button
-              onClick={clearFilters}
-              className="bg-gray-500 text-white px-2 p-0.5 rounded-md text-[10px] hover:bg-gray-600 flex items-center w-full md:w-auto"
-            >
-              <FaTimes className="mr-1" /> Clear
-            </button>
+      <div className="col-span-1 flex space-x-0.5">
+        <button
+          onClick={clearFilters}
+          className="bg-blue-300  text-emerald-800 text-[12px] px-1 p-0.5 rounded-md  focus:ring-4 focus:border-blue-500 hover:text-red-400 hover:bg-blue-400 flex items-center flex-1"
+        >
+          <FaTimes className="w-5 h-5 " /> Clear Filter 
+        </button>
+      </div>
 
-            <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="bg-blue-500 text-white px-2 py-0.5 rounded-md text-[10px] hover:bg-blue-600 w-full md:w-auto"
-            >
-              Add Student
-            </button>
-          </div>
-        </div>
+      <div className="col-span-2">
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-blue-500 text-white px-1 py-0.5 rounded-md text-[10px] hover:bg-blue-600 w-full focus:ring-0 focus:border-blue-500"
+        >
+          Add Student
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full bg-white border rounded-lg text-[10px] text-black">
@@ -454,7 +466,7 @@ const StudentManagement: React.FC = () => {
                 setEntriesPerPage(parseInt(e.target.value));
                 setCurrentPage(1);
               }}
-              className="border rounded-md p-2 text-[10px]"
+              className="border rounded-md p-2 text-[10px] focus:ring-2 focus:border-blue-500"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>

@@ -143,7 +143,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     emiDetails: [],
     stdCollId:''
   });
-  console.log("studentId :", studentId)
+  // console.log("studentId :", studentId)
 
   const [documents, setDocuments] = useState<Documents>({
     StudentImage: { file: null, preview: null },
@@ -156,12 +156,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
   const [existingDocuments, setExistingDocuments] = useState<Record<string, ExistingDocument>>({});
 
+
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         const studentResponse = await axiosInstance.get(`/students/${studentId}`);
         const studentData = studentResponse.data;
-        // console.log(studentData.stdCollId)
+        console.log("studenet data ", studentData)
 
         setStudent({
           ...studentData,

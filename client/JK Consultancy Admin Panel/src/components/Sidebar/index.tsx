@@ -11,7 +11,7 @@ import { BiImageAdd } from "react-icons/bi";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from '../../context/AuthContext';
 import { MdCreateNewFolder, MdOutlineAssignmentTurnedIn, MdOutlineManageHistory } from "react-icons/md";
-import { FaUserPlus } from "react-icons/fa";
+import { FaMoneyBill, FaUserPlus } from "react-icons/fa";
 import { PiStudent } from "react-icons/pi";
 import { IoIosPersonAdd } from "react-icons/io";
 
@@ -236,6 +236,17 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         >
                           < IoIosPersonAdd className="w-3.5 h-3.5" />
                           Add Students
+                        </NavLink>
+                      </li>
+                      <li>
+                        <NavLink
+                          to="/managePayment"
+                          className={({ isActive }) =>
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                          }
+                        >
+                          < FaMoneyBill className="w-3.5 h-3.5" />
+                          Manage Payment
                         </NavLink>
                       </li>
                     </ul>

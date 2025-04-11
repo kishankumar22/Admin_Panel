@@ -115,6 +115,11 @@ router.post('/students', upload.fields([
     if (existingStudent) {
       return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
     }
+    // Check for duplicate EmailId
+    const existingStudentEmail = await prisma.student.findFirst({ where: { email: EmailId } });
+    if (existingStudentEmail) {
+      return res.status(400).json({ success: false, message: 'Email ID already exists.' });
+    }
 
     // Function to generate stdCollId
     const generateStdCollId = async (courseId, collegeId, admissionDate) => {
@@ -376,6 +381,41 @@ router.get('/students/:id', async (req, res) => {
   }
 });
 
+//  get all Details from student related to its  all table 
+router.get('/getAllStudents/:id', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ success: false, message: 'Invalid student ID' });
+    }
+
+    const student = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: {
+        college: true,
+        course: true,
+        documents: true,
+        academicDetails: {
+          orderBy: { createdOn: 'desc' },
+          include: {
+            emiDetails: true, // nested EMI details
+          },
+        },
+        emiDetails: true, // top-level EMI details
+      },
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    res.status(200).json({ success: true, data: student });
+  } catch (error) {
+    console.error('Error fetching student:', error);
+    res.status(500).json({ success: false, message: 'Failed to load student data' });
+  }
+});
+
 // GET /students/:id/documents - Fetch student documents
 router.get('/students/:id/documents', async (req, res) => {
   try {
@@ -612,7 +652,7 @@ router.delete('/students/:id', async (req, res) => {
       where: { id: studentId },
       include: {
         documents: true,
-        academicDetails: true
+        academicDetails: true,
       }
     });
 
