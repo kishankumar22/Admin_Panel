@@ -67,6 +67,7 @@ const StudentManagement: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false); // New state for payment modal
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
+const [yearFilter, setYearFilter] = useState('');
   const [filterOptions, setFilterOptions] = useState({
     courseYears: new Set<string>(),
     colleges: new Set<string>(),
@@ -166,14 +167,14 @@ const StudentManagement: React.FC = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const handlePaymentClick = (studentId: number) => {
-    if (isNaN(studentId)) {
-      setError('Invalid student ID.');
-      return;
-    }
-    setCurrentStudentId(studentId);
-    setIsPaymentModalOpen(true);
-  };
+  // const handlePaymentClick = (studentId: number) => {
+  //   if (isNaN(studentId)) {
+  //     setError('Invalid student ID.');
+  //     return;
+  //   }
+  //   setCurrentStudentId(studentId);
+  //   setIsPaymentModalOpen(true);
+  // };
 
   const handleDeleteConfirm = async () => {
     if (!currentStudentId) return;
@@ -434,13 +435,13 @@ const StudentManagement: React.FC = () => {
                           >
                             <FaTrash />
                           </button>
-                          <button
+                          {/* <button
                             onClick={() => handlePaymentClick(student.id)}
                             className="text-green-500 hover:text-green-700"
                             title="Payment Details"
                           >
                             <FaMoneyBill />
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                     </tr>
@@ -530,16 +531,19 @@ const StudentManagement: React.FC = () => {
           />
         )}
 
-        {isPaymentModalOpen && currentStudentId !== null && (
-          <StudentPaymentModal
-            studentId={currentStudentId}
-            students={students}
-            onClose={() => {
-              setIsPaymentModalOpen(false);
-              setCurrentStudentId(null);
-            }}
-          />
-        )}
+{isPaymentModalOpen && currentStudentId !== null && (
+  <StudentPaymentModal
+    studentId={currentStudentId}
+    students={students}
+    sessionYearFilter={sessionYearFilter}
+    yearFilter={yearFilter}
+    onClose={() => {
+      setIsPaymentModalOpen(false);
+      setCurrentStudentId(null);
+      fetchStudents(); // Refresh student data after payment
+    }}
+  />
+)}
       </div>
     </>
   );
