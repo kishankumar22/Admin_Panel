@@ -3,6 +3,8 @@ const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const cloudinary = require('../../config/cloudinaryConfig');
+const bcrypt = require('bcrypt');
+
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -794,4 +796,187 @@ router.get('/students/:studentId/academic-details/latest', async (req, res) => {
 });
 
 
+// date 15-04-2025  save payment
+// Create new payment
+router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
+  try {
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+
+    const {
+      studentId,
+      studentAcademicId,
+      paymentMode,
+      transactionNumber,
+      amount,
+      receivedDate,
+      approvedBy,
+      amountType,
+      bankName,
+      depositAmount,
+      paymentDepositDate,
+      handoverTo,
+      comment,
+      courseYear,
+      sessionYear,
+      email,
+      password,
+    } = req.body;
+
+    if (!email || !password) {
+      console.log('Email or password missing:', { email, password });
+      return res.status(401).json({ success: false, error: 'Email and password are required' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ success: false, error: 'Invalid email or password' });
+    }
+
+    let receiptData = {};
+    if (req.file) {
+      try {
+        const result = await uploadToCloudinary(req.file.buffer, 'PaymentReceipt');
+        receiptData = {
+          receiptUrl: result.secure_url,
+          receiptPublicId: result.public_id,
+        };
+      } catch (uploadError) {
+        console.error('Cloudinary upload error:', uploadError);
+        return res.status(500).json({ success: false, error: 'Failed to upload receipt' });
+      }
+    }
+
+    const payment = await prisma.studentPayment.create({
+      data: {
+        studentId: parseInt(studentId),
+        studentAcademicId: studentAcademicId ? parseInt(studentAcademicId) : null,
+        paymentMode,
+        transactionNumber,
+        amount: amount ? parseFloat(amount) : null,
+        receivedDate: receivedDate ? new Date(receivedDate) : null,
+        approvedBy,
+        amountType,
+        bankName,
+        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
+        paymentDepositDate: paymentDepositDate ? new Date(paymentDepositDate) : null,
+        handoverTo,
+        comment,
+        courseYear,
+        sessionYear,
+        createdBy: email,
+        ...receiptData,
+      },
+    });
+
+    res.status(201).json({ success: true, data: payment });
+  } catch (error) {
+    console.error('Payment creation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create payment' });
+  }
+});
+
+
+//   get payment   details 
+
+// GET payments for a specific student by studentId
+router.get('/studentPayment/:studentId', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+
+    // Validate studentId
+    if (!studentId || isNaN(parseInt(studentId))) {
+      return res.status(400).json({ success: false, error: 'Invalid student ID' });
+    }
+
+    const payments = await prisma.studentPayment.findMany({
+      where: {
+        studentId: parseInt(studentId),
+      },
+      include: {
+        student: {
+          select: {
+            fName: true,
+            lName: true,
+            rollNumber: true,
+          },
+        },
+        studentAcademic: {
+          select: {
+            sessionYear: true,
+            courseYear: true,
+          },
+        },
+      },
+    });
+
+    if (payments.length === 0) {
+      return res.status(404).json({ success: false, error: `No payments found for student ID ${studentId}` });
+    }
+
+    res.status(200).json({ success: true, data: payments });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
+
+
+// amount type get sum 
+
+// routes/studentPayment.js
+router.get('/amountType', async (req, res) => {
+  try {
+    const payments = await prisma.studentPayment.findMany({
+      select: {
+        id: true,
+        amount: true,
+        amountType: true,
+        paymentMode: true,
+        receivedDate: true,
+        transactionNumber: true,
+        courseYear: true,
+        sessionYear: true,
+        student: {
+          select: {
+            id: true,
+            fName: true,
+            lName: true,
+            rollNumber: true,
+            mobileNumber: true,
+            email: true,
+            course: {
+              select: {
+                courseName: true
+              }
+            },
+            college: {
+              select: {
+                collegeName: true
+              }
+            }
+          }
+        },
+        studentAcademic: {
+          select: {
+            id: true,
+            sessionYear: true,
+            feesAmount: true,
+            adminAmount: true,
+            paymentMode: true,
+            courseYear: true
+          }
+        }
+      }
+    });
+    
+    res.status(200).json({ success: true, data: payments });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
 module.exports = router;

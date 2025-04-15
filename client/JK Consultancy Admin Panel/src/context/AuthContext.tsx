@@ -1,3 +1,4 @@
+// context/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface User {
@@ -14,8 +15,8 @@ interface User {
 
 interface AuthContextType {
   isLoggedIn: boolean;
-  user: User | null; // Store user details
-  login: (token: string, userDetails: User) => void; // Update login to accept user details
+  user: User | null;
+  login: (token: string, userDetails: User) => void;
   logout: () => void;
 }
 
@@ -23,34 +24,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [user, setUser ] = useState<User | null>(null); // State to hold user details
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userDetails = localStorage.getItem('user'); // Retrieve user details from local storage
+    const userDetails = localStorage.getItem('user');
     setIsLoggedIn(!!token);
     if (userDetails) {
       try {
-        setUser (JSON.parse(userDetails)); // Parse and set user details
+        setUser(JSON.parse(userDetails));
       } catch (error) {
         console.error('Error parsing user details from local storage:', error);
-        setUser (null); // Reset user if parsing fails
+        setUser(null);
       }
     }
   }, []);
 
   const login = (token: string, userDetails: User) => {
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userDetails)); // Store user details in local storage
+    localStorage.setItem('user', JSON.stringify(userDetails));
     setIsLoggedIn(true);
-    setUser(userDetails); // Set user details in state
+    setUser(userDetails);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user'); // Remove user details from local storage
+    localStorage.removeItem('user');
     setIsLoggedIn(false);
-    setUser (null); // Clear user details from state
+    setUser(null);
     window.location.reload();
   };
 

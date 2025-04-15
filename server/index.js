@@ -28,10 +28,19 @@ const PORT = process.env.PORT || 3002;
 // Middleware to parse JSON requests
 app.use(express.json());    
 app.use(cors({
-    origin: "*",  // Allow all origins
-    methods: ["GET", "POST", "PUT", "DELETE"],  // Allowed HTTP methods
-    allowedHeaders: ["Content-Type", "Authorization"]  // Allowed headers
+    origin: 'http://localhost:5173', // Explicitly allow frontend origin
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false, // Set to true if cookies are needed
   }));
+  app.use((req, res, next) => {
+    // console.log('Incoming request:', {
+    //   method: req.method,
+    //   url: req.url,
+    //   headers: req.headers,
+    // });
+    next();
+  });
 app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
 

@@ -238,6 +238,7 @@ model Student {
   documents       Documents[]
   academicDetails StudentAcademicDetails[]
   emiDetails      EMIDetails[]
+  payments        StudentPayment[]
 }
 
 model StudentAcademicDetails {
@@ -256,6 +257,7 @@ model StudentAcademicDetails {
   modifiedOn   DateTime?
   student      Student   @relation(fields: [studentId], references: [id])
   emiDetails   EMIDetails[]
+  payments     StudentPayment[]
 }
 
 model EMIDetails {
@@ -271,4 +273,31 @@ model EMIDetails {
   modifiedOn          DateTime?
   student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   studentAcademic     StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
+}
+
+model StudentPayment {
+  id                    Int       @id @default(autoincrement())
+  studentId             Int
+  studentAcademicId     Int?
+  paymentMode           String?   // Cash, Check, Bank Transfer, UPI
+  transactionNumber     String?   // Check/Transaction/Receipt #
+  amount                Float?
+  receivedDate          DateTime?
+  approvedBy            String?
+  amountType            String?   // adminamount, AmountFees
+  bankName              String?
+  depositAmount         Float?
+  paymentDepositDate    DateTime?
+  handoverTo            String?
+  comment               String?
+  receiptUrl            String?   // Cloudinary URL
+  receiptPublicId       String?   // Cloudinary Public ID
+  courseYear            String?
+  sessionYear           String?
+  createdBy             String?
+  createdOn             DateTime  @default(now())
+  modifiedBy            String?
+  modifiedOn            DateTime?
+  student               Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  studentAcademic       StudentAcademicDetails? @relation(fields: [studentAcademicId], references: [id], onDelete: SetNull)
 }
