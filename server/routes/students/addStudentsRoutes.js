@@ -448,201 +448,253 @@ router.get('/students/:id/documents', async (req, res) => {
   }
 });
 
-// PUT /students/:id - Update student and handle CourseYear conditionally
-router.put('/students/:id', upload.fields([
-  { name: 'StudentImage' },
-  { name: 'CasteCertificate' },
-  { name: 'TenthMarks' },
-  { name: 'TwelfthMarks' },
-  { name: 'Residential' },
-  { name: 'Income' },
-]), async (req, res) => {
-  try {
-    const studentId = parseInt(req.params.id);
-    const {
-      RollNumber, FName, LName, DOB, Gender, MobileNumber, AlternateNumber,
-      EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
-      CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
-      AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
-      RefundAmount, ModifiedBy, SessionYear, PaymentMode, NumberOfEMI,
-    } = req.body;
 
-    const existingStudent = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: { 
-        academicDetails: true, // Get all academic details to check for existing CourseYear
-        documents: true, 
-        emiDetails: true 
-      },
-    });
+// PUT update student and academic details
+router.put(
+  '/students/:id',
+  upload.fields([
+    { name: 'StudentImage' },
+    { name: 'CasteCertificate' },
+    { name: 'TenthMarks' },
+    { name: 'TwelfthMarks' },
+    { name: 'Residential' },
+    { name: 'Income' },
+  ]),
+  async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const {
+        RollNumber,
+        FName,
+        LName,
+        DOB,
+        Gender,
+        MobileNumber,
+        AlternateNumber,
+        EmailId,
+        FatherName,
+        FatherMobileNumber,
+        MotherName,
+        Address,
+        City,
+        State,
+        Pincode,
+        CourseId,
+        CourseYear,
+        Category,
+        LedgerNumber,
+        CollegeId,
+        AdmissionMode,
+        AdmissionDate,
+        IsDiscontinue,
+        DiscontinueOn,
+        DiscontinueBy,
+        FineAmount,
+        RefundAmount,
+        ModifiedBy,
+        SessionYear,
+        PaymentMode,
+        NumberOfEMI,
+        emiDetails, // Expecting JSON string of EMI details
+      } = req.body;
 
-    if (!existingStudent) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
-    }
-
-    // Check if academic detail with this CourseYear already exists
-    const existingAcademicDetail = existingStudent.academicDetails.find(
-      detail => detail.courseYear === CourseYear
-    );
-
-    // Upload new documents to Cloudinary
-    const documentsData = [];
-    const uploadFile = async (fieldName) => {
-      if (req.files && req.files[fieldName]?.[0]) {
-        const oldDoc = existingStudent.documents.find(doc => doc.documentType === fieldName);
-        if (oldDoc) {
-          await deleteFromCloudinary(oldDoc.publicId);
-          await prisma.documents.delete({ where: { id: oldDoc.id } });
-        }
-
-        const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
-        if (uploadedFile?.public_id && uploadedFile?.url) {
-          documentsData.push({
-            documentType: fieldName,
-            publicId: uploadedFile.public_id,
-            fileUrl: uploadedFile.url,
-            fileName: req.files[fieldName][0].originalname,
-            createdBy: ModifiedBy,
-          });
-        }
-      }
-    };
-
-    await Promise.all([
-      uploadFile('StudentImage'),
-      uploadFile('CasteCertificate'),
-      uploadFile('TenthMarks'),
-      uploadFile('TwelfthMarks'),
-      uploadFile('Residential'),
-      uploadFile('Income'),
-    ]);
-
-    // Update student in a transaction
-    const updatedStudent = await prisma.$transaction(async (prisma) => {
-      const student = await prisma.student.update({
+      const existingStudent = await prisma.student.findUnique({
         where: { id: studentId },
-        data: {
-          rollNumber: RollNumber,
-          fName: FName,
-          lName: LName || null,
-          dob: new Date(DOB),
-          gender: Gender,
-          mobileNumber: MobileNumber,
-          alternateNumber: AlternateNumber || null,
-          email: EmailId,
-          fatherName: FatherName,
-          fatherMobile: FatherMobileNumber || null,
-          motherName: MotherName,
-          address: Address,
-          city: City,
-          state: State,
-          pincode: Pincode,
-          admissionMode: AdmissionMode,
-          collegeId: parseInt(CollegeId),
-          courseId: parseInt(CourseId),
-          admissionDate: new Date(AdmissionDate),
-          studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || existingStudent.studentImage,
-          category: Category,
-          isDiscontinue: IsDiscontinue === 'true',
-          discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
-          discontinueBy: DiscontinueBy || null,
-          modifiedBy: ModifiedBy,
-          modifiedOn: new Date(),
+        include: {
+          academicDetails: true,
+          documents: true,
+          emiDetails: true,
         },
       });
 
-      // If academic detail with this CourseYear doesn't exist, create new one
-      if (!existingAcademicDetail) {
-        const newAcademicDetail = await prisma.studentAcademicDetails.create({
-          data: {
-            studentId: studentId,
-            sessionYear: SessionYear,
-            paymentMode: PaymentMode,
-            adminAmount: parseFloat(FineAmount) || 0.0,
-            feesAmount: parseFloat(RefundAmount) || 0.0,
-            numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-            ledgerNumber: LedgerNumber || null,
-            courseYear: CourseYear || null,
-            createdBy: ModifiedBy,
-          },
-        });
+      if (!existingStudent) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
 
-        // Handle EMI details for new academic record
-        if (PaymentMode === 'EMI' && NumberOfEMI) {
-          const emiDetails = JSON.parse(req.body.emiDetails || '[]');
-          await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: newAcademicDetail.id } });
-          if (emiDetails.length > 0) {
-            await prisma.eMIDetails.createMany({
-              data: emiDetails.map(emi => ({
-                studentId: studentId,
-                studentAcademicId: newAcademicDetail.id,
-                emiNumber: emi.emiNumber,
-                amount: parseFloat(emi.amount),
-                dueDate: new Date(emi.date),
-                createdBy: ModifiedBy,
-              })),
+      // Check if academic detail with this CourseYear exists
+      const existingAcademicDetail = existingStudent.academicDetails.find(
+        (detail) => detail.courseYear === CourseYear
+      );
+
+      // Upload new documents to Cloudinary
+      const documentsData = [];
+      const uploadFile = async (fieldName) => {
+        if (req.files && req.files[fieldName]?.[0]) {
+          const oldDoc = existingStudent.documents.find((doc) => doc.documentType === fieldName);
+          if (oldDoc) {
+            await deleteFromCloudinary(oldDoc.publicId);
+            await prisma.documents.delete({ where: { id: oldDoc.id } });
+          }
+
+          const uploadedFile = await uploadToCloudinary(
+            req.files[fieldName][0].buffer,
+            `student_documents/${fieldName}`
+          );
+          if (uploadedFile?.public_id && uploadedFile?.url) {
+            documentsData.push({
+              documentType: fieldName,
+              publicId: uploadedFile.public_id,
+              fileUrl: uploadedFile.url,
+              fileName: req.files[fieldName][0].originalname,
+              createdBy: ModifiedBy,
             });
           }
         }
-      } else {
-        // Update existing academic details
-        await prisma.studentAcademicDetails.update({
-          where: { id: existingAcademicDetail.id },
+      };
+
+      await Promise.all([
+        uploadFile('StudentImage'),
+        uploadFile('CasteCertificate'),
+        uploadFile('TenthMarks'),
+        uploadFile('TwelfthMarks'),
+        uploadFile('Residential'),
+        uploadFile('Income'),
+      ]);
+
+      // Update student in a transaction
+      const updatedStudent = await prisma.$transaction(async (prisma) => {
+        // Update student basic details
+        const student = await prisma.student.update({
+          where: { id: studentId },
           data: {
-            sessionYear: SessionYear,
-            paymentMode: PaymentMode,
-            adminAmount: parseFloat(FineAmount) || 0.0,
-            feesAmount: parseFloat(RefundAmount) || 0.0,
-            numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-            ledgerNumber: LedgerNumber || null,
-            courseYear: CourseYear || null,
+            rollNumber: RollNumber,
+            fName: FName,
+            lName: LName || null,
+            dob: new Date(DOB),
+            gender: Gender,
+            mobileNumber: MobileNumber,
+            alternateNumber: AlternateNumber || null,
+            email: EmailId,
+            fatherName: FatherName,
+            fatherMobile: FatherMobileNumber || null,
+            motherName: MotherName,
+            address: Address,
+            city: City,
+            state: State,
+            pincode: Pincode,
+            admissionMode: AdmissionMode,
+            collegeId: parseInt(CollegeId),
+            courseId: parseInt(CourseId),
+            admissionDate: new Date(AdmissionDate),
+            studentImage:
+              documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl ||
+              existingStudent.studentImage,
+            category: Category,
+            isDiscontinue: IsDiscontinue === 'true',
+            discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
+            discontinueBy: DiscontinueBy || null,
             modifiedBy: ModifiedBy,
             modifiedOn: new Date(),
           },
         });
 
-        // Handle EMI details for existing academic record
-        if (PaymentMode === 'EMI' && NumberOfEMI) {
-          const emiDetails = JSON.parse(req.body.emiDetails || '[]');
-          await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
-          if (emiDetails.length > 0) {
-            await prisma.eMIDetails.createMany({
-              data: emiDetails.map(emi => ({
-                studentId: studentId,
-                studentAcademicId: existingAcademicDetail.id,
-                emiNumber: emi.emiNumber,
-                amount: parseFloat(emi.amount),
-                dueDate: new Date(emi.date),
-                createdBy: ModifiedBy,
-              })),
-            });
+        // Handle academic details
+        if (!existingAcademicDetail) {
+          // Create new academic detail
+          const newAcademicDetail = await prisma.studentAcademicDetails.create({
+            data: {
+              studentId: studentId,
+              sessionYear: SessionYear,
+              paymentMode: PaymentMode,
+              adminAmount: parseFloat(FineAmount) || 0.0,
+              feesAmount: parseFloat(RefundAmount) || 0.0,
+              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+              ledgerNumber: LedgerNumber || null,
+              courseYear: CourseYear || null,
+              createdBy: ModifiedBy,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            },
+          });
+
+          // Handle EMI details for new academic record
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            if (parsedEmiDetails.length > 0) {
+              await prisma.eMIDetails.createMany({
+                data: parsedEmiDetails.map((emi) => ({
+                  studentId: studentId,
+                  studentAcademicId: newAcademicDetail.id,
+                  emiNumber: parseInt(emi.emiNumber),
+                  amount: parseFloat(emi.amount),
+                  dueDate: new Date(emi.dueDate),
+                  createdBy: ModifiedBy,
+                  createdOn: new Date(),
+                  modifiedBy: ModifiedBy,
+                  modifiedOn: new Date(),
+                })),
+              });
+            }
+          }
+        } else {
+          // Update existing academic details
+          await prisma.studentAcademicDetails.update({
+            where: { id: existingAcademicDetail.id },
+            data: {
+              sessionYear: SessionYear,
+              paymentMode: PaymentMode,
+              adminAmount: parseFloat(FineAmount) || 0.0,
+              feesAmount: parseFloat(RefundAmount) || 0.0,
+              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+              ledgerNumber: LedgerNumber || null,
+              courseYear: CourseYear || null,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            },
+          });
+
+          // Handle EMI details
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            // Delete existing EMI details
+            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+            if (parsedEmiDetails.length > 0) {
+              await prisma.eMIDetails.createMany({
+                data: parsedEmiDetails.map((emi) => ({
+                  studentId: studentId,
+                  studentAcademicId: existingAcademicDetail.id,
+                  emiNumber: parseInt(emi.emiNumber),
+                  amount: parseFloat(emi.amount),
+                  dueDate: new Date(emi.dueDate),
+                  createdBy: ModifiedBy,
+                  createdOn: new Date(),
+                  modifiedBy: ModifiedBy,
+                  modifiedOn: new Date(),
+                })),
+              });
+            }
+          } else if (PaymentMode === 'One-Time') {
+            // Delete EMI details if switching to One-Time
+            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
           }
         }
-      }
 
-      // Create new documents
-      if (documentsData.length > 0) {
-        await prisma.documents.createMany({
-          data: documentsData.map(doc => ({
-            studentId: student.id,
-            documentType: doc.documentType,
-            publicId: doc.publicId,
-            fileUrl: doc.fileUrl,
-            fileName: doc.fileName,
-            createdBy: doc.createdBy,
-          })),
-        });
-      }
+        // Create new documents
+        if (documentsData.length > 0) {
+          await prisma.documents.createMany({
+            data: documentsData.map((doc) => ({
+              studentId: student.id,
+              documentType: doc.documentType,
+              publicId: doc.publicId,
+              fileUrl: doc.fileUrl,
+              fileName: doc.fileName,
+              createdBy: doc.createdBy,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            })),
+          });
+        }
 
-      return student;
-    });
+        return student;
+      });
 
-    res.status(200).json({ success: true, student: updatedStudent });
-  } catch (error) {
-    console.error('Error updating student:', error);
-    res.status(500).json({ success: false, message: error.message });
+      res.status(200).json({ success: true, student: updatedStudent });
+    } catch (error) {
+      console.error('Error updating student:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
   }
-});
+);
 
 // DELETE /students/:id - Delete a student and all related records
 router.delete('/students/:id', async (req, res) => {
@@ -732,30 +784,30 @@ async function deleteFromCloudinary(publicId) {
 
 //  table to get acdemic details 
 
-// Get all academic details for a student (sorted by creation date)
+// GET academic details for a student
 router.get('/students/:studentId/academic-details', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
-    
+
     const academicDetails = await prisma.studentAcademicDetails.findMany({
       where: { studentId },
       orderBy: { createdOn: 'desc' },
       include: {
         emiDetails: {
-          orderBy: { emiNumber: 'asc' }
-        }
-      }
+          orderBy: { emiNumber: 'asc' },
+        },
+      },
     });
 
-    res.status(200).json({ 
-      success: true, 
-      data: academicDetails 
+    res.status(200).json({
+      success: true,
+      data: academicDetails,
     });
   } catch (error) {
     console.error('Error fetching academic details:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch academic details' 
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch academic details',
     });
   }
 });
@@ -809,13 +861,10 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
       paymentMode,
       transactionNumber,
       amount,
+      refundAmount, // New field
       receivedDate,
       approvedBy,
       amountType,
-      bankName,
-      depositAmount,
-      paymentDepositDate,
-      handoverTo,
       comment,
       courseYear,
       sessionYear,
@@ -857,13 +906,10 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
         paymentMode,
         transactionNumber,
         amount: amount ? parseFloat(amount) : null,
+        refundAmount: refundAmount ? parseFloat(refundAmount) : null, // New field
         receivedDate: receivedDate ? new Date(receivedDate) : null,
         approvedBy,
         amountType,
-        bankName,
-        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
-        paymentDepositDate: paymentDepositDate ? new Date(paymentDepositDate) : null,
-        handoverTo,
         comment,
         courseYear,
         sessionYear,
@@ -923,7 +969,6 @@ router.get('/studentPayment/:studentId', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
-
 
 // amount type get sum 
 

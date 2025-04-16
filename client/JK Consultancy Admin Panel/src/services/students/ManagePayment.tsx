@@ -10,7 +10,6 @@ import {
   FaBook,
   FaCalendarAlt,
   FaCheckCircle,
-  FaDoorOpen,
   FaUniversity,
 } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
@@ -82,7 +81,19 @@ interface StudentPayment {
   studentId: number;
   amount: number;
   amountType: string;
-  // Other fields as needed
+  paymentMode: string;
+  receivedDate: string | null;
+  transactionNumber: string;
+  courseYear: string;
+  sessionYear: string;
+  studentAcademic: {
+    id: number;
+    sessionYear: string;
+    feesAmount: number;
+    adminAmount: number;
+    paymentMode: string;
+    courseYear: string;
+  };
 }
 
 interface SummaryData {
@@ -111,10 +122,10 @@ const ManagePayment: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('');
-  const [sessionYearFilter, setSessionYearFilter] = useState('2025-2026');
+  const [sessionYearFilter, setSessionYearFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('Active');
   const [yearFilter, setYearFilter] = useState('');
-  const [admissionModeFilter, setAdmissionModeFilter] = useState('');
+  const [feesFilter, setFeesFilter] = useState('Pending'); // Default to Pending
 
   // Summary data
   const [summaryData, setSummaryData] = useState<SummaryData>({
@@ -138,7 +149,6 @@ const ManagePayment: React.FC = () => {
     sessionYears: new Set<string>(),
     courses: new Set<string>(),
     statuses: new Set<string>(['Fresh Student', 'Active', 'Inactive', 'Discontinued']),
-    admissionModes: new Set<string>(['Direct', 'Entrance', 'Counselling']),
     categories: new Set<string>(),
     genders: new Set<string>(),
   });
@@ -192,6 +202,19 @@ const ManagePayment: React.FC = () => {
         studentId: payment.studentId,
         amount: payment.amount || 0,
         amountType: payment.amountType || '',
+        paymentMode: payment.paymentMode || '',
+        receivedDate: payment.receivedDate || null,
+        transactionNumber: payment.transactionNumber || '',
+        courseYear: payment.courseYear || '',
+        sessionYear: payment.sessionYear || '',
+        studentAcademic: {
+          id: payment.studentAcademic.id,
+          sessionYear: payment.studentAcademic.sessionYear,
+          feesAmount: payment.studentAcademic.feesAmount,
+          adminAmount: payment.studentAcademic.adminAmount,
+          paymentMode: payment.studentAcademic.paymentMode,
+          courseYear: payment.studentAcademic.courseYear,
+        },
       }));
 
       // Extract unique values for filter options using Sets
@@ -242,20 +265,30 @@ const ManagePayment: React.FC = () => {
     let adminReceived = 0;
     let feesReceived = 0;
 
-    // Calculate total admin and fees amounts from academic details
+    // Calculate total admin and fees amounts from academic details based on filters
     studentData.forEach((student) => {
       student.academicDetails.forEach((academic) => {
-        adminAmount += academic.adminAmount || 0;
-        feesAmount += academic.feesAmount || 0;
+        if (
+          (!sessionYearFilter || academic.sessionYear === sessionYearFilter) &&
+          (!yearFilter || academic.courseYear === yearFilter)
+        ) {
+          adminAmount += academic.adminAmount || 0;
+          feesAmount += academic.feesAmount || 0;
+        }
       });
     });
 
-    // Calculate received amounts from payments
+    // Calculate received amounts from payments based on filters
     paymentData.forEach((payment) => {
-      if (payment.amountType === 'adminamount') {
-        adminReceived += payment.amount || 0;
-      } else if (payment.amountType === 'AmountFees') {
-        feesReceived += payment.amount || 0;
+      if (
+        (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
+        (!yearFilter || payment.courseYear === yearFilter)
+      ) {
+        if (payment.amountType === 'adminAmount') {
+          adminReceived += payment.amount || 0;
+        } else if (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees') {
+          feesReceived += payment.amount || 0;
+        }
       }
     });
 
@@ -284,14 +317,14 @@ const ManagePayment: React.FC = () => {
   };
 
   const handleViewDetails = (studentId: number) => {
-    setSelectedStudent(null); // Close any existing modal
+    setSelectedStudent(null);
     fetchStudentDetails(studentId);
   };
 
   const handlePaymentClick = (studentId: number) => {
     setCurrentStudentId(studentId);
     setIsPaymentModalOpen(true);
-    setSelectedStudent(null); // Close details modal if open
+    setSelectedStudent(null);
   };
 
   const clearFilters = () => {
@@ -301,7 +334,7 @@ const ManagePayment: React.FC = () => {
     setSessionYearFilter('');
     setStatusFilter('');
     setYearFilter('');
-    setAdmissionModeFilter('');
+    setFeesFilter('Pending');
     setCurrentPage(1);
   };
 
@@ -320,52 +353,92 @@ const ManagePayment: React.FC = () => {
     }
   };
 
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      [
-        student.fName,
-        student.lName,
-        student.rollNumber,
-        student.email,
-        student.mobileNumber,
-        student.fatherName,
-        student.stdCollId,
-        student.address,
-        student.category,
-        student.gender,
-      ].some((field) => field?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredStudents = students
+    .map((student) => {
+      // Create a filtered list of academic details based on fees status and other filters
+      const filteredAcademicDetails = student.academicDetails.filter((academic) => {
+        // Calculate total fees paid for this academic detail
+        const totalFeesPaid = payments
+          .filter(
+            (payment) =>
+              payment.studentId === student.id &&
+              payment.studentAcademic.id === academic.id &&
+              (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
+          )
+          .reduce((sum, payment) => sum + payment.amount, 0);
 
-    const matchesCourse = !courseFilter || student.course.courseName === courseFilter;
-    const matchesCollege = !collegeFilter || student.college.collegeName === collegeFilter;
-    const matchesAdmissionMode =
-      !admissionModeFilter || student.admissionMode.toLowerCase() === admissionModeFilter.toLowerCase();
+        const isPending = academic.feesAmount - totalFeesPaid > 0;
+        const isFullPaid = academic.feesAmount - totalFeesPaid === 0;
 
-    const matchesStatus =
-      !statusFilter ||
-      (getStatusValue(statusFilter) === 'fresh' &&
-        student.status &&
-        !student.isDiscontinue &&
-        student.academicDetails.some((ad) => ad.courseYear === '1st')) ||
-      (getStatusValue(statusFilter) === 'active' && student.status && !student.isDiscontinue) ||
-      (getStatusValue(statusFilter) === 'inactive' && !student.status && !student.isDiscontinue) ||
-      (getStatusValue(statusFilter) === 'discontinued' && student.isDiscontinue);
+        // Apply fees filter
+        const matchesFees =
+          feesFilter === 'All' ||
+          (feesFilter === 'Pending' && isPending) ||
+          (feesFilter === 'Full Payment' && isFullPaid);
 
-    const matchesSessionYear =
-      !sessionYearFilter || student.academicDetails.some((detail) => detail.sessionYear === sessionYearFilter);
+        // Apply session year and course year filters
+        const matchesSessionYear = !sessionYearFilter || academic.sessionYear === sessionYearFilter;
+        const matchesYear = !yearFilter || academic.courseYear === yearFilter;
 
-    const matchesYear = !yearFilter || student.academicDetails.some((detail) => detail.courseYear === yearFilter);
+        return matchesFees && matchesSessionYear && matchesYear;
+      });
 
-    return (
-      matchesSearch &&
-      matchesCourse &&
-      matchesCollege &&
-      matchesSessionYear &&
-      matchesYear &&
-      matchesStatus &&
-      matchesAdmissionMode
-    );
-  });
+      // If no academic details match the filters, exclude the student unless no session/year filter is applied
+      if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter)) {
+        return null;
+      }
+
+      // If no filters are applied, include all academic details with pending fees
+      if (!sessionYearFilter && !yearFilter && feesFilter === 'Pending') {
+        const pendingAcademicDetails = student.academicDetails.filter((academic) => {
+          const totalFeesPaid = payments
+            .filter(
+              (payment) =>
+                payment.studentId === student.id &&
+                payment.studentAcademic.id === academic.id &&
+                (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
+            )
+            .reduce((sum, payment) => sum + payment.amount, 0);
+          return academic.feesAmount - totalFeesPaid > 0;
+        });
+        if (pendingAcademicDetails.length === 0) return null;
+        return { ...student, academicDetails: pendingAcademicDetails };
+      }
+
+      return { ...student, academicDetails: filteredAcademicDetails };
+    })
+    .filter((student): student is Student => student !== null)
+    .filter((student) => {
+      const matchesSearch =
+        searchQuery === '' ||
+        [
+          student.fName,
+          student.lName,
+          student.rollNumber,
+          student.email,
+          student.mobileNumber,
+          student.fatherName,
+          student.stdCollId,
+          student.address,
+          student.category,
+          student.gender,
+        ].some((field) => field?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesCourse = !courseFilter || student.course.courseName === courseFilter;
+      const matchesCollege = !collegeFilter || student.college.collegeName === collegeFilter;
+
+      const matchesStatus =
+        !statusFilter ||
+        (getStatusValue(statusFilter) === 'fresh' &&
+          student.status &&
+          !student.isDiscontinue &&
+          student.academicDetails.some((ad) => ad.courseYear === '1st')) ||
+        (getStatusValue(statusFilter) === 'active' && student.status && !student.isDiscontinue) ||
+        (getStatusValue(statusFilter) === 'inactive' && !student.status && !student.isDiscontinue) ||
+        (getStatusValue(statusFilter) === 'discontinued' && student.isDiscontinue);
+
+      return matchesSearch && matchesCourse && matchesCollege && matchesStatus;
+    });
 
   const totalEntries = filteredStudents.length;
   const totalPages = Math.ceil(totalEntries / entriesPerPage);
@@ -387,7 +460,7 @@ const ManagePayment: React.FC = () => {
     <>
       <Breadcrumb pageName="Payment Management" />
 
-      {/* Enhanced Filter Section with Better UI */}
+      {/* Enhanced Filter Section */}
       <div className="p-1.5 mb-2 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
         <h2 className="text-sm font-semibold mb-1 text-gray-800 flex items-center">
           <FaFilter className="mr-1 text-blue-500 text-[12px]" /> Filter Students
@@ -402,7 +475,7 @@ const ManagePayment: React.FC = () => {
             <select
               value={sessionYearFilter}
               onChange={(e) => setSessionYearFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
               <option value="">All</option>
               {Array.from(filterOptions.sessionYears).map((year) => (
@@ -421,7 +494,7 @@ const ManagePayment: React.FC = () => {
             <select
               value={collegeFilter}
               onChange={(e) => setCollegeFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
               <option value="">All</option>
               {Array.from(filterOptions.colleges).map((college) => (
@@ -440,7 +513,7 @@ const ManagePayment: React.FC = () => {
             <select
               value={courseFilter}
               onChange={(e) => setCourseFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
               <option value="">All</option>
               {Array.from(filterOptions.courses).map((course) => (
@@ -459,7 +532,7 @@ const ManagePayment: React.FC = () => {
             <select
               value={yearFilter}
               onChange={(e) => setYearFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
               <option value="">All</option>
               {Array.from(filterOptions.courseYears).map((year) => (
@@ -478,7 +551,7 @@ const ManagePayment: React.FC = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
               <option value="">All</option>
               {Array.from(filterOptions.statuses).map((status) => (
@@ -489,22 +562,19 @@ const ManagePayment: React.FC = () => {
             </select>
           </div>
 
-          {/* Admission Mode */}
+          {/* Fees Filter */}
           <div className="flex flex-col">
             <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaDoorOpen className="mr-1 text-gray-400 text-[10px]" /> Admission Mode
+              <FaMoneyBill className="mr-1 text-gray-400 text-[10px]" /> Fees Status
             </label>
             <select
-              value={admissionModeFilter}
-              onChange={(e) => setAdmissionModeFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150 flex items-center"
+              value={feesFilter}
+              onChange={(e) => setFeesFilter(e.target.value)}
+              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
             >
-              <option value="">All</option>
-              {Array.from(filterOptions.admissionModes).map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode}
-                </option>
-              ))}
+              <option value="All">All</option>
+              <option value="Pending">Pending</option>
+              <option value="Full Payment">Full Payment</option>
             </select>
           </div>
 
@@ -533,7 +603,7 @@ const ManagePayment: React.FC = () => {
           </button>
           <button
             onClick={fetchStudents}
-            className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
+            className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text Kovach-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
           >
             <FaSearch className="mr-0.5 text-[10px]" /> Search
           </button>
@@ -541,57 +611,48 @@ const ManagePayment: React.FC = () => {
       </div>
 
       {/* Financial Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-        {/* Total Students Card */}
-        <div className="bg-white p-2 rounded shadow border border-gray-200 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs text-black-2 mb-1">Total Students</p>
-          <div className="flex justify-between items-center">
-            <p className="text-sm font-bold text-gray-800">{summaryData.totalStudents}</p>
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
+        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+          <div className="flex flex-col sm:flex-row justify-between mb-1 space-y-1 sm:space-y-0">
+            <p className="text-xs sm:text-sm text-gray-500">Total Students</p>
+            <p className="text-xs sm:text-sm text-gray-500">Showing Results</p>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-1 sm:space-y-0">
+            <div className="flex items-center">
+              <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.totalStudents}</p>
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-1"></div>
+            </div>
+            <div className="flex items-center">
+              <p className="text-sm sm:text-base font-bold text-gray-800">{filteredStudents.length}</p>
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 ml-1"></div>
+            </div>
           </div>
         </div>
-
-        {/* Admin Amount Card */}
-        <div className="bg-white p-2 rounded shadow border border-gray-200 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs text-black-2 mb-1">Admin Amount</p>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-sm font-bold text-gray-800">{summaryData.adminAmount.toLocaleString()}</p>
-              <div className="flex text-xs gap-1 mt-1">
-                <p className="text-green-500">Admin Recieve: {summaryData.adminReceived.toLocaleString()}</p>
-                <p className="text-red-500">Admin Pendeng : {summaryData.adminPending.toLocaleString()}</p>
-              </div>
-            </div>
+        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1">Admin Amount</p>
+          <div className="flex justify-between items-center">
+            <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.adminAmount.toLocaleString()}</p>
             <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
           </div>
-        </div>
-
-        {/* Fees Amount Card */}
-        <div className="bg-white p-2 rounded shadow border border-gray-200 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs text-black-2 mb-1">Fees Amount</p>
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-sm font-bold text-gray-800">{summaryData.feesAmount.toLocaleString()}</p>
-              <div className="flex text-xs gap-1 mt-1">
-                <p className="text-green-500">Recived: {summaryData.feesReceived.toLocaleString()}</p>
-                <p className="text-red-500">Payment: {summaryData.feesPending.toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+          <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-1 space-y-1 sm:space-y-0">
+            <p className="text-green-500">Received: {summaryData.adminReceived.toLocaleString()}</p>
+            <p className="text-red-500">Pending: {summaryData.adminPending.toLocaleString()}</p>
           </div>
         </div>
-
-        {/* Showing Results Card */}
-        <div className="bg-white p-2 rounded shadow border border-gray-200 hover:shadow-md transition-shadow duration-200">
-          <p className="text-xs text-gray-500 mb-1">Showing Results</p>
+        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+          <p className="text-xs sm:text-sm text-gray-500 mb-1">Fees Amount</p>
           <div className="flex justify-between items-center">
-            <p className="text-sm font-bold text-gray-800">{filteredStudents.length}</p>
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+            <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.feesAmount.toLocaleString()}</p>
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+          </div>
+          <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-1 space-y-1 sm:space-y-0">
+            <p className="text-green-500">Received: {summaryData.feesReceived.toLocaleString()}</p>
+            <p className="text-red-500">Pending: {summaryData.feesPending.toLocaleString()}</p>
           </div>
         </div>
       </div>
 
-      {/* Optimized Table with Enhanced UI */}
+      {/* Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div className="relative overflow-x-auto max-h-[70vh]">
           <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
@@ -629,9 +690,6 @@ const ManagePayment: React.FC = () => {
                 </th>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Discontinued By
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Admission Mode
                 </th>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Category
@@ -688,122 +746,124 @@ const ManagePayment: React.FC = () => {
             </thead>
             <tbody>
               {paginatedStudents.length > 0 ? (
-                paginatedStudents.map((student, index) => {
-                  const matchingAcademic =
-                    student.academicDetails.find(
-                      (detail) =>
-                        (!sessionYearFilter || detail.sessionYear === sessionYearFilter) &&
-                        (!yearFilter || detail.courseYear === yearFilter)
-                    ) || student.academicDetails[0] || {};
+                paginatedStudents.map((student, index) =>
+                  student.academicDetails.map((academic) => {
+                    const firstEmi = student.emiDetails.find(
+                      (emi) => emi.emiNumber === 1 && emi.studentAcademicId === academic.id
+                    );
+                    const secondEmi = student.emiDetails.find(
+                      (emi) => emi.emiNumber === 2 && emi.studentAcademicId === academic.id
+                    );
 
-                  const firstEmi = student.emiDetails.find(
-                    (emi) => emi.emiNumber === 1 && emi.studentAcademicId === matchingAcademic.id
-                  );
-                  const secondEmi = student.emiDetails.find(
-                    (emi) => emi.emiNumber === 2 && emi.studentAcademicId === matchingAcademic.id
-                  );
-
-                  return (
-                    <tr
-                      key={student.id}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 align-middle"
-                    >
-                      <td className="px-1.5 py-1 text-center">{(currentPage - 1) * entriesPerPage + index + 1}</td>
-                      <td className="px-1.5 py-1">
-                        <div className="inline-flex space-x-0.5">
-                          <button
-                            onClick={() => handleViewDetails(student.id)}
-                            className="p-0.5 text-blue-500 hover:text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors duration-150"
-                            title="View Details"
-                          >
-                            <FaFileAlt size={10} />
-                          </button>
-                          <button
-                            onClick={() => handlePaymentClick(student.id)}
-                            className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
-                            title="Payment"
-                          >
-                            <FaMoneyBill size={10} />
-                          </button>
-                        </div>
-                      </td>
-                      <td className="px-1.5 py-1 font-medium truncate max-w-[100px]">{student.stdCollId || '-'}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[120px]">
-                        {student.fName} {student.lName || ''}
-                      </td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[60px]">{matchingAcademic.courseYear || 'N/A'}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
-                      <td className="px-1.5 py-1">
-                        <span
-                          className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
-                            student.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                          } whitespace-nowrap`}
-                        >
+                    return (
+                      <tr
+                        key={`${student.id}-${academic.id}`}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 align-middle"
+                      >
+                        <td className="px-1.5 py-1 text-center">
+                          {(currentPage - 1) * entriesPerPage + index + 1}
+                        </td>
+                        <td className="px-1.5 py-1">
+                          <div className="inline-flex space-x-0.5">
+                            <button
+                              onClick={() => handleViewDetails(student.id)}
+                              className="p-0.5 text-blue-500 hover:text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors duration-150"
+                              title="View Details"
+                            >
+                              <FaFileAlt size={10} />
+                            </button>
+                            <button
+                              onClick={() => handlePaymentClick(student.id)}
+                              className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
+                              title="Payment"
+                            >
+                              <FaMoneyBill size={10} />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-1.5 py-1 font-medium truncate max-w-[100px]">
+                          {student.stdCollId || '-'}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">
+                          {student.fName} {student.lName || ''}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{academic.courseYear || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
+                        <td className="px-1.5 py-1">
                           <span
-                            className={`w-1 h-1 rounded-full mr-0.5 ${
-                              student.status ? 'bg-green-500' : 'bg-red-500'
-                            }`}
-                          ></span>
-                          {student.status ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-1.5 py-1">
-                        <span
-                          className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
-                            student.isDiscontinue ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                          } whitespace-nowrap`}
-                        >
+                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
+                              student.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            } whitespace-nowrap`}
+                          >
+                            <span
+                              className={`w-1 h-1 rounded-full mr-0.5 ${
+                                student.status ? 'bg-green-500' : 'bg-red-500'
+                              }`}
+                            ></span>
+                            {student.status ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-1.5 py-1">
                           <span
-                            className={`w-1 h-1 rounded-full mr-0.5 ${
-                              student.isDiscontinue ? 'bg-red-500' : 'bg-green-500'
-                            }`}
-                          ></span>
-                          {student.isDiscontinue ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{student.admissionMode}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{new Date(student.dob).toLocaleDateString()}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">
-                        {new Date(student.admissionDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{matchingAcademic.sessionYear || 'N/A'}</td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{matchingAcademic.paymentMode || 'N/A'}</td>
-                      <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                        {matchingAcademic.adminAmount?.toLocaleString() || '0'}
-                      </td>
-                      <td className="px-1.5 py-1 truncate max-w-[80px]">{matchingAcademic.ledgerNumber || 'N/A'}</td>
-                      <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                        {matchingAcademic.feesAmount?.toLocaleString() || '0'}
-                      </td>
-                      <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                        {matchingAcademic.numberOfEMI || 'N/A'}
-                      </td>
-                      <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                        {firstEmi?.amount?.toLocaleString() || 'N/A'}
-                      </td>
-                      <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                        {secondEmi?.amount?.toLocaleString() || 'N/A'}
-                      </td>
-                      <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
-                        {firstEmi ? new Date(firstEmi.dueDate).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
-                        {secondEmi ? new Date(secondEmi.dueDate).toLocaleDateString() : 'N/A'}
-                      </td>
-                    </tr>
-                  );
-                })
+                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
+                              student.isDiscontinue
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-green-100 text-green-700'
+                            } whitespace-nowrap`}
+                          >
+                            <span
+                              className={`w-1 h-1 rounded-full mr-0.5 ${
+                                student.isDiscontinue ? 'bg-red-500' : 'bg-green-500'
+                              }`}
+                            ></span>
+                            {student.isDiscontinue ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.dob).toLocaleDateString()}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.admissionDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.paymentMode || 'N/A'}</td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {academic.adminAmount?.toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.ledgerNumber || 'N/A'}</td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {academic.feesAmount?.toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {academic.numberOfEMI || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {firstEmi?.amount?.toLocaleString() || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {secondEmi?.amount?.toLocaleString() || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
+                          {firstEmi ? new Date(firstEmi.dueDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
+                          {secondEmi ? new Date(secondEmi.dueDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )
               ) : (
                 <tr>
-                  <td colSpan={29} className="px-1.5 py-2 text-center text-gray-500">
+                  <td colSpan={28} className="px-1.5 py-2 text-center text-gray-500">
                     No students found matching the filter criteria
                   </td>
                 </tr>
@@ -823,6 +883,7 @@ const ManagePayment: React.FC = () => {
               setEntriesPerPage(parseInt(e.target.value));
               setCurrentPage(1);
             }}
+            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -847,12 +908,10 @@ const ManagePayment: React.FC = () => {
           >
             Prev
           </button>
-
           <span className="text-xs px-1">
             Page <span className="font-semibold">{currentPage}</span> of{' '}
             <span className="font-semibold">{totalPages || 1}</span>
           </span>
-
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages || totalPages === 0}
@@ -890,7 +949,9 @@ const ManagePayment: React.FC = () => {
               <div className="flex border-b mb-2 overflow-x-auto">
                 <button
                   className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'academic' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    activeTab === 'academic'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setActiveTab('academic')}
                 >
@@ -898,7 +959,9 @@ const ManagePayment: React.FC = () => {
                 </button>
                 <button
                   className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'emi' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    activeTab === 'emi'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setActiveTab('emi')}
                 >
@@ -906,7 +969,9 @@ const ManagePayment: React.FC = () => {
                 </button>
                 <button
                   className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'personal' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'
+                    activeTab === 'personal'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                   onClick={() => setActiveTab('personal')}
                 >
@@ -1013,59 +1078,48 @@ const ManagePayment: React.FC = () => {
                         <p className="text-gray-500 text-xs mb-0.5">Student ID</p>
                         <p className="font-medium">{selectedStudent.stdCollId || 'Not assigned'}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Email</p>
                         <p className="font-medium break-all">{selectedStudent.email}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Mobile Number</p>
                         <p className="font-medium">{selectedStudent.mobileNumber}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Father's Name</p>
                         <p className="font-medium">{selectedStudent.fatherName}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Address</p>
                         <p className="font-medium">{selectedStudent.address}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Pin Code</p>
                         <p className="font-medium">{selectedStudent.pincode}</p>
                       </div>
                     </div>
-
                     <div className="space-y-1">
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Category</p>
                         <p className="font-medium">{selectedStudent.category}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Gender</p>
                         <p className="font-medium">{selectedStudent.gender}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">DOB</p>
                         <p className="font-medium">{new Date(selectedStudent.dob).toLocaleDateString()}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Admission Mode</p>
                         <p className="font-medium capitalize">{selectedStudent.admissionMode}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Admission Date</p>
                         <p className="font-medium">{new Date(selectedStudent.admissionDate).toLocaleDateString()}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Status</p>
                         <div className="flex items-center">
@@ -1087,12 +1141,10 @@ const ManagePayment: React.FC = () => {
                           </p>
                         </div>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Discontinued By</p>
                         <p className="font-medium">{selectedStudent.discontinueBy || 'N/A'}</p>
                       </div>
-
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">College & Course</p>
                         <p className="font-medium">
@@ -1133,7 +1185,7 @@ const ManagePayment: React.FC = () => {
           onClose={() => {
             setIsPaymentModalOpen(false);
             setCurrentStudentId(null);
-            fetchStudents(); // Refresh student data after payment
+            fetchStudents();
           }}
         />
       )}
@@ -1141,4 +1193,4 @@ const ManagePayment: React.FC = () => {
   );
 };
 
-export default ManagePayment;
+export default ManagePayment; 

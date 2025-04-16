@@ -12,7 +12,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../config';
 
-// Interface for StudentPayment (based on backend model)
+// Interface for StudentPayment
 interface StudentPayment {
   id: number;
   studentId: number;
@@ -20,13 +20,10 @@ interface StudentPayment {
   paymentMode: string | null;
   transactionNumber: string | null;
   amount: number | null;
+  refundAmount: number | null;
   receivedDate: string | null;
   approvedBy: string | null;
   amountType: string | null;
-  bankName: string | null;
-  depositAmount: number | null;
-  paymentDepositDate: string | null;
-  handoverTo: string | null;
   comment: string | null;
   receiptUrl: string | null;
   receiptPublicId: string | null;
@@ -62,19 +59,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   yearFilter,
   onClose,
 }) => {
-  const [paymentMethod, setPaymentMethod] = useState<'handover' | 'bank'>('handover');
   const [formData, setFormData] = useState({
     paymentMode: 'cash',
     transactionNumber: '',
-    transactionVoucherNumber: '',
     amount: '',
+    refundAmount: '',
     receivedDate: '',
     approvedBy: '',
     amountType: 'adminAmount',
-    bankName: '',
-    depositAmount: '',
-    paymentDepositDate: '',
-    handoverTo: '',
     comment: '',
     password: '',
   });
@@ -88,12 +80,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const student = students.find((s) => s.id === studentId);
   if (!student) return null;
 
-  const matchingAcademic =
-    student.academicDetails.find(
-      (detail: any) =>
-        (!sessionYearFilter || detail.sessionYear === sessionYearFilter) &&
-        (!yearFilter || detail.courseYear === yearFilter)
-    ) || student.academicDetails[0] || {};
+  // Find matching academic detail based on filters
+  const matchingAcademic = student.academicDetails.find(
+    (detail: any) =>
+      (sessionYearFilter ? detail.sessionYear === sessionYearFilter : true) &&
+      (yearFilter ? detail.courseYear === yearFilter : true)
+  ) || null; // Return null if no match found
 
   // Fetch payments for studentId
   useEffect(() => {
@@ -120,7 +112,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       } catch (err: any) {
         const errorMessage = err.message || 'Failed to fetch payments';
         setPaymentError(errorMessage);
-        // toast.error(errorMessage);
       } finally {
         setLoadingPayments(false);
       }
@@ -130,15 +121,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       fetchPayments();
     }
   }, [studentId, isLoggedIn]);
-
-  const handlePaymentMethodChange = (method: 'handover' | 'bank') => {
-    setPaymentMethod(method);
-    setFormData((prev) => ({
-      ...prev,
-      bankName: method === 'bank' ? prev.bankName : '',
-      handoverTo: method === 'handover' ? prev.handoverTo : '',
-    }));
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -164,6 +146,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       return;
     }
 
+    if (!matchingAcademic) {
+      setError('No matching academic details found for the selected session and year');
+      toast.error('No matching academic details found');
+      return;
+    }
+
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Authentication token missing');
@@ -178,13 +166,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       formDataToSend.append('paymentMode', formData.paymentMode);
       formDataToSend.append('transactionNumber', formData.transactionNumber);
       formDataToSend.append('amount', formData.amount);
+      formDataToSend.append('refundAmount', formData.refundAmount);
       formDataToSend.append('receivedDate', formData.receivedDate);
       formDataToSend.append('approvedBy', formData.approvedBy);
       formDataToSend.append('amountType', formData.amountType);
-      formDataToSend.append('bankName', formData.bankName);
-      formDataToSend.append('depositAmount', formData.depositAmount);
-      formDataToSend.append('paymentDepositDate', formData.paymentDepositDate);
-      formDataToSend.append('handoverTo', formData.handoverTo);
       formDataToSend.append('comment', formData.comment);
       formDataToSend.append('courseYear', matchingAcademic.courseYear || '');
       formDataToSend.append('sessionYear', matchingAcademic.sessionYear || '');
@@ -193,8 +178,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       if (receiptFile) {
         formDataToSend.append('receipt', receiptFile);
       }
-
-      console.log('FormData being sent:', Object.fromEntries(formDataToSend));
 
       const response = await axiosInstance.post('/studentPayment', formDataToSend, {
         headers: {
@@ -205,7 +188,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
       if (response.data.success) {
         toast.success('Payment Successful');
-        // Refresh payments after successful submission
         const fetchResponse = await axiosInstance.get(`/studentPayment/${studentId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -264,11 +246,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               </div>
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 mr-1">Course Session:</span>
-                <span className="text-gray-800">{matchingAcademic.sessionYear || 'N/A'}</span>
+                <span className="text-gray-800">{matchingAcademic?.sessionYear || 'N/A'}</span>
               </div>
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 mr-1">Course Year:</span>
-                <span className="text-gray-800">{matchingAcademic.courseYear || 'N/A'}</span>
+                <span className="text-gray-800">{matchingAcademic?.courseYear || 'N/A'}</span>
               </div>
             </div>
           </div>
@@ -323,6 +305,19 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">Refund Amount</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
+                      <input
+                        type="text"
+                        name="refundAmount"
+                        value={formData.refundAmount}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
                     <label className="block text-xs font-medium text-gray-700">Received Date</label>
                     <div className="relative">
                       <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
@@ -354,7 +349,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
                     >
                       <option value="adminAmount">Admin Fees</option>
-                      <option value="feesAmount"> Fees Amount </option>
+                      <option value="feesAmount">Fees Amount</option>
+                      <option value="fineAmount">Fine Amount</option>
                     </select>
                   </div>
                 </div>
@@ -365,25 +361,35 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     <div className="grid grid-cols-2 gap-0.5 text-xs">
                       <div>
                         <span className="text-gray-600">Admin Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic.adminAmount || '0'}</span>
+                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.adminAmount || '0'}</span>
                       </div>
                       <div>
                         <span className="text-gray-600">Fees Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic.feesAmount || '0'}</span>
+                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.feesAmount || '0'}</span>
                       </div>
                       <div>
                         <span className="text-gray-600">Course Year:</span>
-                        <span className="ml-0.5 font-medium">{matchingAcademic.courseYear || 'N/A'}</span>
+                        <span className="ml-0.5 font-medium">{matchingAcademic?.courseYear || 'N/A'}</span>
                       </div>
                       <div>
                         <span className="text-gray-600">EMI Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic.emiAmount || '0'}</span>
+                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.emiAmount || '0'}</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="border border-gray-200 rounded-md p-2">
                     <div className="space-y-1">
+                      <div className="space-y-0.5">
+                        <label className="block text-xs font-medium text-gray-700">Comment</label>
+                        <textarea
+                          name="comment"
+                          value={formData.comment}
+                          onChange={handleInputChange}
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                          rows={1}
+                        ></textarea>
+                      </div>
                       <div className="space-y-0.5">
                         <label className="block text-xs font-medium text-gray-700">Password</label>
                         <input
@@ -419,7 +425,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             </div>
 
             {/* EMI Details Section */}
-            {matchingAcademic.paymentMode === 'EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
+            {matchingAcademic?.paymentMode === 'EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
                   <h3 className="font-semibold text-gray-700 text-xs">EMI Details</h3>
@@ -492,121 +498,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               </div>
             )}
 
-            {/* Bank Information Section */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
-                <h3 className="font-semibold text-gray-700 text-xs">Bank Information</h3>
-              </div>
-              <div className="p-2">
-                <div className="flex space-x-2 mb-2">
-                  <label className="flex items-center space-x-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300"
-                      checked={paymentMethod === 'handover'}
-                      onChange={() => handlePaymentMethodChange('handover')}
-                    />
-                    <span className="text-xs font-medium text-gray-700">Hand Handover</span>
-                  </label>
-                  <label className="flex items-center space-x-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300"
-                      checked={paymentMethod === 'bank'}
-                      onChange={() => handlePaymentMethodChange('bank')}
-                    />
-                    <span className="text-xs font-medium text-gray-700">Bank Submit</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">
-                        {paymentMethod === 'handover' ? 'Hand Over To' : 'Bank Name'}
-                      </label>
-                      <input
-                        type="text"
-                        name={paymentMethod === 'handover' ? 'handoverTo' : 'bankName'}
-                        value={paymentMethod === 'handover' ? formData.handoverTo : formData.bankName}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">Deposit Amount</label>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
-                        <input
-                          type="text"
-                          name="depositAmount"
-                          value={formData.depositAmount}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">Payment Deposit Date</label>
-                      <div className="relative">
-                        <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-                        <input
-                          type="date"
-                          name="paymentDepositDate"
-                          value={formData.paymentDepositDate}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">Check/Transaction Voucher Number</label>
-                      <input
-                        type="text"
-                        name="transactionVoucherNumber"
-                        value={formData.transactionVoucherNumber}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">Comment</label>
-                      <textarea
-                        name="comment"
-                        value={formData.comment}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                        rows={1}
-                      ></textarea>
-                    </div>
-                    <div className="space-y-0.5">
-                      <label className="block text-xs font-medium text-gray-700">Upload Bank Deposit / Handover Files</label>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          className="hidden"
-                          id="receipt-file"
-                          onChange={handleFileChange}
-                        />
-                        <label
-                          htmlFor="receipt-file"
-                          className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                        >
-                          <FaUpload className="mr-1 text-gray-500 text-base" />
-                          <span>{receiptFile ? receiptFile.name : 'Click to upload receipt'}</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Payment History Table */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm mt-3">
               <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
@@ -616,7 +507,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                 </h3>
               </div>
               <div className="p-1">
-                {/* {paymentError && <div className="text-red-500 text-xs mb-1">{paymentError}</div>} */}
                 {loadingPayments ? (
                   <div className="text-black text-xs text-center">Loading payments...</div>
                 ) : payments.length === 0 ? (
@@ -628,6 +518,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                         <tr>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Amount
+                          </th>
+                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
+                            Refund Amount
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Mode
@@ -643,18 +536,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Type
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Bank
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Deposit
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Dep. Date
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Handover
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Comment
@@ -686,6 +567,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               </div>
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
+                              <div className="flex items-center">
+                                {payment.refundAmount ? (
+                                  <>
+                                    <FaMoneyBillWave className="mr-1 text-red-600 text-xs" />
+                                    {`₹${payment.refundAmount.toFixed(2)}`}
+                                  </>
+                                ) : (
+                                  'N/A'
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               {payment.paymentMode || 'N/A'}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
@@ -705,33 +598,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               {payment.amountType === 'adminamount' ? 'Admin' : payment.amountType || 'N/A'}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.bankName || 'N/A'}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              <div className="flex items-center">
-                                {payment.depositAmount ? (
-                                  <>
-                                    <FaMoneyBillWave className="mr-1 text-green-600 text-xs" />
-                                    {`₹${payment.depositAmount.toFixed(2)}`}
-                                  </>
-                                ) : (
-                                  'N/A'
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.paymentDepositDate
-                                ? new Date(payment.paymentDepositDate).toLocaleDateString('en-GB', {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: '2-digit',
-                                  })
-                                : 'N/A'}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.handoverTo || 'N/A'}
                             </td>
                             <td className="px-2 py-1 text-xs text-black">{payment.comment || 'N/A'}</td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">

@@ -1,35 +1,29 @@
-
-interface EmiDetail {
+export interface AcademicDetail {
   id: number;
-  studentId: number;
-  studentAcademicId: number;
+  courseYear?: string;
+  sessionYear?: string;
+  paymentMode?: string;
+  adminAmount?: number;
+  feesAmount?: number;
+  ledgerNumber?: string;
+  createdOn: string;
+}
+
+export interface EmiDetail {
+  id: number;
   emiNumber: number;
   amount: number;
   dueDate: string;
-  createdBy: string;
-  createdOn: string;
-  modifiedBy: string | null;
-  modifiedOn: string | null;
 }
 
-interface AcademicDetail {
+export interface Document {
   id: number;
-  studentId: number;
-  sessionYear: string;
-  paymentMode: string;
-  adminAmount: number;
-  feesAmount: number;
-  numberOfEMI: number | null;
-  ledgerNumber: string | null;
-  courseYear: string;
-  createdBy: string;
-  createdOn: string;
-  modifiedBy: string | null;
-  modifiedOn: string | null;
-  emiDetails: EmiDetail[];
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
 }
 
-interface Student {
+export interface Student {
   id: number;
   rollNumber: string;
   fName: string;
@@ -37,43 +31,29 @@ interface Student {
   email: string;
   mobileNumber: string;
   fatherName: string;
+  fatherMobile?: string;
+  motherName?: string;
+  alternateNumber?: string;
+  dob?: string;
+  gender?: string;
+  category: string;
+  admissionMode: string;
   status: boolean;
   isDiscontinue: boolean;
-  admissionMode: string;
-  category: string;
-  gender: string;
-  address: string;
-  pincode: string;
-  dob: string;
-  admissionDate: string;
-  discontinueBy: string | null;
-  stdCollId?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  admissionDate?: string;
+  studentImage?: string;
   course: {
     courseName: string;
-    id?: number;
   };
   college: {
     collegeName: string;
-    id?: number;
   };
   academicDetails: AcademicDetail[];
-  emiDetails: EmiDetail[];
-}
-
-interface StudentPayment {
-  id: number;
-  studentId: number;
-  amount: number;
-  amountType: string;
-  // Other fields as needed
-}
-
-interface SummaryData {
-  totalStudents: number;
-  adminAmount: number;
-  adminReceived: number;
-  adminPending: number;
-  feesAmount: number;
-  feesReceived: number;
-  feesPending: number;
+  emiDetails?: EmiDetail[];
+  documents?: Document[];
+  createdOn: string;
 }
