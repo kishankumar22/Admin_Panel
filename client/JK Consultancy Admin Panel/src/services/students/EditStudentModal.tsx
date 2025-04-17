@@ -884,7 +884,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Admin Amount</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Payment mode</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Fees amount</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Emi</th>
+                        {/* <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Emi</th> */}
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created On</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created By</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified On</th>
@@ -902,14 +902,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                             <div className="flex items-center">
                               {item.paymentMode}
                               {item.numberOfEMI && (
-                                <span className="ml-0.5 bg-blue-100 text-blue-800 text-[8px] px-1 py-0.5 rounded-full">
+                                <span className="ml-0.5 bg-blue-200 text-blue-800 text-[8px] px-1 py-0.5 rounded-full">
                                   {item.numberOfEMI} EMIs
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-1 py-0.5 text-gray-500">₹{item.feesAmount.toLocaleString('en-IN')}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{item.numberOfEMI}</td>
+                          {/* <td className="px-1 py-0.5 text-gray-500">{item.numberOfEMI}</td> */}
                           <td className="px-1 py-0.5 text-gray-500">
                             {new Date(item.createdOn).toLocaleDateString('en-IN', {
                               day: '2-digit',

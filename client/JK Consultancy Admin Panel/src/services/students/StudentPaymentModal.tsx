@@ -44,9 +44,35 @@ interface StudentPayment {
   } | null;
 }
 
+interface StudentAcademic {
+  id: number;
+  sessionYear: string | null;
+  courseYear: string | null;
+  adminAmount: number | null;
+  feesAmount: number | null;
+  emiAmount: number | null;
+  paymentMode: string | null;
+  
+}
+
+interface Student {
+  id: number;
+  fName: string;
+  lName: string | null;
+  rollNumber: string;
+  fatherName: string | null;
+  academicDetails: StudentAcademic[];
+  emiDetails?: Array<{
+    emiNumber: number;
+    amount: number;
+    dueDate: string;
+    studentAcademicId: number;
+  }>;
+}
+
 interface StudentPaymentModalProps {
   studentId: number;
-  students: any[];
+  students: Student[];
   sessionYearFilter: string;
   yearFilter: string;
   onClose: () => void;
@@ -78,14 +104,23 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const [paymentError, setPaymentError] = useState('');
 
   const student = students.find((s) => s.id === studentId);
-  if (!student) return null;
+  if (!student) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+        <div className="bg-white p-4 rounded-lg">
+          <p className="text-red-500">Student not found</p>
+          <button onClick={onClose} className="mt-2 px-4 py-2 bg-gray-200 rounded">Close</button>
+        </div>
+      </div>
+    );
+  }
 
   // Find matching academic detail based on filters
   const matchingAcademic = student.academicDetails.find(
-    (detail: any) =>
+    (detail) =>
       (sessionYearFilter ? detail.sessionYear === sessionYearFilter : true) &&
       (yearFilter ? detail.courseYear === yearFilter : true)
-  ) || null; // Return null if no match found
+  );
 
   // Fetch payments for studentId
   useEffect(() => {
@@ -105,7 +140,13 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
         });
 
         if (response.data.success) {
-          setPayments(response.data.data);
+          // Filter payments to match the selected sessionYear and courseYear
+          const filteredPayments = response.data.data.filter(
+            (payment: StudentPayment) =>
+              (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
+              (!yearFilter || payment.courseYear === yearFilter)
+          );
+          setPayments(filteredPayments);
         } else {
           throw new Error(response.data.error || 'Failed to fetch payments');
         }
@@ -120,7 +161,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     if (isLoggedIn) {
       fetchPayments();
     }
-  }, [studentId, isLoggedIn]);
+  }, [studentId, isLoggedIn, sessionYearFilter, yearFilter]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -147,8 +188,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
 
     if (!matchingAcademic) {
-      setError('No matching academic details found for the selected session and year');
-      toast.error('No matching academic details found');
+      setError('No academic details found for the selected session and year');
+      toast.error('No academic details found');
       return;
     }
 
@@ -162,7 +203,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('studentId', studentId.toString());
-      formDataToSend.append('studentAcademicId', matchingAcademic.id?.toString() || '');
+      formDataToSend.append('studentAcademicId', matchingAcademic.id.toString());
       formDataToSend.append('paymentMode', formData.paymentMode);
       formDataToSend.append('transactionNumber', formData.transactionNumber);
       formDataToSend.append('amount', formData.amount);
@@ -192,7 +233,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           headers: { Authorization: `Bearer ${token}` },
         });
         if (fetchResponse.data.success) {
-          setPayments(fetchResponse.data.data);
+          const filteredPayments = fetchResponse.data.data.filter(
+            (payment: StudentPayment) =>
+              (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
+              (!yearFilter || payment.courseYear === yearFilter)
+          );
+          setPayments(filteredPayments);
         }
         onClose();
       } else {
@@ -226,26 +272,28 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
         <div className="p-3">
           {error && <div className="text-red-500 text-xs mb-2">{error}</div>}
+          {!matchingAcademic && (
+            <div className="text-red-500 text-xs mb-2">
+              No academic details found for session {sessionYearFilter} and year {yearFilter}
+            </div>
+          )}
 
           {/* Student Info Banner */}
           <div className="bg-gray-100 p-2 rounded-lg mb-3 border-l-2 border-blue-600 shadow-sm">
             <div className="flex items-center mb-1">
               <FaUserGraduate className="text-blue-600 mr-1 text-base" />
               <h3 className="font-semibold text-sm text-gray-800">
-                {student.fName} {student.lName || ''}
+                {student.fName} {student.lName || ''}  <span>- {student.rollNumber}</span>
               </h3>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <div className="flex items-center">
-                <span className="font-medium text-gray-600 mr-1">Roll Number:</span>
-                <span className="text-gray-800">{student.rollNumber}</span>
-              </div>
+              
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 mr-1">Father's Name:</span>
-                <span className="text-gray-800">{student.fatherName}</span>
+                <span className="text-gray-800">{student.fatherName || 'N/A'}</span>
               </div>
               <div className="flex items-center">
-                <span className="font-medium text-gray-600 mr-1">Course Session:</span>
+                <span className="font-medium text-gray-600 mr-1">Session Year:</span>
                 <span className="text-gray-800">{matchingAcademic?.sessionYear || 'N/A'}</span>
               </div>
               <div className="flex items-center">
@@ -268,7 +316,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               <div className="p-2">
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Payment Mode</label>
+                    <label className="block text-xs font-medium text-gray-700">Payment Mode</label> 
                     <select
                       name="paymentMode"
                       value={formData.paymentMode}
@@ -353,44 +401,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       <option value="fineAmount">Fine Amount</option>
                     </select>
                   </div>
-                </div>
-
-                <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div className="border border-gray-200 rounded-md p-2 bg-blue-50">
-                    <p className="text-xs font-medium text-blue-800 mb-0.5">Academic Details</p>
-                    <div className="grid grid-cols-2 gap-0.5 text-xs">
-                      <div>
-                        <span className="text-gray-600">Admin Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.adminAmount || '0'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Fees Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.feesAmount || '0'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Course Year:</span>
-                        <span className="ml-0.5 font-medium">{matchingAcademic?.courseYear || 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">EMI Amount:</span>
-                        <span className="ml-0.5 font-medium">₹{matchingAcademic?.emiAmount || '0'}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border border-gray-200 rounded-md p-2">
-                    <div className="space-y-1">
-                      <div className="space-y-0.5">
-                        <label className="block text-xs font-medium text-gray-700">Comment</label>
-                        <textarea
-                          name="comment"
-                          value={formData.comment}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                          rows={1}
-                        ></textarea>
-                      </div>
-                      <div className="space-y-0.5">
+                  <div className="space-y-0.5">
                         <label className="block text-xs font-medium text-gray-700">Password</label>
                         <input
                           type="password"
@@ -418,9 +429,28 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                           </label>
                         </div>
                       </div>
-                    </div>
-                  </div>
                 </div>
+
+                <div className="mt-2">
+  <div className="border border-gray-200 rounded-md p-2 bg-blue-100">
+    <p className="text-xs font-medium text-blue-800 mb-0.5">Academic Details</p>
+    <div className="grid grid-cols-3 gap-0.5 text-xs">
+      <div>
+        <span className="text-gray-600">Admin Amount:</span>
+        <span className="ml-0.5 font-medium">₹{matchingAcademic?.adminAmount || '0'}</span>
+      </div>
+      <div>
+        <span className="text-gray-600">Fees Amount:</span>
+        <span className="ml-0.5 font-medium">₹{matchingAcademic?.feesAmount || '0'}</span>
+      </div>
+      <div>
+        <span className="text-gray-600">EMI Amount:</span>
+        <span className="ml-0.5 font-medium">₹{matchingAcademic?.emiAmount || '0'}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
               </div>
             </div>
 
@@ -463,8 +493,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {student.emiDetails
-                          .filter((emi: any) => emi.studentAcademicId === matchingAcademic.id)
-                          .map((emi: any, index: number) => (
+                          .filter((emi) => emi.studentAcademicId === matchingAcademic.id)
+                          .map((emi, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                               <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">{emi.emiNumber}</td>
                               <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">₹{emi.amount}</td>
@@ -479,7 +509,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                       : 'bg-green-100 text-green-800'
                                   }`}
                                 >
-                                  {new Date(emi.dueDate) < new Date() ? 'pending' : 'Upcoming'}
+                                  {new Date(emi.dueDate) < new Date() ? 'Pending' : 'Upcoming'}
                                 </span>
                               </td>
                             </tr>
@@ -494,7 +524,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                 <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
                   <h3 className="font-semibold text-gray-700 text-xs">EMI Details</h3>
                 </div>
-                <div className="p-2 text-center text-gray-500 text-xs">No EMI details available for this student</div>
+                <div className="p-2 text-center text-gray-500 text-xs">No EMI details available</div>
               </div>
             )}
 
@@ -509,6 +539,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               <div className="p-1">
                 {loadingPayments ? (
                   <div className="text-black text-xs text-center">Loading payments...</div>
+                ) : paymentError ? (
+                  <div className="text-red-500 text-xs text-center">{paymentError}</div>
                 ) : payments.length === 0 ? (
                   <div className="text-black text-xs text-center">No payment history available</div>
                 ) : (
@@ -526,7 +558,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             Mode
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Trans. #
+                            Trans.#
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Received
@@ -597,7 +629,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               {payment.approvedBy || 'N/A'}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.amountType === 'adminamount' ? 'Admin' : payment.amountType || 'N/A'}
+                              {payment.amountType === 'adminAmount' ? 'Admin' : payment.amountType || 'N/A'}
                             </td>
                             <td className="px-2 py-1 text-xs text-black">{payment.comment || 'N/A'}</td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
@@ -651,7 +683,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              className="px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200 font-medium text-xs"
+              disabled={!matchingAcademic}
+              className={`px-2 py-1 rounded-md transition duration-200 font-medium text-xs ${
+                matchingAcademic
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+              }`}
             >
               Save Payment
             </button>

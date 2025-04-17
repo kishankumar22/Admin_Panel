@@ -30,6 +30,7 @@ interface EmiDetail {
 
 interface AcademicDetail {
   id: number;
+  emiAmount: number; // required
   studentId: number;
   sessionYear: string;
   paymentMode: string;
@@ -122,7 +123,7 @@ const ManagePayment: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('');
-  const [sessionYearFilter, setSessionYearFilter] = useState('');
+  const [sessionYearFilter, setSessionYearFilter] = useState('2025-2026');
   const [statusFilter, setStatusFilter] = useState('Active');
   const [yearFilter, setYearFilter] = useState('');
   const [feesFilter, setFeesFilter] = useState('Pending'); // Default to Pending
@@ -155,7 +156,7 @@ const ManagePayment: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [sessionYearFilter,courseFilter,yearFilter]);
 
   const fetchStudents = async () => {
     try {
@@ -321,10 +322,46 @@ const ManagePayment: React.FC = () => {
     fetchStudentDetails(studentId);
   };
 
-  const handlePaymentClick = (studentId: number) => {
+  const openPaymentModal = (studentId: number, sessionYear: string, courseYear: string) => {
     setCurrentStudentId(studentId);
+    setSessionYearFilter(sessionYear);
+    setYearFilter(courseYear);
     setIsPaymentModalOpen(true);
     setSelectedStudent(null);
+  };
+
+  const handlePaymentClick = (studentId: number, sessionYear?: string, courseYear?: string) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student || student.academicDetails.length === 0) {
+      setError('No academic details available for this student');
+      return;
+    }
+
+    // Select the academic detail based on provided sessionYear and courseYear, filters, or the latest
+    let matchingAcademic: AcademicDetail | undefined;
+    if (sessionYear && courseYear) {
+      matchingAcademic = student.academicDetails.find(
+        (academic) => academic.sessionYear === sessionYear && academic.courseYear === courseYear
+      );
+    } else if (sessionYearFilter && yearFilter) {
+      matchingAcademic = student.academicDetails.find(
+        (academic) => academic.sessionYear === sessionYearFilter && academic.courseYear === yearFilter
+      );
+    }
+
+    if (!matchingAcademic) {
+      // Fallback to the latest academic detail
+      matchingAcademic = student.academicDetails.sort(
+        (a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime()
+      )[0];
+    }
+
+    if (!matchingAcademic) {
+      setError('No matching academic details found');
+      return;
+    }
+
+    openPaymentModal(studentId, matchingAcademic.sessionYear, matchingAcademic.courseYear);
   };
 
   const clearFilters = () => {
@@ -368,7 +405,7 @@ const ManagePayment: React.FC = () => {
           .reduce((sum, payment) => sum + payment.amount, 0);
 
         const isPending = academic.feesAmount - totalFeesPaid > 0;
-        const isFullPaid = academic.feesAmount - totalFeesPaid === 0;
+        const isFullPaid = academic.feesAmount - totalFeesPaid === 0
 
         // Apply fees filter
         const matchesFees =
@@ -461,196 +498,202 @@ const ManagePayment: React.FC = () => {
       <Breadcrumb pageName="Payment Management" />
 
       {/* Enhanced Filter Section */}
-      <div className="p-1.5 mb-2 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
-        <h2 className="text-sm font-semibold mb-1 text-gray-800 flex items-center">
-          <FaFilter className="mr-1 text-blue-500 text-[12px]" /> Filter Students
-        </h2>
+      <div className="p-1 mb-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
+  <h2 className="text-sm font-semibold text-black flex items-center mb-1">
+    {/* <FaFilter className="mr-1 text-blue-500 text-[11px]" /> Filter Students */}
+  </h2>
 
-        <div className="grid text-black-2 grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-1 mb-2">
-          {/* Session Year */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaCalendarAlt className="mr-1 text-gray-400 text-[10px]" /> Session Year
-            </label>
-            <select
-              value={sessionYearFilter}
-              onChange={(e) => setSessionYearFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="">All</option>
-              {Array.from(filterOptions.sessionYears).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
+  <div className="flex flex-wrap gap-1 mb-1 text-black">
+    {/* Session Year */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Session Year
+      </label>
+      <select
+        value={sessionYearFilter}
+        onChange={(e) => setSessionYearFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.sessionYears).map((year) => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {/* College */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaUniversity className="mr-1 text-gray-400 text-[10px]" /> College Name
-            </label>
-            <select
-              value={collegeFilter}
-              onChange={(e) => setCollegeFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="">All</option>
-              {Array.from(filterOptions.colleges).map((college) => (
-                <option key={college} value={college}>
-                  {college}
-                </option>
-              ))}
-            </select>
-          </div>
+    {/* Course Year */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Year
+      </label>
+      <select
+        value={yearFilter}
+        onChange={(e) => setYearFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.courseYears).map((year) => (
+          <option key={year} value={year}>
+            {year}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {/* Course */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaBook className="mr-1 text-gray-400 text-[10px]" /> Course Name
-            </label>
-            <select
-              value={courseFilter}
-              onChange={(e) => setCourseFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="">All</option>
-              {Array.from(filterOptions.courses).map((course) => (
-                <option key={course} value={course}>
-                  {course}
-                </option>
-              ))}
-            </select>
-          </div>
+    {/* Status */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaCheckCircle className="mr-1 text-gray-600 text-[10px]" /> Status
+      </label>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.statuses).map((status) => (
+          <option key={status} value={status}>
+            {status}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {/* Course Year */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaCalendarAlt className="mr-1 text-gray-400 text-[10px]" /> Course Year
-            </label>
-            <select
-              value={yearFilter}
-              onChange={(e) => setYearFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="">All</option>
-              {Array.from(filterOptions.courseYears).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
+    {/* Fees Filter */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaMoneyBill className="mr-1 text-gray-600 text-[10px]" /> Fees
+      </label>
+      <select
+        value={feesFilter}
+        onChange={(e) => setFeesFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="All">All</option>
+        <option value="Pending">Pending</option>
+        <option value="Full Payment">Full Payment</option>
+      </select>
+    </div>
 
-          {/* Status */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaCheckCircle className="mr-1 text-gray-400 text-[10px]" /> Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="">All</option>
-              {Array.from(filterOptions.statuses).map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
+    
+    {/* College */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaUniversity className="mr-1 text-gray-600 text-[10px]" /> College
+      </label>
+      <select
+        value={collegeFilter}
+        onChange={(e) => setCollegeFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.colleges).map((college) => (
+          <option key={college} value={college}>
+            {college}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {/* Fees Filter */}
-          <div className="flex flex-col">
-            <label className="mb-0.5 text-xs font-medium text-gray-600 flex items-center">
-              <FaMoneyBill className="mr-1 text-gray-400 text-[10px]" /> Fees Status
-            </label>
-            <select
-              value={feesFilter}
-              onChange={(e) => setFeesFilter(e.target.value)}
-              className="border border-gray-200 rounded py-0.5 px-1.5 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-            >
-              <option value="All">All</option>
-              <option value="Pending">Pending</option>
-              <option value="Full Payment">Full Payment</option>
-            </select>
-          </div>
+    {/* Course */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
+      </label>
+      <select
+        value={courseFilter}
+        onChange={(e) => setCourseFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.courses).map((course) => (
+          <option key={course} value={course}>
+            {course}
+          </option>
+        ))}
+      </select>
+    </div>
 
-          {/* Search */}
-          <div className="flex flex-col">
-            <label className="text-xs font-medium text-gray-600 flex items-center">Search</label>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Name, Roll No, ID..."
-                className="pl-6 pr-2 py-0.5 border border-gray-200 rounded text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <FaSearch className="absolute left-1.5 top-1.5 text-gray-400 text-[10px]" />
-            </div>
-          </div>
+    <div className="flex gap-1 min-w-[300px]">
+      {/* Search */}
+      <div className="flex-1 min-w-[150px]">
+        <label className="text-xs font-medium text-black flex items-center mb-0.5">
+          <FaSearch className="mr-1 text-gray-600 text-[10px]" /> Search
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Name, Roll No, ID..."
+            className="pl-5 pr-1 py-0.5 border border-gray-200 rounded text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <FaSearch className="absolute left-1.5 top-1.5 text-gray-400 text-[9px]" />
         </div>
-
-        <div className="flex justify-end items-center gap-1">
-          <button
-            onClick={clearFilters}
-            className="inline-flex items-center px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs font-medium focus:ring-1 focus:ring-gray-300 transition-colors duration-150"
-          >
-            <FaTimes className="mr-0.5 text-[10px]" /> Clear
-          </button>
-          <button
-            onClick={fetchStudents}
-            className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text Kovach-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
-          >
-            <FaSearch className="mr-0.5 text-[10px]" /> Search
-          </button>
-        </div>
+      </div>
+    {/* Buttons and Search */}
+      <div className="flex gap-1 self-end mb-0.5">
+        <button
+          onClick={clearFilters}
+          className="inline-flex items-center px-2 py-0.5 bg-gray-300 hover:bg-gray-200 text-black rounded text-xs font-medium focus:ring-1 focus:ring-gray-300 transition-colors duration-150"
+        >
+          <FaTimes className="mr-0.5 text-[10px]" /> Clear
+        </button>
+        <button
+          onClick={fetchStudents}
+          className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
+        >
+          <FaSearch className="mr-0.5 text-[10px]" /> Search
+        </button>
+      </div>
+    
+    </div>
+  </div>
       </div>
 
       {/* Financial Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
-        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-          <div className="flex flex-col sm:flex-row justify-between mb-1 space-y-1 sm:space-y-0">
-            <p className="text-xs sm:text-sm text-gray-500">Total Students</p>
-            <p className="text-xs sm:text-sm text-gray-500">Showing Results</p>
-          </div>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-1 sm:space-y-0">
-            <div className="flex items-center">
-              <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.totalStudents}</p>
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-1"></div>
-            </div>
-            <div className="flex items-center">
-              <p className="text-sm sm:text-base font-bold text-gray-800">{filteredStudents.length}</p>
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 ml-1"></div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-          <p className="text-xs sm:text-sm text-gray-500 mb-1">Admin Amount</p>
-          <div className="flex justify-between items-center">
-            <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.adminAmount.toLocaleString()}</p>
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-          </div>
-          <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-1 space-y-1 sm:space-y-0">
-            <p className="text-green-500">Received: {summaryData.adminReceived.toLocaleString()}</p>
-            <p className="text-red-500">Pending: {summaryData.adminPending.toLocaleString()}</p>
-          </div>
-        </div>
-        <div className="bg-white p-1.5 sm:p-2 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-          <p className="text-xs sm:text-sm text-gray-500 mb-1">Fees Amount</p>
-          <div className="flex justify-between items-center">
-            <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.feesAmount.toLocaleString()}</p>
-            <div className="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
-          </div>
-          <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-1 space-y-1 sm:space-y-0">
-            <p className="text-green-500">Received: {summaryData.feesReceived.toLocaleString()}</p>
-            <p className="text-red-500">Pending: {summaryData.feesPending.toLocaleString()}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2 mb-2">
+  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+    <div className="flex flex-col sm:flex-row justify-between mb-0.5 space-y-0.5 sm:space-y-0">
+      <p className="text-xs sm:text-sm text-black-2">Total Students</p>
+      <p className="text-xs sm:text-sm text-black-2">Showing Results</p>
+    </div>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-0.5 sm:space-y-0">
+      <div className="flex items-center">
+        <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.totalStudents}</p>
+        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-1"></div>
       </div>
+      <div className="flex items-center">
+        <p className="text-sm sm:text-base font-bold text-gray-800">{filteredStudents.length}</p>
+        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 ml-1"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+    <div className="flex gap-2 items-center mb-0.5">
+      <p className="text-xs sm:text-sm text-black-2">Admin Amount : </p>
+      <p className="text-sm sm:text-base font-bold text-black-2">{summaryData.adminAmount.toLocaleString()}</p>
+    </div>
+    <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-0.5 space-y-0.5 sm:space-y-0">
+      <p className="text-green-500">Received: {summaryData.adminReceived.toLocaleString()}</p>
+      <p className="text-red-500">Pending: {summaryData.adminPending.toLocaleString()}</p>
+    </div>
+  </div>
+  
+  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
+    <div className="flex  gap-2 items-center mb-0.5">
+      <p className="text-xs sm:text-sm text-black-2">Fees Amount :</p>
+      <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.feesAmount.toLocaleString()}</p>
+    </div>
+    <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-0.5 space-y-0.5 sm:space-y-0">
+      <p className="text-green-500">Received: {summaryData.feesReceived.toLocaleString()}</p>
+      <p className="text-red-500">Pending: {summaryData.feesPending.toLocaleString()}</p>
+    </div>
+  </div>
+</div>
 
       {/* Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
@@ -676,6 +719,15 @@ const ManagePayment: React.FC = () => {
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Course Year
                 </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Session Year
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Admin Amount
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Pending  Amount
+                </th>              
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Course
                 </th>
@@ -712,21 +764,15 @@ const ManagePayment: React.FC = () => {
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Is Discontinued
                 </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Session Year
-                </th>
+               
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Payment Mode
                 </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Admin Amount
-                </th>
+               
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Ledger No
                 </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Fees Amount
-                </th>
+            
                 <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
                   Total EMIs
                 </th>
@@ -773,9 +819,9 @@ const ManagePayment: React.FC = () => {
                               <FaFileAlt size={10} />
                             </button>
                             <button
-                              onClick={() => handlePaymentClick(student.id)}
+                              onClick={() => handlePaymentClick(student.id, academic.sessionYear, academic.courseYear)}
                               className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
-                              title="Payment"
+                              title="View Payments"
                             >
                               <FaMoneyBill size={10} />
                             </button>
@@ -789,6 +835,14 @@ const ManagePayment: React.FC = () => {
                         </td>
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
                         <td className="px-1.5 py-1 truncate max-w-[60px]">{academic.courseYear || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
+
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {academic.adminAmount?.toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {academic.feesAmount?.toLocaleString() || '0'}
+                        </td>
                         <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
                         <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
                         <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
@@ -833,15 +887,9 @@ const ManagePayment: React.FC = () => {
                           {new Date(student.admissionDate).toLocaleDateString()}
                         </td>
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.paymentMode || 'N/A'}</td>
-                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                          {academic.adminAmount?.toLocaleString() || '0'}
-                        </td>
+                       
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.ledgerNumber || 'N/A'}</td>
-                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                          {academic.feesAmount?.toLocaleString() || '0'}
-                        </td>
                         <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
                           {academic.numberOfEMI || 'N/A'}
                         </td>
@@ -991,6 +1039,7 @@ const ManagePayment: React.FC = () => {
                         <th className="p-1 border text-right">Fees Amt</th>
                         <th className="p-1 border text-center">EMIs</th>
                         <th className="p-1 border text-center">Ledger</th>
+                        <th className="p-1 border text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1003,11 +1052,20 @@ const ManagePayment: React.FC = () => {
                           <td className="p-1 border text-right">{detail.feesAmount.toLocaleString()}</td>
                           <td className="p-1 border text-center">{detail.numberOfEMI || 'N/A'}</td>
                           <td className="p-1 border text-center">{detail.ledgerNumber || 'N/A'}</td>
+                          <td className="p-1 border text-center">
+                            <button
+                              onClick={() => handlePaymentClick(selectedStudent.id, detail.sessionYear, detail.courseYear)}
+                              className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
+                              title="View Payments"
+                            >
+                              <FaMoneyBill size={10} />
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {selectedStudent.academicDetails.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="p-2 text-center text-gray-500">
+                          <td colSpan={8} className="p-2 text-center text-gray-500">
                             No academic records found
                           </td>
                         </tr>
@@ -1072,7 +1130,7 @@ const ManagePayment: React.FC = () => {
 
               {activeTab === 'personal' && (
                 <div className="bg-white rounded border p-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2 text-xs">
                     <div className="space-y-1">
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Student ID</p>
@@ -1091,6 +1149,10 @@ const ManagePayment: React.FC = () => {
                         <p className="font-medium">{selectedStudent.fatherName}</p>
                       </div>
                       <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Category</p>
+                        <p className="font-medium">{selectedStudent.category}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Address</p>
                         <p className="font-medium">{selectedStudent.address}</p>
                       </div>
@@ -1100,10 +1162,7 @@ const ManagePayment: React.FC = () => {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Category</p>
-                        <p className="font-medium">{selectedStudent.category}</p>
-                      </div>
+                     
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Gender</p>
                         <p className="font-medium">{selectedStudent.gender}</p>
@@ -1193,4 +1252,4 @@ const ManagePayment: React.FC = () => {
   );
 };
 
-export default ManagePayment; 
+export default ManagePayment;
