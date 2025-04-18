@@ -716,9 +716,8 @@ router.delete('/students/:id', async (req, res) => {
 
     // Delete all related records in a transaction
     await prisma.$transaction(async (prisma) => {
-      // 1. Delete documents from Cloudinary (if they exist) and database
+      // 1. Delete documents from Cloudinary and DB
       if (student.documents.length > 0) {
-        // First delete from Cloudinary
         await Promise.all(
           student.documents.map(async (doc) => {
             try {
@@ -728,28 +727,30 @@ router.delete('/students/:id', async (req, res) => {
             }
           })
         );
-        
-        // Then delete from database
+    
         await prisma.documents.deleteMany({
           where: { studentId: studentId }
         });
       }
-
-      // 2. Delete EMI details if they exist
-      if (student.academicDetails && student.academicDetails.length > 0) {
-        await prisma.EMIDetails.deleteMany({
+    
+      // 2. Delete EMI details
+      if (student.academicDetails.length > 0) {
+        await prisma.eMIDetails.deleteMany({
           where: { studentId: studentId }
         });
       }
-
-      // 3. Delete academic details
-      if (student.academicDetails && student.academicDetails.length > 0) {
-        await prisma.studentAcademicDetails.deleteMany({
-          where: { studentId: studentId }
-        });
-      }
-
-      // 4. Finally, delete the student
+    
+      // 3. Delete Student Payment 💥 ADD THIS STEP 💥
+      await prisma.studentPayment.deleteMany({
+        where: { studentId: studentId }
+      });
+    
+      // 4. Delete academic details
+      await prisma.studentAcademicDetails.deleteMany({
+        where: { studentId: studentId }
+      });
+    
+      // 5. Finally, delete the student
       await prisma.student.delete({
         where: { id: studentId }
       });

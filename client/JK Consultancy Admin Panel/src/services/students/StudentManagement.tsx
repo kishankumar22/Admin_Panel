@@ -1,15 +1,29 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaSearch, FaTimes, FaMoneyBill } from 'react-icons/fa'; // Added FaMoneyBill for payment icon
+import { FaEdit, FaTrash, FaSearch, FaTimes } from 'react-icons/fa'; // Added FaMoneyBill for payment icon
 import AddStudentModal from '../students/AddStudentModal';
 import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 import StudentPaymentModal from '../students/StudentPaymentModal'; // New modal import
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 
+interface EmiDetail {
+  id: number;
+  studentId: number;
+  studentAcademicId: number;
+  emiNumber: number;
+  amount: number;
+  dueDate: string;
+  createdBy: string;
+  createdOn: string;
+  modifiedBy: string | null;
+  modifiedOn: string | null;
+}
+
 interface AcademicDetail {
   id: number;
+  emiAmount: number; // required
   studentId: number;
   sessionYear: string;
   paymentMode: string;
@@ -22,30 +36,40 @@ interface AcademicDetail {
   createdOn: string;
   modifiedBy: string | null;
   modifiedOn: string | null;
+  emiDetails: EmiDetail[];
 }
 
 interface Student {
-  status: boolean;
-  isDiscontinue: boolean;
-  admissionMode: string;
-  category: string;
   id: number;
   rollNumber: string;
   fName: string;
   lName: string | null;
   email: string;
   mobileNumber: string;
-  fatherName: string; // Added for payment details
+  fatherName: string;
+  status: boolean;
+  isDiscontinue: boolean;
+  admissionMode: string;
+  category: string;
+  gender: string;
+  address: string;
+  pincode: string;
+  dob: string;
+  admissionDate: string;
+  discontinueBy: string | null;
+  stdCollId?: string;
   course: {
     courseName: string;
+    id?: number;
   };
   college: {
     collegeName: string;
+    id?: number;
   };
-  createdOn: string;
   academicDetails: AcademicDetail[];
-  emiDetails?: { emiNumber: number; amount: number; dueDate: string }[]; // Optional EMI details
+  emiDetails: EmiDetail[];
 }
+
 
 const StudentManagement: React.FC = () => {
   const { user } = useAuth();

@@ -5,12 +5,12 @@ import {
   FaSearch,
   FaTimes,
   FaMoneyBill,
-  FaFilter,
   FaFileAlt,
   FaBook,
   FaCalendarAlt,
   FaCheckCircle,
   FaUniversity,
+  FaFilter,
 } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import StudentPaymentModal from './StudentPaymentModal';
@@ -156,7 +156,26 @@ const ManagePayment: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, [sessionYearFilter,courseFilter,yearFilter]);
+  }, [sessionYearFilter, courseFilter, yearFilter]);
+
+  // Function to calculate pending fees for a student's academic detail
+  const calculatePendingFees = (studentId: number, academicId: number, totalFees: number): number => {
+    // Get all payment records for this student and this academic detail where payment type is feesAmount
+    const relevantPayments = payments.filter(
+      payment => 
+        payment.studentId === studentId &&
+        payment.studentAcademic.id === academicId &&
+        (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
+    );
+    
+    // Sum up all the payment amounts
+    const totalPaid = relevantPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    
+    // Calculate pending amount
+    const pendingAmount = totalFees - totalPaid;
+    
+    return pendingAmount > 0 ? pendingAmount : 0; // Don't show negative values
+  };
 
   const fetchStudents = async () => {
     try {
@@ -200,7 +219,7 @@ const ManagePayment: React.FC = () => {
       const paymentResponse = await axiosInstance.get('/amountType');
       const formattedPayments: StudentPayment[] = paymentResponse.data.data.map((payment: any) => ({
         id: payment.id,
-        studentId: payment.studentId,
+        studentId: payment.student.id,
         amount: payment.amount || 0,
         amountType: payment.amountType || '',
         paymentMode: payment.paymentMode || '',
@@ -389,23 +408,31 @@ const ManagePayment: React.FC = () => {
         return '';
     }
   };
+  const calculateTotalPaid = (studentId: number, academicId: number): number => {
+    // Get all payment records for this student and this academic detail where payment type is feesAmount
+    const relevantPayments = payments.filter(
+      payment => 
+        payment.studentId === studentId &&
+        payment.studentAcademic.id === academicId &&
+        (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
+    );
+    
+    // Sum up all the payment amounts
+    const totalPaid = relevantPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    
+    return totalPaid;
+  };
+     
 
   const filteredStudents = students
     .map((student) => {
       // Create a filtered list of academic details based on fees status and other filters
       const filteredAcademicDetails = student.academicDetails.filter((academic) => {
-        // Calculate total fees paid for this academic detail
-        const totalFeesPaid = payments
-          .filter(
-            (payment) =>
-              payment.studentId === student.id &&
-              payment.studentAcademic.id === academic.id &&
-              (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
-          )
-          .reduce((sum, payment) => sum + payment.amount, 0);
-
-        const isPending = academic.feesAmount - totalFeesPaid > 0;
-        const isFullPaid = academic.feesAmount - totalFeesPaid === 0
+  // Function to calculate total fees paid for a student's academic detail
+   // Calculate pending fees for this academic detail
+        const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
+        const isFullPaid = pendingFees === 0;
+        const isPending = pendingFees > 0;
 
         // Apply fees filter
         const matchesFees =
@@ -428,15 +455,8 @@ const ManagePayment: React.FC = () => {
       // If no filters are applied, include all academic details with pending fees
       if (!sessionYearFilter && !yearFilter && feesFilter === 'Pending') {
         const pendingAcademicDetails = student.academicDetails.filter((academic) => {
-          const totalFeesPaid = payments
-            .filter(
-              (payment) =>
-                payment.studentId === student.id &&
-                payment.studentAcademic.id === academic.id &&
-                (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees')
-            )
-            .reduce((sum, payment) => sum + payment.amount, 0);
-          return academic.feesAmount - totalFeesPaid > 0;
+          const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
+          return pendingFees > 0;
         });
         if (pendingAcademicDetails.length === 0) return null;
         return { ...student, academicDetails: pendingAcademicDetails };
@@ -499,9 +519,9 @@ const ManagePayment: React.FC = () => {
 
       {/* Enhanced Filter Section */}
       <div className="p-1 mb-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
-  <h2 className="text-sm font-semibold text-black flex items-center mb-1">
-    {/* <FaFilter className="mr-1 text-blue-500 text-[11px]" /> Filter Students */}
-  </h2>
+  {/* <label className="text-sm font-semibold text-black flex items-center mb-1">
+    <FaFilter className="mr-1 text-blue-500 text-[11px]" /> Filter Students
+  </label> */}
 
   <div className="flex flex-wrap gap-1 mb-1 text-black">
     {/* Session Year */}
@@ -632,7 +652,287 @@ const ManagePayment: React.FC = () => {
           />
           <FaSearch className="absolute left-1.5 top-1.5 text-gray-400 text-[9px]" />
         </div>
-      </div>
+
+      {/* Student Details Modal */}
+      {selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-1 z-50">
+          <div className="bg-white rounded shadow-lg w-full max-w-3xl max-h-[85vh] overflow-auto">
+            <div className="p-2 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-800">
+                {selectedStudent.fName} {selectedStudent.lName} - {selectedStudent.rollNumber}
+              </h3>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="text-gray-500 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-200"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="p-2">
+              <div className="flex border-b mb-2 overflow-x-auto">
+                <button
+                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
+                    activeTab === 'academic'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setActiveTab('academic')}
+                >
+                  Academic
+                </button>
+                <button
+                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
+                    activeTab === 'emi'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setActiveTab('emi')}
+                >
+                  EMI Details
+                </button>
+                <button
+                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
+                    activeTab === 'personal'
+                      ? 'border-b-2 border-blue-500 text-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setActiveTab('personal')}
+                >
+                  Personal Info
+                </button>
+              </div>
+
+              {activeTab === 'academic' && (
+                <div className="overflow-x-auto bg-white rounded border">
+                  <table className="min-w-full text-xs border-collapse">
+                    <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                        <th className="p-1 border text-left">Session</th>
+                        <th className="p-1 border text-left">Year</th>
+                        <th className="p-1 border text-left">Payment Mode</th>
+                        <th className="p-1 border text-right">Admin Amt</th>
+                        <th className="p-1 border text-right">Fees Amt</th>
+                        <th className="p-1 border text-right">Pending Fees</th>
+                        <th className="p-1 border text-center">EMIs</th>
+                        <th className="p-1 border text-center">Ledger</th>
+                        <th className="p-1 border text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStudent.academicDetails.map((detail) => (
+                        <tr key={detail.id} className="hover:bg-gray-50">
+                          <td className="p-1 border">{detail.sessionYear}</td>
+                          <td className="p-1 border">{detail.courseYear}</td>
+                          <td className="p-1 border">{detail.paymentMode}</td>
+                          <td className="p-1 border text-right">{detail.adminAmount.toLocaleString()}</td>
+                          <td className="p-1 border text-right">{detail.feesAmount.toLocaleString()}</td>
+                          <td className="p-1 border text-right">
+                            {calculatePendingFees(
+                              selectedStudent.id,
+                              detail.id,
+                              detail.feesAmount
+                            ).toLocaleString()}
+                          </td>
+                          <td className="p-1 border text-center">{detail.numberOfEMI || 'N/A'}</td>
+                          <td className="p-1 border text-center">{detail.ledgerNumber || 'N/A'}</td>
+                          <td className="p-1 border text-center">
+                            <button
+                              onClick={() => handlePaymentClick(selectedStudent.id, detail.sessionYear, detail.courseYear)}
+                              className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
+                              title="View Payments"
+                            >
+                              <FaMoneyBill size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {selectedStudent.academicDetails.length === 0 && (
+                        <tr>
+                          <td colSpan={9} className="p-2 text-center text-gray-500">
+                            No academic records found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {activeTab === 'emi' && (
+                <div className="overflow-x-auto bg-white rounded border">
+                  <table className="min-w-full text-xs border-collapse">
+                    <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                        <th className="p-1 border text-left">EMI#</th>
+                        <th className="p-1 border text-right">Amount</th>
+                        <th className="p-1 border text-center">Due Date</th>
+                        <th className="p-1 border text-left">Session</th>
+                        <th className="p-1 border text-left">Year</th>
+                        <th className="p-1 border text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedStudent.emiDetails.map((emi) => {
+                        const academicDetail = selectedStudent.academicDetails.find(
+                          (ad) => ad.id === emi.studentAcademicId
+                        );
+                        const dueDate = new Date(emi.dueDate);
+                        const today = new Date();
+                        const isPastDue = dueDate < today;
+
+                        return (
+                          <tr key={emi.id} className="hover:bg-gray-50">
+                            <td className="p-1 border">{emi.emiNumber}</td>
+                            <td className="p-1 border text-right">{emi.amount.toLocaleString()}</td>
+                            <td className="p-1 border text-center">{new Date(emi.dueDate).toLocaleDateString()}</td>
+                            <td className="p-1 border">{academicDetail?.sessionYear || 'N/A'}</td>
+                            <td className="p-1 border">{academicDetail?.courseYear || 'N/A'}</td>
+                            <td className="p-1 border text-center">
+                              <span
+                                className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
+                                  isPastDue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                                }`}
+                              >
+                                {isPastDue ? 'Past Due' : 'Upcoming'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {selectedStudent.emiDetails.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-2 text-center text-gray-500">
+                            No EMI records found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {activeTab === 'personal' && (
+                <div className="bg-white rounded border p-2">
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2 text-xs">
+                    <div className="space-y-1">
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Student ID</p>
+                        <p className="font-medium">{selectedStudent.stdCollId || 'Not assigned'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Email</p>
+                        <p className="font-medium break-all">{selectedStudent.email}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Mobile Number</p>
+                        <p className="font-medium">{selectedStudent.mobileNumber}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Father's Name</p>
+                        <p className="font-medium">{selectedStudent.fatherName}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Category</p>
+                        <p className="font-medium">{selectedStudent.category}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Address</p>
+                        <p className="font-medium">{selectedStudent.address}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Pin Code</p>
+                        <p className="font-medium">{selectedStudent.pincode}</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                     
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Gender</p>
+                        <p className="font-medium">{selectedStudent.gender}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">DOB</p>
+                        <p className="font-medium">{new Date(selectedStudent.dob).toLocaleDateString()}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Admission Mode</p>
+                        <p className="font-medium capitalize">{selectedStudent.admissionMode}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Admission Date</p>
+                        <p className="font-medium">{new Date(selectedStudent.admissionDate).toLocaleDateString()}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Status</p>
+                        <div className="flex items-center">
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full mr-0.5 ${
+                              selectedStudent.isDiscontinue
+                                ? 'bg-red-500'
+                                : selectedStudent.status
+                                ? 'bg-green-500'
+                                : 'bg-yellow-500'
+                            }`}
+                          ></span>
+                          <p className="font-medium">
+                            {selectedStudent.isDiscontinue
+                              ? 'Discontinued'
+                              : selectedStudent.status
+                              ? 'Active'
+                              : 'Inactive'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">Discontinued By</p>
+                        <p className="font-medium">{selectedStudent.discontinueBy || 'N/A'}</p>
+                      </div>
+                      <div className="bg-gray-50 p-1 rounded">
+                        <p className="text-gray-500 text-xs mb-0.5">College & Course</p>
+                        <p className="font-medium">
+                          {selectedStudent.college?.collegeName} - {selectedStudent.course?.courseName}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-2 border-t flex justify-end gap-1 bg-gray-50">
+              <button
+                onClick={() => handlePaymentClick(selectedStudent.id)}
+                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 font-medium flex items-center"
+              >
+                <FaMoneyBill className="mr-0.5" /> Pay
+              </button>
+              <button
+                onClick={() => setSelectedStudent(null)}
+                className="px-2 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Payment Modal */}
+      {isPaymentModalOpen && currentStudentId !== null && (
+        <StudentPaymentModal
+          studentId={currentStudentId}
+          students={students}
+          sessionYearFilter={sessionYearFilter}
+          yearFilter={yearFilter}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setCurrentStudentId(null);
+            fetchStudents();
+          }}
+        />
+      )}
+ </div>
     {/* Buttons and Search */}
       <div className="flex gap-1 self-end mb-0.5">
         <button
@@ -699,7 +999,7 @@ const ManagePayment: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div className="relative overflow-x-auto max-h-[70vh]">
           <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
-            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 text-gray-600 sticky top-0 z-10">
+            <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 sticky top-0 z-10">
               <tr>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   S.No
@@ -708,7 +1008,7 @@ const ManagePayment: React.FC = () => {
                   Actions
                 </th>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Student ID
+                  Std coll  ID
                 </th>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Name
@@ -726,7 +1026,10 @@ const ManagePayment: React.FC = () => {
                   Admin Amount
                 </th>
                 <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Pending  Amount
+                  Pending Fees
+                </th>              
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Paid Fees
                 </th>              
                 <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
                   Course
@@ -836,13 +1139,15 @@ const ManagePayment: React.FC = () => {
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
                         <td className="px-1.5 py-1 truncate max-w-[60px]">{academic.courseYear || 'N/A'}</td>
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
-
                         <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
                           {academic.adminAmount?.toLocaleString() || '0'}
                         </td>
                         <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                          {academic.feesAmount?.toLocaleString() || '0'}
+                          {calculatePendingFees(student.id, academic.id, academic.feesAmount).toLocaleString() || '0'}
                         </td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+  {calculateTotalPaid(student.id, academic.id).toLocaleString() || '0'}
+</td>
                         <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
                         <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
                         <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
@@ -860,6 +1165,17 @@ const ManagePayment: React.FC = () => {
                             {student.status ? 'Active' : 'Inactive'}
                           </span>
                         </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.dob).toLocaleDateString()}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.admissionDate).toLocaleDateString()}
+                        </td>
                         <td className="px-1.5 py-1">
                           <span
                             className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
@@ -876,19 +1192,7 @@ const ManagePayment: React.FC = () => {
                             {student.isDiscontinue ? 'Yes' : 'No'}
                           </span>
                         </td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">
-                          {new Date(student.dob).toLocaleDateString()}
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">
-                          {new Date(student.admissionDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.paymentMode || 'N/A'}</td>
-                       
                         <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.ledgerNumber || 'N/A'}</td>
                         <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
                           {academic.numberOfEMI || 'N/A'}
@@ -1133,7 +1437,7 @@ const ManagePayment: React.FC = () => {
                   <div className="grid grid-cols-2 md:grid-cols-2 gap-2 text-xs">
                     <div className="space-y-1">
                       <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Student ID</p>
+                        <p className="text-gray-500 text-xs mb-0.5">Student Coll ID</p>
                         <p className="font-medium">{selectedStudent.stdCollId || 'Not assigned'}</p>
                       </div>
                       <div className="bg-gray-50 p-1 rounded">
@@ -1252,4 +1556,6 @@ const ManagePayment: React.FC = () => {
   );
 };
 
+
 export default ManagePayment;
+     

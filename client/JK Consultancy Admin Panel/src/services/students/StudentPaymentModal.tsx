@@ -16,6 +16,7 @@ import axiosInstance from '../../config';
 interface StudentPayment {
   id: number;
   studentId: number;
+    emiAmount?: number; // include this if needed
   studentAcademicId: number | null;
   paymentMode: string | null;
   transactionNumber: string | null;
