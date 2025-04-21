@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { Modal } from 'flowbite-react';
 
-// Interfaces
 interface StudentFormData {
   StudentId: number;
   RollNumber: string;
@@ -108,6 +109,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [emiDetails, setEmiDetails] = useState<Array<{ emiNumber: number; amount: number; dueDate: string }>>([]);
   const [academicData, setAcademicData] = useState<AcademicHistory[]>([]);
   const [loadingAcademic, setLoadingAcademic] = useState(false);
+  const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
+  const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const [showSessionYearModal, setShowSessionYearModal] = useState(false);
+  const [selectedCourseYear, setSelectedCourseYear] = useState<string>('');
+  const [tempCourseYear, setTempCourseYear] = useState<string>('');
 
   const [student, setStudent] = useState<StudentFormData>({
     StudentId: 0,
@@ -156,6 +162,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   });
 
   const [existingDocuments, setExistingDocuments] = useState<Record<string, ExistingDocument>>({});
+
+  // Generate session years (5 years before and after current year)
+  const currentYear = new Date().getFullYear();
+  const sessionYears = Array.from({ length: 10 }, (_, i) => {
+    const startYear = currentYear - 5 + i;
+    return `${startYear}-${startYear + 1}`;
+  });
 
   // Fetch initial student data, colleges, courses, documents, and academic details
   useEffect(() => {
@@ -233,7 +246,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               }))
             );
           } else {
-            // Reset payment-related fields if no data for selected course year
             setStudent((prev) => ({
               ...prev,
               PaymentMode: 'One-Time',
@@ -276,30 +288,17 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
 
     if (name === 'CourseYear') {
-      const currentYear = new Date().getFullYear();
-      let baseStartYear = student.SessionYear ? parseInt(student.SessionYear.split('-')[0]) : currentYear;
-
-      // Map CourseYear to numeric values
-      const prevYearNum = student.CourseYear === '1st' ? 1 : student.CourseYear === '2nd' ? 2 : student.CourseYear === '3rd' ? 3 : student.CourseYear === '4th' ? 4 : 1;
-      const newYearNum = value === '1st' ? 1 : value === '2nd' ? 2 : value === '3rd' ? 3 : value === '4th' ? 4 : 1;
-
-      // Calculate the difference in years between the previous and new CourseYear
-      const yearsToAdd = newYearNum - prevYearNum;
-
-      // Adjust the base year based on the difference
-      const newStartYear = baseStartYear + yearsToAdd;
-      const newEndYear = newStartYear + 1;
-      const newSessionYear = `${newStartYear}-${newEndYear}`;
-
-      setStudent((prev) => ({ ...prev, CourseYear: value, SessionYear: newSessionYear }));
-
-      // Show loader for 2 seconds and navigate to Step 3
-      if (['1st', '2nd', '3rd', '4th'].includes(value)) {
-        setLoadingAcademic(true);
-        setStep(3); // Navigate to Step 3 immediately to show loader
-        setTimeout(() => {
-          setLoadingAcademic(false);
-        }, 1500); // Ensure loader shows for exactly 2 seconds
+      if (value === student.CourseYear) return; // No action if same course year
+      setTempCourseYear(value);
+      if (student.CourseYear === '1st' && ['2nd', '3rd', '4th'].includes(value)) {
+        // From 1st to 2nd, 3rd, or 4th: Open session year modal directly
+        setShowSessionYearModal(true);
+      } else if (['2nd', '3rd', '4th'].includes(student.CourseYear) && value === '1st') {
+        // From 2nd, 3rd, or 4th to 1st: Open confirmation modal first
+        setShowEditConfirmModal(true);
+      } else {
+        // Other transitions (e.g., 2nd to 3rd): Open session year modal
+        setShowSessionYearModal(true);
       }
       return;
     }
@@ -355,6 +354,89 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
   };
 
+  const handleEditAcademic = (courseYear: string) => {
+    setSelectedCourseYear(courseYear);
+    setShowEditConfirmModal(true);
+  };
+
+  const confirmEditAcademic = () => {
+    setShowEditConfirmModal(false);
+    if (selectedCourseYear === '1st') {
+      setTempCourseYear(selectedCourseYear);
+      setShowSessionYearModal(true);
+    } else {
+      setStudent((prev) => ({ ...prev, CourseYear: selectedCourseYear }));
+      setShowSessionYearModal(true);
+    }
+  };
+
+  const handleSessionYearSelect = (sessionYear: string) => {
+    setStudent((prev) => ({
+      ...prev,
+      CourseYear: tempCourseYear,
+      SessionYear: sessionYear,
+    }));
+    setShowSessionYearModal(false);
+    setLoadingAcademic(true);
+    setStep(3);
+    setTimeout(() => {
+      setLoadingAcademic(false);
+    }, 1500);
+  };
+
+  const handleUpdateConfirm = () => {
+    setShowUpdateConfirmModal(true);
+  };
+
+  const confirmUpdate = async () => {
+    setShowUpdateConfirmModal(false);
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      Object.entries(student).forEach(([key, value]) => {
+        if (key !== 'StudentId' && key !== 'emiDetails' && value !== null && value !== undefined) {
+          formData.append(key, value.toString());
+        }
+      });
+
+      if (student.PaymentMode === 'EMI' && emiDetails.length > 0) {
+        formData.append('emiDetails', JSON.stringify(emiDetails));
+      }
+
+      Object.entries(documents).forEach(([fieldName, fileData]) => {
+        if (fileData.file) {
+          formData.append(fieldName, fileData.file);
+        }
+      });
+
+      const response = await axiosInstance.put(`/students/${studentId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.data.success) {
+        toast.success('Student Updated successfully!', {
+          position: 'top-right',
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+        onSuccess();
+        onClose();
+      } else {
+        throw new Error(response.data.message || 'Failed to update student');
+      }
+    } catch (error: any) {
+      console.error('Error updating student:', error);
+      setError(error.response?.data?.message || error.message || 'An error occurred while updating the form');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const validateStep = (currentStep: number): boolean => {
     switch (currentStep) {
       case 1:
@@ -407,56 +489,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const prevStep = () => {
     setStep((prev) => Math.max(prev - 1, 1));
     setError('');
-  };
-
-  const handleSubmit = async () => {
-    if (!window.confirm('Are you sure you want to update this student data?')) return;
-
-    setIsSubmitting(true);
-    setError('');
-
-    try {
-      const formData = new FormData();
-      Object.entries(student).forEach(([key, value]) => {
-        if (key !== 'StudentId' && key !== 'emiDetails' && value !== null && value !== undefined) {
-          formData.append(key, value.toString());
-        }
-      });
-
-      if (student.PaymentMode === 'EMI' && emiDetails.length > 0) {
-        formData.append('emiDetails', JSON.stringify(emiDetails));
-      }
-
-      Object.entries(documents).forEach(([fieldName, fileData]) => {
-        if (fileData.file) {
-          formData.append(fieldName, fileData.file);
-        }
-      });
-
-      const response = await axiosInstance.put(`/students/${studentId}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data.success) {
-        toast.success('Student Updated successfully!', {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-        onSuccess();
-        onClose();
-      } else {
-        throw new Error(response.data.message || 'Failed to update student');
-      }
-    } catch (error: any) {
-      console.error('Error updating student:', error);
-      setError(error.response?.data?.message || error.message || 'An error occurred while updating the form');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
@@ -819,15 +851,20 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <label className="block text-xs font-medium text-black">
                     Session Year <RequiredAsterisk />
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="SessionYear"
                     value={student.SessionYear}
-                    readOnly
+                    onChange={handleChange}
+                    className="w-full border p-1 rounded mt-1 text-xs"
                     required
-                    disabled
-                    className="w-full border p-1 rounded mt-1 text-xs bg-gray-100 disabled:cursor-not-allowed"
-                  />
+                  >
+                    <option value="">Select</option>
+                    {sessionYears.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Is Discontinue */}
@@ -882,13 +919,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Course Year</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Session</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Admin Amount</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Payment mode</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Fees amount</th>
-                        {/* <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Emi</th> */}
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Payment Mode</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Fees Amount</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created On</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created By</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified On</th>
                         <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified By</th>
+                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Action</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -909,7 +946,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                             </div>
                           </td>
                           <td className="px-1 py-0.5 text-gray-500">₹{item.feesAmount.toLocaleString('en-IN')}</td>
-                          {/* <td className="px-1 py-0.5 text-gray-500">{item.numberOfEMI}</td> */}
                           <td className="px-1 py-0.5 text-gray-500">
                             {new Date(item.createdOn).toLocaleDateString('en-IN', {
                               day: '2-digit',
@@ -928,6 +964,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                               : '-'}
                           </td>
                           <td className="px-1 py-0.5 text-gray-500">{item.modifiedBy || '-'}</td>
+                          <td className="px-1 py-0.5">
+                            <button
+                              onClick={() => handleEditAcademic(item.courseYear)}
+                              className="text-blue-500 hover:text-blue-700 text-[10px] px-1 py-0.5 rounded bg-blue-100 hover:bg-blue-200"
+                              aria-label={`Edit academic details for ${item.courseYear}`}
+                            >
+                              Edit
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -948,6 +993,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </div>
               ) : (
                 <>
+                  <div className="col-span-2">
+                    <h2 className="text-xs font-semibold text-gray-800 mb-1">
+                      {student.CourseYear ? `${student.CourseYear} Year Payment Details` : 'Payment Details'}
+                    </h2>
+                  </div>
                   <div>
                     <label className="block text-xs font-medium text-black">Admin Amount</label>
                     <input
@@ -1214,7 +1264,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </button>
               ) : (
                 <button
-                  onClick={() => setIsPreviewOpen(true)}
+                  onClick={handleUpdateConfirm}
                   className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                 >
                   Preview & Update
@@ -1223,6 +1273,82 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             </div>
           </div>
         </form>
+
+        {/* Edit Confirmation Modal */}
+        <Modal show={showEditConfirmModal} onClose={() => setShowEditConfirmModal(false)} size="md" className='pt-44'>
+          <Modal.Header>Confirm Edit</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">Are you sure to edit the course year {selectedCourseYear || tempCourseYear}?</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowEditConfirmModal(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmEditAcademic}
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+            >
+              Confirm
+            </button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Session Year Selection Modal */}
+        <Modal show={showSessionYearModal} onClose={() => setShowSessionYearModal(false)} size="md" className='pt-44'>
+          <Modal.Header>Select Session Year</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">Please select a session year for course year {tempCourseYear}.</p>
+            <div className="mt-2">
+              <select
+                className="w-full border p-1 rounded text-sm"
+                onChange={(e) => handleSessionYearSelect(e.target.value)}
+                defaultValue=""
+              >
+                <option value="" disabled>
+                  Select Session Year
+                </option>
+                {sessionYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowSessionYearModal(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Update Confirmation Modal */}
+        <Modal show={showUpdateConfirmModal} onClose={() => setShowUpdateConfirmModal(false)} size="md">
+          <Modal.Header>Confirm Update</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">Are you sure to update this student data?</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowUpdateConfirmModal(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmUpdate}
+              className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+            >
+              Confirm
+            </button>
+          </Modal.Footer>
+        </Modal>
 
         {isPreviewOpen && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
@@ -1406,7 +1532,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   Back
                 </button>
                 <button
-                  onClick={handleSubmit}
+                  onClick={handleUpdateConfirm}
                   disabled={isSubmitting}
                   className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:bg-green-300"
                 >

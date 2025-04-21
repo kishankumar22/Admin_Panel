@@ -11,6 +11,8 @@ import {
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../config';
+import { RequiredAsterisk } from '../students/AddStudentModal'; // adjust path as needed
+
 
 // Interface for StudentPayment
 interface StudentPayment {
@@ -71,7 +73,7 @@ interface Student {
   }>;
 }
 
-interface StudentPaymentModalProps {
+interface StudentPaymentModalProps {  
   studentId: number;
   students: Student[];
   sessionYearFilter: string;
@@ -175,6 +177,22 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   };
 
+// resert form
+  const resetForm = () => {
+    setFormData({
+      paymentMode: '',
+      transactionNumber: '',
+      amount: '',
+      refundAmount: '',
+      receivedDate: '',
+      approvedBy: '',
+      amountType: '',
+      comment: '',
+      password: ''
+    });
+    setReceiptFile(null);
+  };
+  
   const handleSubmit = async () => {
     if (!isLoggedIn || !user) {
       setError('Please login to save payment');
@@ -241,7 +259,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           );
           setPayments(filteredPayments);
         }
-        onClose();
+        // onClose();
+          // ✅ Reset form after successful submission
+      resetForm();
+      fetchResponse
       } else {
         setError(response.data.error || 'Failed to save payment');
         toast.error(response.data.error || 'Failed to save payment');
@@ -255,7 +276,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 flex mt-10 items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+    // <div className="fixed inset-0 flex mt-10 items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-md border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-2 rounded-t-lg flex justify-between items-center">
@@ -341,7 +363,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     />
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Amount</label>
+                    <label className="block text-xs font-medium text-gray-700">Amount <RequiredAsterisk /></label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
                       <input
@@ -354,20 +376,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Refund Amount</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
-                      <input
-                        type="text"
-                        name="refundAmount"
-                        value={formData.refundAmount}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Received Date</label>
+                    <label className="block text-xs font-medium text-gray-700">Received Date  <RequiredAsterisk />  </label>
                     <div className="relative">
                       <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
                       <input
@@ -380,7 +389,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Approved By</label>
+                    <label className="block text-xs font-medium text-gray-700">Approved By <RequiredAsterisk /> </label>
                     <input
                       type="text"
                       name="approvedBy"
@@ -390,7 +399,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     />
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Amount Type</label>
+                    <label className="block text-xs font-medium text-gray-700">Amount Type <RequiredAsterisk /></label>
                     <select
                       name="amountType"
                       value={formData.amountType}
@@ -400,10 +409,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       <option value="adminAmount">Admin Fees</option>
                       <option value="feesAmount">Fees Amount</option>
                       <option value="fineAmount">Fine Amount</option>
+                      <option value="refundAmount">Refund  Amount</option>
                     </select>
                   </div>
                   <div className="space-y-0.5">
-                        <label className="block text-xs font-medium text-gray-700">Password</label>
+                        <label className="block text-xs font-medium text-gray-700">Password <RequiredAsterisk /></label>
                         <input
                           type="password"
                           name="password"
@@ -541,7 +551,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                 {loadingPayments ? (
                   <div className="text-black text-xs text-center">Loading payments...</div>
                 ) : paymentError ? (
-                  <div className="text-red-500 text-xs text-center">{paymentError}</div>
+                  <div className="text-white text-xs text-center hidden">{paymentError}</div>
                 ) : payments.length === 0 ? (
                   <div className="text-black text-xs text-center">No payment history available</div>
                 ) : (
@@ -552,10 +562,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Amount
                           </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Refund Amount
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
+                        <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Mode
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
@@ -565,25 +572,16 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             Received
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Approved
+                            Approved by
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Type
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Comment
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Course
-                          </th>
-                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Session
+                            Amount Type
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Created By
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Created
+                            Created on
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Receipt
@@ -600,18 +598,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               </div>
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              <div className="flex items-center">
-                                {payment.refundAmount ? (
-                                  <>
-                                    <FaMoneyBillWave className="mr-1 text-red-600 text-xs" />
-                                    {`₹${payment.refundAmount.toFixed(2)}`}
-                                  </>
-                                ) : (
-                                  'N/A'
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               {payment.paymentMode || 'N/A'}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
@@ -623,6 +609,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                     day: '2-digit',
                                     month: '2-digit',
                                     year: '2-digit',
+                                       hour:'2-digit',
+                                minute:'2-digit',
+                                second:'2-digit'
                                   })
                                 : 'N/A'}
                             </td>
@@ -630,15 +619,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               {payment.approvedBy || 'N/A'}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.amountType === 'adminAmount' ? 'Admin' : payment.amountType || 'N/A'}
-                            </td>
-                            <td className="px-2 py-1 text-xs text-black">{payment.comment || 'N/A'}</td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.studentAcademic?.courseYear || payment.courseYear || 'N/A'}
-                            </td>
-                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.studentAcademic?.sessionYear || payment.sessionYear || 'N/A'}
-                            </td>
+                              {payment.amountType === 'adminAmount' ? 'AdminAmount' : payment.amountType || 'N/A'}
+                            </td>                        
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               {payment.createdBy || 'N/A'}
                             </td>
@@ -647,6 +629,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                 day: '2-digit',
                                 month: '2-digit',
                                 year: '2-digit',
+                                hour:'2-digit',
+                                minute:'2-digit',
+                                second:'2-digit'
                               })}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">

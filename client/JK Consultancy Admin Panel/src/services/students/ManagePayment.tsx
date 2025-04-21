@@ -10,7 +10,12 @@ import {
   FaCalendarAlt,
   FaCheckCircle,
   FaUniversity,
-  FaFilter,
+
+  FaCoins,
+  FaHandHoldingUsd,
+  FaExchangeAlt,
+  FaMoneyCheck,
+  FaUsers
 } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import StudentPaymentModal from './StudentPaymentModal';
@@ -105,6 +110,8 @@ interface SummaryData {
   feesAmount: number;
   feesReceived: number;
   feesPending: number;
+  totalFine: number;
+  totalRefund: number;
 }
 
 const ManagePayment: React.FC = () => {
@@ -127,6 +134,7 @@ const ManagePayment: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('Active');
   const [yearFilter, setYearFilter] = useState('');
   const [feesFilter, setFeesFilter] = useState('Pending'); // Default to Pending
+  const [amountTypeFilter, setAmountTypeFilter] = useState(''); // New filter for amount type
 
   // Summary data
   const [summaryData, setSummaryData] = useState<SummaryData>({
@@ -137,6 +145,8 @@ const ManagePayment: React.FC = () => {
     feesAmount: 0,
     feesReceived: 0,
     feesPending: 0,
+    totalFine: 0,
+    totalRefund: 0
   });
 
   // Pagination
@@ -152,6 +162,7 @@ const ManagePayment: React.FC = () => {
     statuses: new Set<string>(['Fresh Student', 'Active', 'Inactive', 'Discontinued']),
     categories: new Set<string>(),
     genders: new Set<string>(),
+    amountTypes: new Set<string>(['feesAmount', 'adminAmount', 'fineAmount', 'refundAmount']),
   });
 
   useEffect(() => {
@@ -284,6 +295,8 @@ const ManagePayment: React.FC = () => {
     let feesAmount = 0;
     let adminReceived = 0;
     let feesReceived = 0;
+    let totalFine = 0;
+    let totalRefund = 0;
 
     // Calculate total admin and fees amounts from academic details based on filters
     studentData.forEach((student) => {
@@ -302,12 +315,17 @@ const ManagePayment: React.FC = () => {
     paymentData.forEach((payment) => {
       if (
         (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
-        (!yearFilter || payment.courseYear === yearFilter)
+        (!yearFilter || payment.courseYear === yearFilter) &&
+        (!amountTypeFilter || payment.amountType === amountTypeFilter)
       ) {
         if (payment.amountType === 'adminAmount') {
           adminReceived += payment.amount || 0;
         } else if (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees') {
           feesReceived += payment.amount || 0;
+        } else if (payment.amountType === 'fineAmount') {
+          totalFine += payment.amount || 0;
+        } else if (payment.amountType === 'refundAmount') {
+          totalRefund += payment.amount || 0;
         }
       }
     });
@@ -320,6 +338,8 @@ const ManagePayment: React.FC = () => {
       feesAmount,
       feesReceived,
       feesPending: feesAmount - feesReceived,
+      totalFine,
+      totalRefund
     });
   };
 
@@ -391,6 +411,7 @@ const ManagePayment: React.FC = () => {
     setStatusFilter('');
     setYearFilter('');
     setFeesFilter('Pending');
+    setAmountTypeFilter('');
     setCurrentPage(1);
   };
 
@@ -408,6 +429,7 @@ const ManagePayment: React.FC = () => {
         return '';
     }
   };
+  
   const calculateTotalPaid = (studentId: number, academicId: number): number => {
     // Get all payment records for this student and this academic detail where payment type is feesAmount
     const relevantPayments = payments.filter(
@@ -423,13 +445,19 @@ const ManagePayment: React.FC = () => {
     return totalPaid;
   };
      
+  // Filter payments by amount type
+  const filterPaymentsByAmountType = (payments: StudentPayment[]): StudentPayment[] => {
+    if (!amountTypeFilter) return payments;
+    
+    return payments.filter(payment => payment.amountType === amountTypeFilter);
+  };
 
   const filteredStudents = students
     .map((student) => {
       // Create a filtered list of academic details based on fees status and other filters
       const filteredAcademicDetails = student.academicDetails.filter((academic) => {
-  // Function to calculate total fees paid for a student's academic detail
-   // Calculate pending fees for this academic detail
+        // Function to calculate total fees paid for a student's academic detail
+        // Calculate pending fees for this academic detail
         const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
         const isFullPaid = pendingFees === 0;
         const isPending = pendingFees > 0;
@@ -444,16 +472,39 @@ const ManagePayment: React.FC = () => {
         const matchesSessionYear = !sessionYearFilter || academic.sessionYear === sessionYearFilter;
         const matchesYear = !yearFilter || academic.courseYear === yearFilter;
 
+        // Apply amount type filter if applicable
+        if (amountTypeFilter) {
+          // For admin amount or fees amount filtering
+          if (amountTypeFilter === 'adminAmount' || amountTypeFilter === 'feesAmount') {
+            const hasPaymentOfType = payments.some(
+              payment => 
+                payment.studentId === student.id && 
+                payment.studentAcademic.id === academic.id && 
+                payment.amountType === amountTypeFilter
+            );
+            return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType;
+          }
+          // For fine amount or refund amount filtering
+          else if (amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount') {
+            const hasPaymentOfType = payments.some(
+              payment => 
+                payment.studentId === student.id && 
+                payment.amountType === amountTypeFilter
+            );
+            return matchesSessionYear && matchesYear && hasPaymentOfType;
+          }
+        }
+
         return matchesFees && matchesSessionYear && matchesYear;
       });
 
       // If no academic details match the filters, exclude the student unless no session/year filter is applied
-      if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter)) {
+      if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter)) {
         return null;
       }
 
       // If no filters are applied, include all academic details with pending fees
-      if (!sessionYearFilter && !yearFilter && feesFilter === 'Pending') {
+      if (!sessionYearFilter && !yearFilter && !amountTypeFilter && feesFilter === 'Pending') {
         const pendingAcademicDetails = student.academicDetails.filter((academic) => {
           const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
           return pendingFees > 0;
@@ -513,16 +564,28 @@ const ManagePayment: React.FC = () => {
   if (loading) return <div className="text-xs text-black p-1">Loading...</div>;
   if (error) return <div className="text-xs text-red-500 p-1">{error}</div>;
 
+  // Get icon for amount type
+  const getAmountTypeIcon = (type: string) => {
+    switch (type) {
+      case 'feesAmount':
+        return <FaMoneyBill className="text-green-600" />;
+      case 'adminAmount':
+        return <FaMoneyCheck className="text-blue-600" />;
+      case 'fineAmount':
+        return <FaHandHoldingUsd className="text-red-600" />;
+      case 'refundAmount':
+        return <FaExchangeAlt className="text-amber-600" />;
+      default:
+        return <FaCoins className="text-gray-600" />;
+    }
+  };
+
   return (
     <>
       <Breadcrumb pageName="Payment Management" />
 
       {/* Enhanced Filter Section */}
       <div className="p-1 mb-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
-  {/* <label className="text-sm font-semibold text-black flex items-center mb-1">
-    <FaFilter className="mr-1 text-blue-500 text-[11px]" /> Filter Students
-  </label> */}
-
   <div className="flex flex-wrap gap-1 mb-1 text-black">
     {/* Session Year */}
     <div className="flex-1 min-w-[100px]">
@@ -597,6 +660,24 @@ const ManagePayment: React.FC = () => {
       </select>
     </div>
 
+    {/* Amount Type Filter - NEW */}
+    <div className="flex-1 min-w-[110px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaCoins className="mr-1 text-gray-600 text-[10px]" /> Amount Type
+      </label>
+      <select
+        value={amountTypeFilter}
+        onChange={(e) => setAmountTypeFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All Types</option>
+        {Array.from(filterOptions.amountTypes).map((type) => (
+          <option key={type} value={type} className="flex items-center">
+            {type}
+          </option>
+        ))}
+      </select>
+    </div>
     
     {/* College */}
     <div className="flex-1 min-w-[100px]">
@@ -652,6 +733,471 @@ const ManagePayment: React.FC = () => {
           />
           <FaSearch className="absolute left-1.5 top-1.5 text-gray-400 text-[9px]" />
         </div>
+      </div>
+      
+      {/* Buttons and Search */}
+      <div className="flex gap-1 self-end mb-0.5">
+        <button
+          onClick={clearFilters}
+          className="inline-flex items-center px-2 py-0.5 bg-gray-300 hover:bg-gray-200 text-black rounded text-xs font-medium focus:ring-1 focus:ring-gray-300 transition-colors duration-150"
+        > <FaTimes className="mr-0.5 text-[10px]" /> Clear
+        </button>
+        <button
+          onClick={fetchStudents}
+          className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
+        >
+          <FaSearch className="mr-0.5 text-[10px]" /> Search
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-1.5 mb-1.5">
+  {/* Total Students Card with Fine & Refund */}
+  <div className="bg-gradient-to-br from-white to-gray-50 p-1.5 rounded-lg shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+    <div className="flex justify-between items-center mb-1">
+      <p className="text-xs font-semibold text-gray-700 flex items-center">
+        <FaUsers className="mr-1 text-blue-500" size={12} />
+        Students
+      </p>
+      <div className="flex space-x-1.5">
+        <span className="bg-blue-100 text-blue-800 text-semibold px-1 py-0 rounded-full flex  items-center">
+          <span className="w-0.5 p-1.5  font-xs   rounded-full bg-blue-500 "></span>
+        Total : <b>{summaryData.totalStudents}</b> 
+        </span>
+        <span className="bg-amber-100 text-amber-800 text-bold px-1 py-0 rounded-full flex  items-center">
+          <span className="w-0.5 p-1  font-semibold  rounded-full bg-amber-500 mr-0.5"></span>
+          filtered  : <b>{filteredStudents.length}</b> 
+        </span>
+      </div>
+    </div>
+    
+    <div className="border-t border-gray-100 pt-1 mt-1">
+      <div className="flex items-center mb-0.5">
+        <div className="flex space-x-0.5 items-center">
+          <FaHandHoldingUsd className="text-red-600" size={10} />
+          <FaExchangeAlt className="text-amber-600" size={10} />
+        </div>
+        <span className="text-xs font-semibold text-gray-700 ml-1">Fine & Refund</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1 mb-0.5">
+        <div>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-gray-500 font-medium">Fine</p>
+            <p className="text-xs font-bold text-red-600">
+              ₹{summaryData.totalFine.toLocaleString()}
+            </p>
+          </div>
+          <div className="h-1 bg-gray-200 rounded-full overflow-hidden mt-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.min((summaryData.totalFine / (summaryData.feesAmount || 1)) * 100, 100)}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-gray-500 font-medium">Refund</p>
+            <p className="text-xs font-bold text-amber-600">
+              ₹{summaryData.totalRefund.toLocaleString()}
+            </p>
+          </div>
+          <div className="h-1 bg-gray-200 rounded-full overflow-hidden mt-0.5">
+            <div
+              className="h-full bg-gradient-to-r from-amber-400 to-amber-600 rounded-full transition-all duration-300"
+              style={{
+                width: `${Math.min((summaryData.totalRefund / (summaryData.feesAmount || 1)) * 100, 100)}%`,
+              }}
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Admin Amount Card */}
+  <div className="bg-gradient-to-br from-white to-blue-50 rounded-lg shadow-sm border border-blue-100 p-1.5 transition-all duration-200 hover:shadow-md">
+    <div className="flex justify-between items-center mb-1">
+      <div className="flex items-center">
+        <FaMoneyCheck className="text-blue-600 mr-1" size={12} />
+        <span className="text-xs font-semibold text-gray-700">Admin Amount</span>
+      </div>
+      <div className="h-5 w-5 rounded-full bg-blue-200 flex items-center justify-center">
+        <span className="text-[9px] font-bold text-blue-800">
+          {Math.round((summaryData.adminReceived / (summaryData.adminAmount || 1)) * 100)}%
+        </span>
+      </div>
+    </div>
+
+    <div className="mb-1">
+      <p className="text-sm font-bold text-blue-700">
+        ₹{summaryData.adminAmount.toLocaleString()}
+      </p>
+    </div>
+
+    <div className="flex items-center justify-between text-[12px] space-x-2">
+      <div className="flex items-center ">
+        <div className="w-1 h-1 rounded-full bg-green-500 mr-0.5"></div>
+        <span className="text-gray-600">Received:</span>
+        <span className="text-green-700 font-medium ml-0.5">
+          ₹{summaryData.adminReceived.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex items-center">
+        <div className="w-1 h-1 rounded-full bg-red-500 mr-0.5"></div>
+        <span className="text-gray-600">Pending:</span>
+        <span className="text-red-600 font-medium ml-0.5">
+          ₹{summaryData.adminPending.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  {/* Fees Amount Card */}
+  <div className="bg-gradient-to-br  from-white to-green-50 rounded-lg shadow-sm border border-green-100 p-1.5 transition-all duration-200 hover:shadow-md">
+    <div className="flex justify-between  items-center mb-1">
+      <div className="flex items-center ">
+        <FaMoneyBill className="text-green-600 mr-1" size={12} />
+        <span className="text-xs font-semibold text-gray-700">Fees Amount</span>
+      </div>
+      <div className="h-5 w-5 rounded-full bg-green-200 flex items-center justify-center">
+        <span className="text-[9px] font-bold text-green-800">
+          {Math.round((summaryData.feesReceived / (summaryData.feesAmount || 1)) * 100)}%
+        </span>
+      </div>
+    </div>
+
+    <div className="mb-1">
+      <p className="text-sm font-bold text-green-700">
+        ₹{summaryData.feesAmount.toLocaleString()}
+      </p>
+    </div>
+
+    <div className="flex items-center text-[12px] justify-between space-x-2">
+      <div className="flex items-center ">
+        <div className="w-1 h-1 rounded-full bg-green-500 mr-0.5"></div>
+        <span className="text-gray-600">Received:</span>
+        <span className="text-green-700 font-medium ml-0.5">
+          ₹{summaryData.feesReceived.toLocaleString()}
+        </span>
+      </div>
+      <div className="flex items-center">
+        <div className="w-1 h-1 rounded-full bg-red-500 mr-0.5"></div>
+        <span className="text-gray-600">Pending:</span>
+        <span className="text-red-600 font-medium ml-0.5">
+          ₹{summaryData.feesPending.toLocaleString()}
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+        <div className="relative overflow-x-auto max-h-[70vh]">
+          <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
+            <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 sticky top-0 z-10">
+              <tr>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  S.No
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Actions
+                </th>           
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Std coll ID
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Name
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Roll No
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Course Year
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Session Year
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Admin Amount
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Pending Fees
+                </th>              
+                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
+                  Paid Fees
+                </th>              
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Course
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  College
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Mobile
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Status
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Discontinued By
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Category
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Gender
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Address
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Pin Code
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  DOB
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Admission Date
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Is Discontinued
+                </th>
+               
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Payment Mode
+                </th>
+               
+                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
+                  Ledger No
+                </th>
+            
+                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
+                  Total EMIs
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
+                  1st EMI
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
+                  2nd EMI
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
+                  1st EMI Date
+                </th>
+                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
+                  2nd EMI Date
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedStudents.length > 0 ? (
+                paginatedStudents.map((student, index) =>
+                  student.academicDetails.map((academic) => {
+                    const firstEmi = student.emiDetails.find(
+                      (emi) => emi.emiNumber === 1 && emi.studentAcademicId === academic.id
+                    );
+                    const secondEmi = student.emiDetails.find(
+                      (emi) => emi.emiNumber === 2 && emi.studentAcademicId === academic.id
+                    );
+
+                    // Get the relevant amount types for this student/academic
+                    const amountTypes = payments.filter(
+                      payment => 
+                        payment.studentId === student.id && 
+                        (payment.studentAcademic.id === academic.id || amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount')
+                    );
+
+                    // Filter by selected amount type if any
+                    const filteredAmountTypes = amountTypeFilter 
+                      ? amountTypes.filter(payment => payment.amountType === amountTypeFilter)
+                      : amountTypes;
+
+                    // Get the amount type to display (for filtered view)
+                    const displayAmountType = amountTypeFilter || 
+                      (filteredAmountTypes.length > 0 ? filteredAmountTypes[0].amountType : 'feesAmount');
+
+                    return (
+                      <tr
+                        key={`${student.id}-${academic.id}`}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 align-middle"
+                      >
+                        <td className="px-1.5 py-1 text-center">
+                          {(currentPage - 1) * entriesPerPage + index + 1}
+                        </td>
+                        <td className="px-1.5 py-1">
+  <div className="flex space-x-1">
+    <button
+      onClick={() => handleViewDetails(student.id)}
+      className="flex items-center justify-center px-2 py-0.5 text-xs font-medium text-blue-600 bg-white rounded-full border border-blue-300 hover:bg-blue-50 transition-all duration-150 shadow-sm"
+      title="View Details"
+    >
+      <FaFileAlt className="mr-1 text-blue-500" size={10} />
+      <span>View</span>
+    </button>
+    
+    <button
+      onClick={() => handlePaymentClick(student.id, academic.sessionYear, academic.courseYear)}
+      className="flex items-center justify-center px-2 py-0.5 text-xs font-medium text-green-600 bg-white rounded-full border border-green-300 hover:bg-green-50 transition-all duration-150 shadow-sm"
+      title="Make Payments"
+    >
+      <FaMoneyBill className="mr-1 text-green-500" size={10} />
+      <span>Pay</span>
+    </button>
+  </div>
+</td>
+                        <td className="px-1.5 py-1 font-medium truncate max-w-[100px]">
+                          {student.stdCollId || '-'}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">
+                          {student.fName} {student.lName || ''}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{academic.courseYear || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {academic.adminAmount?.toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {calculatePendingFees(student.id, academic.id, academic.feesAmount).toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
+                          {calculateTotalPaid(student.id, academic.id).toLocaleString() || '0'}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
+                        <td className="px-1.5 py-1">
+                          <span
+                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
+                              student.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            } whitespace-nowrap`}
+                          >
+                            <span
+                              className={`w-1 h-1 rounded-full mr-0.5 ${
+                                student.status ? 'bg-green-500' : 'bg-red-500'
+                              }`}
+                            ></span>
+                            {student.status ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.dob).toLocaleDateString()}
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">
+                          {new Date(student.admissionDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-1.5 py-1">
+                          <span
+                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
+                              student.isDiscontinue
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-green-100 text-green-700'
+                            } whitespace-nowrap`}
+                          >
+                            <span
+                              className={`w-1 h-1 rounded-full mr-0.5 ${
+                                student.isDiscontinue ? 'bg-red-500' : 'bg-green-500'
+                              }`}
+                            ></span>
+                            {student.isDiscontinue ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.paymentMode || 'N/A'}</td>
+                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.ledgerNumber || 'N/A'}</td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {academic.numberOfEMI || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {firstEmi?.amount?.toLocaleString() || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
+                          {secondEmi?.amount?.toLocaleString() || 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
+                          {firstEmi ? new Date(firstEmi.dueDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
+                          {secondEmi ? new Date(secondEmi.dueDate).toLocaleDateString() : 'N/A'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )
+              ) : (
+                <tr>
+                  <td colSpan={29} className="px-1.5 py-2 text-center text-gray-500">
+                    No students found matching the filter criteria
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex flex-col md:flex-row justify-between items-center mt-2 p-2 bg-white rounded shadow-md border border-gray-200">
+        <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
+          <span className="text-xs">Show:</span>
+          <select
+            value={entriesPerPage}
+            onChange={(e) => {
+              setEntriesPerPage(parseInt(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="text-xs">entries</span>
+        </div>
+
+        <div className="flex items-center space-x-0.5">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
+          >
+            First
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
+          >
+            Prev
+          </button>
+          <span className="text-xs px-1">
+            Page <span className="font-semibold">{currentPage}</span> of{' '}
+            <span className="font-semibold">{totalPages || 1}</span>
+          </span>
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
+          >
+            Next
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
+          >
+            Last
+          </button>
+        </div>
+      </div>
 
       {/* Student Details Modal */}
       {selectedStudent && (
@@ -846,627 +1392,6 @@ const ManagePayment: React.FC = () => {
                       </div>
                     </div>
                     <div className="space-y-1">
-                     
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Gender</p>
-                        <p className="font-medium">{selectedStudent.gender}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">DOB</p>
-                        <p className="font-medium">{new Date(selectedStudent.dob).toLocaleDateString()}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Admission Mode</p>
-                        <p className="font-medium capitalize">{selectedStudent.admissionMode}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Admission Date</p>
-                        <p className="font-medium">{new Date(selectedStudent.admissionDate).toLocaleDateString()}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Status</p>
-                        <div className="flex items-center">
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full mr-0.5 ${
-                              selectedStudent.isDiscontinue
-                                ? 'bg-red-500'
-                                : selectedStudent.status
-                                ? 'bg-green-500'
-                                : 'bg-yellow-500'
-                            }`}
-                          ></span>
-                          <p className="font-medium">
-                            {selectedStudent.isDiscontinue
-                              ? 'Discontinued'
-                              : selectedStudent.status
-                              ? 'Active'
-                              : 'Inactive'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Discontinued By</p>
-                        <p className="font-medium">{selectedStudent.discontinueBy || 'N/A'}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">College & Course</p>
-                        <p className="font-medium">
-                          {selectedStudent.college?.collegeName} - {selectedStudent.course?.courseName}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="p-2 border-t flex justify-end gap-1 bg-gray-50">
-              <button
-                onClick={() => handlePaymentClick(selectedStudent.id)}
-                className="px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600 font-medium flex items-center"
-              >
-                <FaMoneyBill className="mr-0.5" /> Pay
-              </button>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="px-2 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300 font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Student Payment Modal */}
-      {isPaymentModalOpen && currentStudentId !== null && (
-        <StudentPaymentModal
-          studentId={currentStudentId}
-          students={students}
-          sessionYearFilter={sessionYearFilter}
-          yearFilter={yearFilter}
-          onClose={() => {
-            setIsPaymentModalOpen(false);
-            setCurrentStudentId(null);
-            fetchStudents();
-          }}
-        />
-      )}
- </div>
-    {/* Buttons and Search */}
-      <div className="flex gap-1 self-end mb-0.5">
-        <button
-          onClick={clearFilters}
-          className="inline-flex items-center px-2 py-0.5 bg-gray-300 hover:bg-gray-200 text-black rounded text-xs font-medium focus:ring-1 focus:ring-gray-300 transition-colors duration-150"
-        >
-          <FaTimes className="mr-0.5 text-[10px]" /> Clear
-        </button>
-        <button
-          onClick={fetchStudents}
-          className="inline-flex items-center px-2 py-0.5 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-medium focus:ring-1 focus:ring-blue-300 transition-colors duration-150"
-        >
-          <FaSearch className="mr-0.5 text-[10px]" /> Search
-        </button>
-      </div>
-    
-    </div>
-  </div>
-      </div>
-
-      {/* Financial Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 sm:gap-2 mb-2">
-  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-    <div className="flex flex-col sm:flex-row justify-between mb-0.5 space-y-0.5 sm:space-y-0">
-      <p className="text-xs sm:text-sm text-black-2">Total Students</p>
-      <p className="text-xs sm:text-sm text-black-2">Showing Results</p>
-    </div>
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-0.5 sm:space-y-0">
-      <div className="flex items-center">
-        <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.totalStudents}</p>
-        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 ml-1"></div>
-      </div>
-      <div className="flex items-center">
-        <p className="text-sm sm:text-base font-bold text-gray-800">{filteredStudents.length}</p>
-        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 ml-1"></div>
-      </div>
-    </div>
-  </div>
-  
-  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-    <div className="flex gap-2 items-center mb-0.5">
-      <p className="text-xs sm:text-sm text-black-2">Admin Amount : </p>
-      <p className="text-sm sm:text-base font-bold text-black-2">{summaryData.adminAmount.toLocaleString()}</p>
-    </div>
-    <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-0.5 space-y-0.5 sm:space-y-0">
-      <p className="text-green-500">Received: {summaryData.adminReceived.toLocaleString()}</p>
-      <p className="text-red-500">Pending: {summaryData.adminPending.toLocaleString()}</p>
-    </div>
-  </div>
-  
-  <div className="bg-white p-1 sm:p-1.5 rounded shadow border border-gray-200 transition-shadow duration-200 lg:hover:shadow-md">
-    <div className="flex  gap-2 items-center mb-0.5">
-      <p className="text-xs sm:text-sm text-black-2">Fees Amount :</p>
-      <p className="text-sm sm:text-base font-bold text-gray-800">{summaryData.feesAmount.toLocaleString()}</p>
-    </div>
-    <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm mt-0.5 space-y-0.5 sm:space-y-0">
-      <p className="text-green-500">Received: {summaryData.feesReceived.toLocaleString()}</p>
-      <p className="text-red-500">Pending: {summaryData.feesPending.toLocaleString()}</p>
-    </div>
-  </div>
-</div>
-
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
-        <div className="relative overflow-x-auto max-h-[70vh]">
-          <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
-            <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 sticky top-0 z-10">
-              <tr>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  S.No
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Actions
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Std coll  ID
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Name
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Roll No
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Course Year
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Session Year
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Admin Amount
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Pending Fees
-                </th>              
-                <th className="px-1.5 py-1 border-b border-gray-100 text-right font-semibold tracking-tight whitespace-nowrap">
-                  Paid Fees
-                </th>              
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Course
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  College
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Mobile
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Status
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Discontinued By
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Category
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Gender
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Address
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Pin Code
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  DOB
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Admission Date
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Is Discontinued
-                </th>
-               
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Payment Mode
-                </th>
-               
-                <th className="px-1.5 py-1 border-b border-gray-100 text-left font-semibold tracking-tight whitespace-nowrap">
-                  Ledger No
-                </th>
-            
-                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
-                  Total EMIs
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
-                  1st EMI
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
-                  2nd EMI
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
-                  1st EMI Date
-                </th>
-                <th className="px-1.5 py-1 border-b border-gray-100 text-center font-semibold tracking-tight whitespace-nowrap">
-                  2nd EMI Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedStudents.length > 0 ? (
-                paginatedStudents.map((student, index) =>
-                  student.academicDetails.map((academic) => {
-                    const firstEmi = student.emiDetails.find(
-                      (emi) => emi.emiNumber === 1 && emi.studentAcademicId === academic.id
-                    );
-                    const secondEmi = student.emiDetails.find(
-                      (emi) => emi.emiNumber === 2 && emi.studentAcademicId === academic.id
-                    );
-
-                    return (
-                      <tr
-                        key={`${student.id}-${academic.id}`}
-                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150 align-middle"
-                      >
-                        <td className="px-1.5 py-1 text-center">
-                          {(currentPage - 1) * entriesPerPage + index + 1}
-                        </td>
-                        <td className="px-1.5 py-1">
-                          <div className="inline-flex space-x-0.5">
-                            <button
-                              onClick={() => handleViewDetails(student.id)}
-                              className="p-0.5 text-blue-500 hover:text-blue-600 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors duration-150"
-                              title="View Details"
-                            >
-                              <FaFileAlt size={10} />
-                            </button>
-                            <button
-                              onClick={() => handlePaymentClick(student.id, academic.sessionYear, academic.courseYear)}
-                              className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
-                              title="View Payments"
-                            >
-                              <FaMoneyBill size={10} />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-1.5 py-1 font-medium truncate max-w-[100px]">
-                          {student.stdCollId || '-'}
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[120px]">
-                          {student.fName} {student.lName || ''}
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.rollNumber}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{academic.courseYear || 'N/A'}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.sessionYear || 'N/A'}</td>
-                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                          {academic.adminAmount?.toLocaleString() || '0'}
-                        </td>
-                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-                          {calculatePendingFees(student.id, academic.id, academic.feesAmount).toLocaleString() || '0'}
-                        </td>
-                        <td className="px-1.5 py-1 text-right truncate max-w-[80px]">
-  {calculateTotalPaid(student.id, academic.id).toLocaleString() || '0'}
-</td>
-                        <td className="px-1.5 py-1 truncate max-w-[100px]">{student.course?.courseName}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.college?.collegeName}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[90px]">{student.mobileNumber}</td>
-                        <td className="px-1.5 py-1">
-                          <span
-                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
-                              student.status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            } whitespace-nowrap`}
-                          >
-                            <span
-                              className={`w-1 h-1 rounded-full mr-0.5 ${
-                                student.status ? 'bg-green-500' : 'bg-red-500'
-                              }`}
-                            ></span>
-                            {student.status ? 'Active' : 'Inactive'}
-                          </span>
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{student.discontinueBy || 'N/A'}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.category}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.gender}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[120px]">{student.address}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[60px]">{student.pincode}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">
-                          {new Date(student.dob).toLocaleDateString()}
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">
-                          {new Date(student.admissionDate).toLocaleDateString()}
-                        </td>
-                        <td className="px-1.5 py-1">
-                          <span
-                            className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
-                              student.isDiscontinue
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-green-100 text-green-700'
-                            } whitespace-nowrap`}
-                          >
-                            <span
-                              className={`w-1 h-1 rounded-full mr-0.5 ${
-                                student.isDiscontinue ? 'bg-red-500' : 'bg-green-500'
-                              }`}
-                            ></span>
-                            {student.isDiscontinue ? 'Yes' : 'No'}
-                          </span>
-                        </td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.paymentMode || 'N/A'}</td>
-                        <td className="px-1.5 py-1 truncate max-w-[80px]">{academic.ledgerNumber || 'N/A'}</td>
-                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                          {academic.numberOfEMI || 'N/A'}
-                        </td>
-                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                          {firstEmi?.amount?.toLocaleString() || 'N/A'}
-                        </td>
-                        <td className="px-1.5 py-1 text-center truncate max-w-[60px]">
-                          {secondEmi?.amount?.toLocaleString() || 'N/A'}
-                        </td>
-                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
-                          {firstEmi ? new Date(firstEmi.dueDate).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="px-1.5 py-1 text-center truncate max-w-[80px]">
-                          {secondEmi ? new Date(secondEmi.dueDate).toLocaleDateString() : 'N/A'}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )
-              ) : (
-                <tr>
-                  <td colSpan={28} className="px-1.5 py-2 text-center text-gray-500">
-                    No students found matching the filter criteria
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Pagination */}
-      <div className="flex flex-col md:flex-row justify-between items-center mt-2 p-2 bg-white rounded shadow-md border border-gray-200">
-        <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
-          <span className="text-xs">Show:</span>
-          <select
-            value={entriesPerPage}
-            onChange={(e) => {
-              setEntriesPerPage(parseInt(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span className="text-xs">entries</span>
-        </div>
-
-        <div className="flex items-center space-x-0.5">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
-          >
-            First
-          </button>
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
-          >
-            Prev
-          </button>
-          <span className="text-xs px-1">
-            Page <span className="font-semibold">{currentPage}</span> of{' '}
-            <span className="font-semibold">{totalPages || 1}</span>
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
-          >
-            Next
-          </button>
-          <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-1 py-0.5 bg-gray-100 rounded text-xs disabled:opacity-50 hover:bg-gray-200"
-          >
-            Last
-          </button>
-        </div>
-      </div>
-
-      {/* Student Details Modal */}
-      {selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-1 z-50">
-          <div className="bg-white rounded shadow-lg w-full max-w-3xl max-h-[85vh] overflow-auto">
-            <div className="p-2 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="text-sm font-semibold text-gray-800">
-                {selectedStudent.fName} {selectedStudent.lName} - {selectedStudent.rollNumber}
-              </h3>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="text-gray-500 hover:text-gray-700 p-0.5 rounded-full hover:bg-gray-200"
-              >
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="p-2">
-              <div className="flex border-b mb-2 overflow-x-auto">
-                <button
-                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'academic'
-                      ? 'border-b-2 border-blue-500 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  onClick={() => setActiveTab('academic')}
-                >
-                  Academic
-                </button>
-                <button
-                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'emi'
-                      ? 'border-b-2 border-blue-500 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  onClick={() => setActiveTab('emi')}
-                >
-                  EMI Details
-                </button>
-                <button
-                  className={`py-1 px-2 font-medium text-xs whitespace-nowrap ${
-                    activeTab === 'personal'
-                      ? 'border-b-2 border-blue-500 text-blue-600'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  onClick={() => setActiveTab('personal')}
-                >
-                  Personal Info
-                </button>
-              </div>
-
-              {activeTab === 'academic' && (
-                <div className="overflow-x-auto bg-white rounded border">
-                  <table className="min-w-full text-xs border-collapse">
-                    <thead className="bg-gray-50 text-gray-700">
-                      <tr>
-                        <th className="p-1 border text-left">Session</th>
-                        <th className="p-1 border text-left">Year</th>
-                        <th className="p-1 border text-left">Payment Mode</th>
-                        <th className="p-1 border text-right">Admin Amt</th>
-                        <th className="p-1 border text-right">Fees Amt</th>
-                        <th className="p-1 border text-center">EMIs</th>
-                        <th className="p-1 border text-center">Ledger</th>
-                        <th className="p-1 border text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedStudent.academicDetails.map((detail) => (
-                        <tr key={detail.id} className="hover:bg-gray-50">
-                          <td className="p-1 border">{detail.sessionYear}</td>
-                          <td className="p-1 border">{detail.courseYear}</td>
-                          <td className="p-1 border">{detail.paymentMode}</td>
-                          <td className="p-1 border text-right">{detail.adminAmount.toLocaleString()}</td>
-                          <td className="p-1 border text-right">{detail.feesAmount.toLocaleString()}</td>
-                          <td className="p-1 border text-center">{detail.numberOfEMI || 'N/A'}</td>
-                          <td className="p-1 border text-center">{detail.ledgerNumber || 'N/A'}</td>
-                          <td className="p-1 border text-center">
-                            <button
-                              onClick={() => handlePaymentClick(selectedStudent.id, detail.sessionYear, detail.courseYear)}
-                              className="p-0.5 text-green-500 hover:text-green-600 bg-green-50 rounded-full hover:bg-green-100 transition-colors duration-150"
-                              title="View Payments"
-                            >
-                              <FaMoneyBill size={10} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {selectedStudent.academicDetails.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="p-2 text-center text-gray-500">
-                            No academic records found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {activeTab === 'emi' && (
-                <div className="overflow-x-auto bg-white rounded border">
-                  <table className="min-w-full text-xs border-collapse">
-                    <thead className="bg-gray-50 text-gray-700">
-                      <tr>
-                        <th className="p-1 border text-left">EMI#</th>
-                        <th className="p-1 border text-right">Amount</th>
-                        <th className="p-1 border text-center">Due Date</th>
-                        <th className="p-1 border text-left">Session</th>
-                        <th className="p-1 border text-left">Year</th>
-                        <th className="p-1 border text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedStudent.emiDetails.map((emi) => {
-                        const academicDetail = selectedStudent.academicDetails.find(
-                          (ad) => ad.id === emi.studentAcademicId
-                        );
-                        const dueDate = new Date(emi.dueDate);
-                        const today = new Date();
-                        const isPastDue = dueDate < today;
-
-                        return (
-                          <tr key={emi.id} className="hover:bg-gray-50">
-                            <td className="p-1 border">{emi.emiNumber}</td>
-                            <td className="p-1 border text-right">{emi.amount.toLocaleString()}</td>
-                            <td className="p-1 border text-center">{new Date(emi.dueDate).toLocaleDateString()}</td>
-                            <td className="p-1 border">{academicDetail?.sessionYear || 'N/A'}</td>
-                            <td className="p-1 border">{academicDetail?.courseYear || 'N/A'}</td>
-                            <td className="p-1 border text-center">
-                              <span
-                                className={`inline-flex items-center px-1 py-0.5 rounded-full text-xs font-medium ${
-                                  isPastDue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                                }`}
-                              >
-                                {isPastDue ? 'Past Due' : 'Upcoming'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {selectedStudent.emiDetails.length === 0 && (
-                        <tr>
-                          <td colSpan={6} className="p-2 text-center text-gray-500">
-                            No EMI records found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {activeTab === 'personal' && (
-                <div className="bg-white rounded border p-2">
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-2 text-xs">
-                    <div className="space-y-1">
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Student Coll ID</p>
-                        <p className="font-medium">{selectedStudent.stdCollId || 'Not assigned'}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Email</p>
-                        <p className="font-medium break-all">{selectedStudent.email}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Mobile Number</p>
-                        <p className="font-medium">{selectedStudent.mobileNumber}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Father's Name</p>
-                        <p className="font-medium">{selectedStudent.fatherName}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Category</p>
-                        <p className="font-medium">{selectedStudent.category}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Address</p>
-                        <p className="font-medium">{selectedStudent.address}</p>
-                      </div>
-                      <div className="bg-gray-50 p-1 rounded">
-                        <p className="text-gray-500 text-xs mb-0.5">Pin Code</p>
-                        <p className="font-medium">{selectedStudent.pincode}</p>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                     
                       <div className="bg-gray-50 p-1 rounded">
                         <p className="text-gray-500 text-xs mb-0.5">Gender</p>
                         <p className="font-medium">{selectedStudent.gender}</p>
@@ -1556,6 +1481,4 @@ const ManagePayment: React.FC = () => {
   );
 };
 
-
 export default ManagePayment;
-     

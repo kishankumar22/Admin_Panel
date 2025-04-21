@@ -57,3 +57,37 @@ export interface Student {
   documents?: Document[];
   createdOn: string;
 }
+
+ export interface StudentPayment {
+  id: number;
+  studentId: number;
+    emiAmount?: number; // include this if needed
+  studentAcademicId: number | null;
+  paymentMode: string | null;
+  transactionNumber: string | null;
+  amount: number | null;
+  refundAmount: number | null;
+  receivedDate: string | null;
+  approvedBy: string | null;
+  amountType: string | null;
+  comment: string | null;
+  receiptUrl: string | null;
+  receiptPublicId: string | null;
+  courseYear: string | null;
+  sessionYear: string | null;
+  createdBy: string | null;
+  createdOn: string;
+  modifiedBy: string | null;
+  modifiedOn: string | null;
+  student: {
+    fName: string;
+    lName: string | null;
+    rollNumber: string;
+  };
+  studentAcademic: {
+    sessionYear: string | null;
+    courseYear: string | null;
+  } | null;
+}
+
+

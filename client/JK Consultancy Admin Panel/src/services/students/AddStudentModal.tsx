@@ -3,6 +3,8 @@ import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
+
 
 interface StudentFormData {
   RollNumber: string;
@@ -333,7 +335,8 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
     }
   };
 
-  const RequiredAsterisk = () => <span className="text-red-500">*</span>;
+  // const RequiredAsterisk = () => <span className="text-red-500">*</span>;
+// Move this to the top of your file (above AddStudentModal)
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
