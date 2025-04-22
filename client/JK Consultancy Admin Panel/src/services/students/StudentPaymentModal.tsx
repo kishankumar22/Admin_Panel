@@ -13,12 +13,11 @@ import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../config';
 import { RequiredAsterisk } from '../students/AddStudentModal'; // adjust path as needed
 
-
 // Interface for StudentPayment
 interface StudentPayment {
   id: number;
   studentId: number;
-    emiAmount?: number; // include this if needed
+  emiAmount?: number;
   studentAcademicId: number | null;
   paymentMode: string | null;
   transactionNumber: string | null;
@@ -55,7 +54,6 @@ interface StudentAcademic {
   feesAmount: number | null;
   emiAmount: number | null;
   paymentMode: string | null;
-  
 }
 
 interface Student {
@@ -73,7 +71,7 @@ interface Student {
   }>;
 }
 
-interface StudentPaymentModalProps {  
+interface StudentPaymentModalProps {
   studentId: number;
   students: Student[];
   sessionYearFilter: string;
@@ -89,18 +87,19 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   onClose,
 }) => {
   const [formData, setFormData] = useState({
-    paymentMode: 'cash',
+    paymentMode: '',
     transactionNumber: '',
     amount: '',
     refundAmount: '',
     receivedDate: '',
     approvedBy: '',
-    amountType: 'adminAmount',
+    amountType: '',
     comment: '',
     password: '',
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { isLoggedIn, user } = useAuth();
   const [payments, setPayments] = useState<StudentPayment[]>([]);
   const [loadingPayments, setLoadingPayments] = useState<boolean>(false);
@@ -143,7 +142,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
         });
 
         if (response.data.success) {
-          // Filter payments to match the selected sessionYear and courseYear
           const filteredPayments = response.data.data.filter(
             (payment: StudentPayment) =>
               (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
@@ -166,9 +164,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   }, [studentId, isLoggedIn, sessionYearFilter, yearFilter]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError(''); // Clear error on input change
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -177,7 +178,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   };
 
-// resert form
   const resetForm = () => {
     setFormData({
       paymentMode: '',
@@ -188,37 +188,75 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       approvedBy: '',
       amountType: '',
       comment: '',
-      password: ''
+      password: '',
     });
     setReceiptFile(null);
   };
-  
+
   const handleSubmit = async () => {
     if (!isLoggedIn || !user) {
       setError('Please login to save payment');
-      toast.error('Please login to save payment');
+      toast.error('Please login to save payment', { autoClose: 3000 });
       return;
     }
 
-    if (!formData.password) {
-      setError('Password is required');
-      toast.error('Password is required');
+    // Client-side validation
+    type RequiredFieldKeys = 'Amount' | 'Payment Mode' | 'Amount Type' | 'Received Date' | 'Password';
+    const requiredFields: Record<RequiredFieldKeys, string> = {
+      Amount: formData.amount,
+      'Payment Mode': formData.paymentMode,
+      'Amount Type': formData.amountType,
+      'Received Date': formData.receivedDate,
+      Password: formData.password,
+    };
+    const missingFields = Object.keys(requiredFields).filter(
+      (key) => !requiredFields[key as RequiredFieldKeys]
+    ) as RequiredFieldKeys[];
+    if (missingFields.length > 0) {
+      const errorMessage = `${missingFields.join(', ')} ${missingFields.length > 1 ? 'are' : 'is'} required`;
+      setError(errorMessage);
+      toast.error(errorMessage, { autoClose: 3000 });
+      return;
+    }
+
+    // Validate amount
+    const parsedAmount = parseFloat(formData.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setError('Amount must be a valid positive number');
+      toast.error('Amount must be a valid positive number', { autoClose: 3000 });
+      return;
+    }
+
+    // Validate paymentMode
+    const validPaymentModes = ['cash', 'check', 'bank', 'upi'];
+    if (!validPaymentModes.includes(formData.paymentMode)) {
+      setError('Please select a valid payment mode');
+      toast.error('Please select a valid payment mode', { autoClose: 3000 });
+      return;
+    }
+
+    // Validate receivedDate
+    const parsedDate = new Date(formData.receivedDate);
+    if (isNaN(parsedDate.getTime())) {
+      setError('Received Date must be a valid date');
+      toast.error('Received Date must be a valid date', { autoClose: 3000 });
       return;
     }
 
     if (!matchingAcademic) {
       setError('No academic details found for the selected session and year');
-      toast.error('No academic details found');
+      toast.error('No academic details found', { autoClose: 3000 });
       return;
     }
 
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Authentication token missing');
-      toast.error('Authentication token missing');
+      toast.error('Authentication token missing', { autoClose: 3000 });
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('studentId', studentId.toString());
@@ -247,7 +285,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       });
 
       if (response.data.success) {
-        toast.success('Payment Successful');
+        toast.success('Payment saved successfully', { autoClose: 3000 });
         const fetchResponse = await axiosInstance.get(`/studentPayment/${studentId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -259,25 +297,23 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           );
           setPayments(filteredPayments);
         }
-        // onClose();
-          // ✅ Reset form after successful submission
-      resetForm();
-      fetchResponse
+        resetForm();
       } else {
         setError(response.data.error || 'Failed to save payment');
-        toast.error(response.data.error || 'Failed to save payment');
+        toast.error(response.data.error || 'Failed to save payment', { autoClose: 3000 });
       }
-    } catch (err) {
-      const errorMessage = 'Failed to save payment';
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to save payment';
       setError(errorMessage);
-      toast.error(errorMessage);
+      toast.error(errorMessage, { autoClose: 3000 });
       console.error('Submission error:', err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    // <div className="fixed inset-0 flex mt-10 items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+    <div className="fixed inset-0   pt-12 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-md border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-2 rounded-t-lg flex justify-between items-center">
@@ -306,11 +342,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             <div className="flex items-center mb-1">
               <FaUserGraduate className="text-blue-600 mr-1 text-base" />
               <h3 className="font-semibold text-sm text-gray-800">
-                {student.fName} {student.lName || ''}  <span>- {student.rollNumber}</span>
+                {student.fName} {student.lName || ''} <span>- {student.rollNumber}</span>
               </h3>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
-              
               <div className="flex items-center">
                 <span className="font-medium text-gray-600 mr-1">Father's Name:</span>
                 <span className="text-gray-800">{student.fatherName || 'N/A'}</span>
@@ -339,13 +374,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               <div className="p-2">
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Payment Mode</label> 
+                    <label className="block text-xs font-medium text-gray-700">
+                      Payment Mode <RequiredAsterisk />
+                    </label>
                     <select
                       name="paymentMode"
                       value={formData.paymentMode}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
                     >
+                      <option value="" disabled>
+                        Select Payment Mode
+                      </option>
                       <option value="cash">Cash</option>
                       <option value="check">Check</option>
                       <option value="bank">Bank Transfer</option>
@@ -353,7 +393,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </select>
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Check/Transaction/Receipt #</label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Check/Transaction/Receipt #
+                    </label>
                     <input
                       type="text"
                       name="transactionNumber"
@@ -363,9 +405,13 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     />
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Amount <RequiredAsterisk /></label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Amount <RequiredAsterisk />
+                    </label>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">₹</span>
+                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
+                        ₹
+                      </span>
                       <input
                         type="text"
                         name="amount"
@@ -376,7 +422,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Received Date  <RequiredAsterisk />  </label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Received Date <RequiredAsterisk />
+                    </label>
                     <div className="relative">
                       <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
                       <input
@@ -389,7 +437,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Approved By <RequiredAsterisk /> </label>
+                    <label className="block text-xs font-medium text-gray-700">Approved By</label>
                     <input
                       type="text"
                       name="approvedBy"
@@ -399,69 +447,83 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     />
                   </div>
                   <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">Amount Type <RequiredAsterisk /></label>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Amount Type <RequiredAsterisk />
+                    </label>
                     <select
                       name="amountType"
                       value={formData.amountType}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
                     >
+                      <option value="" disabled>
+                        Select Amount Type
+                      </option>
                       <option value="adminAmount">Admin Fees</option>
                       <option value="feesAmount">Fees Amount</option>
                       <option value="fineAmount">Fine Amount</option>
-                      <option value="refundAmount">Refund  Amount</option>
+                      <option value="refundAmount">Refund Amount</option>
                     </select>
                   </div>
                   <div className="space-y-0.5">
-                        <label className="block text-xs font-medium text-gray-700">Password <RequiredAsterisk /></label>
-                        <input
-                          type="password"
-                          name="password"
-                          value={formData.password}
-                          onChange={handleInputChange}
-                          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <label className="block text-xs font-medium text-gray-700">Upload Student Payment File</label>
-                        <div className="relative">
-                          <input
-                            type="file"
-                            className="hidden"
-                            id="student-file"
-                            onChange={handleFileChange}
-                          />
-                          <label
-                            htmlFor="student-file"
-                            className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                          >
-                            <FaUpload className="mr-1 text-gray-500 text-base" />
-                            <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
-                          </label>
-                        </div>
-                      </div>
+                    <label className="block text-xs font-medium text-gray-700">
+                      Password <RequiredAsterisk />
+                    </label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Upload Student Payment File
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        className="hidden"
+                        id="student-file"
+                        onChange={handleFileChange}
+                      />
+                      <label
+                        htmlFor="student-file"
+                        className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        <FaUpload className="mr-1 text-gray-500 text-base" />
+                        <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-2">
-  <div className="border border-gray-200 rounded-md p-2 bg-blue-100">
-    <p className="text-xs font-medium text-blue-800 mb-0.5">Academic Details</p>
-    <div className="grid grid-cols-3 gap-0.5 text-xs">
-      <div>
-        <span className="text-gray-600">Admin Amount:</span>
-        <span className="ml-0.5 font-medium">₹{matchingAcademic?.adminAmount || '0'}</span>
-      </div>
-      <div>
-        <span className="text-gray-600">Fees Amount:</span>
-        <span className="ml-0.5 font-medium">₹{matchingAcademic?.feesAmount || '0'}</span>
-      </div>
-      <div>
-        <span className="text-gray-600">EMI Amount:</span>
-        <span className="ml-0.5 font-medium">₹{matchingAcademic?.emiAmount || '0'}</span>
-      </div>
-    </div>
-  </div>
-</div>
-
+                  <div className="border border-gray-200 rounded-md p-2 bg-blue-100">
+                    <p className="text-xs font-medium text-blue-800 mb-0.5">Academic Details</p>
+                    <div className="grid grid-cols-3 gap-0.5 text-xs">
+                      <div>
+                        <span className="text-gray-600">Admin Amount:</span>
+                        <span className="ml-0.5 font-medium">
+                          ₹{matchingAcademic?.adminAmount || '0'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Fees Amount:</span>
+                        <span className="ml-0.5 font-medium">
+                          ₹{matchingAcademic?.feesAmount || '0'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">EMI Amount:</span>
+                        <span className="ml-0.5 font-medium">
+                          ₹{matchingAcademic?.emiAmount || '0'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -507,8 +569,12 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                           .filter((emi) => emi.studentAcademicId === matchingAcademic.id)
                           .map((emi, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                              <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">{emi.emiNumber}</td>
-                              <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">₹{emi.amount}</td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">
+                                {emi.emiNumber}
+                              </td>
+                              <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">
+                                ₹{emi.amount}
+                              </td>
                               <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">
                                 {emi.dueDate.split('T')[0]}
                               </td>
@@ -562,7 +628,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Amount
                           </th>
-                        <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
+                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Mode
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
@@ -609,9 +675,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                     day: '2-digit',
                                     month: '2-digit',
                                     year: '2-digit',
-                                       hour:'2-digit',
-                                minute:'2-digit',
-                                second:'2-digit'
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
                                   })
                                 : 'N/A'}
                             </td>
@@ -619,8 +685,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               {payment.approvedBy || 'N/A'}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.amountType === 'adminAmount' ? 'AdminAmount' : payment.amountType || 'N/A'}
-                            </td>                        
+                              {payment.amountType === 'adminAmount'
+                                ? 'Admin Amount'
+                                : payment.amountType || 'N/A'}
+                            </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               {payment.createdBy || 'N/A'}
                             </td>
@@ -629,9 +697,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                 day: '2-digit',
                                 month: '2-digit',
                                 year: '2-digit',
-                                hour:'2-digit',
-                                minute:'2-digit',
-                                second:'2-digit'
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
                               })}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
@@ -669,14 +737,40 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!matchingAcademic}
-              className={`px-2 py-1 rounded-md transition duration-200 font-medium text-xs ${
-                matchingAcademic
+              disabled={!matchingAcademic || isSubmitting}
+              className={`px-2 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
+                matchingAcademic && !isSubmitting
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-400 text-gray-700 cursor-not-allowed'
               }`}
             >
-              Save Payment
+              {isSubmitting ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 mr-2 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                'Save Payment'
+              )}
             </button>
           </div>
         </div>

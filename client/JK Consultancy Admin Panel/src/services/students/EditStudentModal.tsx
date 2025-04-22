@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Modal } from 'flowbite-react';
+import Loader from '../../common/Loader'; // Adjust path to where Loader.tsx is located
 
 interface StudentFormData {
   StudentId: number;
@@ -112,8 +112,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [showEditConfirmModal, setShowEditConfirmModal] = useState(false);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
   const [showSessionYearModal, setShowSessionYearModal] = useState(false);
+  const [showCourseYearWarningModal, setShowCourseYearWarningModal] = useState(false);
+  const [showSkipYearWarningModal, setShowSkipYearWarningModal] = useState(false);
+  const [showExistingYearWarningModal, setShowExistingYearWarningModal] = useState(false);
   const [selectedCourseYear, setSelectedCourseYear] = useState<string>('');
   const [tempCourseYear, setTempCourseYear] = useState<string>('');
+  const [warningMessage, setWarningMessage] = useState<string>('');
 
   const [student, setStudent] = useState<StudentFormData>({
     StudentId: 0,
@@ -170,6 +174,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     return `${startYear}-${startYear + 1}`;
   });
 
+  // Course year order for validation
+  const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+
   // Fetch initial student data, colleges, courses, documents, and academic details
   useEffect(() => {
     const fetchData = async () => {
@@ -210,6 +217,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError(error.response?.data?.message || 'Failed to load student data, colleges, courses, or academic details');
+        toast.error(error.response?.data?.message || 'Failed to load student data');
         setTimeout(() => setError(''), 5000);
       }
     };
@@ -260,6 +268,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         } catch (error) {
           console.error('Error fetching academic details:', error);
           toast.error('Failed to load academic details');
+        } finally {
+          setLoadingAcademic(false);
         }
       };
 
@@ -290,17 +300,46 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     if (name === 'CourseYear') {
       if (value === student.CourseYear) return; // No action if same course year
       setTempCourseYear(value);
-      if (student.CourseYear === '1st' && ['2nd', '3rd', '4th'].includes(value)) {
-        // From 1st to 2nd, 3rd, or 4th: Open session year modal directly
-        setShowSessionYearModal(true);
-      } else if (['2nd', '3rd', '4th'].includes(student.CourseYear) && value === '1st') {
-        // From 2nd, 3rd, or 4th to 1st: Open confirmation modal first
-        setShowEditConfirmModal(true);
-      } else {
-        // Other transitions (e.g., 2nd to 3rd): Open session year modal
-        setShowSessionYearModal(true);
+
+      // Check if there's an existing academic record for the selected course year
+      const existingRecord = academicData.find(detail => detail.courseYear === value);
+
+      // Define course year order for comparison
+      const currentIndex = courseYearOrder.indexOf(student.CourseYear);
+      const newIndex = courseYearOrder.indexOf(value);
+
+      // If trying to skip years (e.g., 1st to 3rd)
+      if (newIndex - currentIndex > 1 && currentIndex !== -1) {
+        const skippedYears = courseYearOrder.slice(currentIndex + 1, newIndex).join(', ');
+        setWarningMessage(`You cannot skip ${skippedYears} year(s). Please enroll in sequential order.`);
+        setShowSkipYearWarningModal(true);
+        return;
       }
-      return;
+      // If moving to a lower course year
+      else if (newIndex < currentIndex && currentIndex !== -1) {
+        // If the selected year already has an academic record
+        if (existingRecord) {
+          setWarningMessage(`You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`);
+          setShowExistingYearWarningModal(true);
+        } else {
+          // No existing record, but going backwards
+          setWarningMessage(`Are you sure you want to change from ${student.CourseYear} to ${value} year?`);
+          setShowCourseYearWarningModal(true);
+        }
+        return;
+      } 
+      // For normal progression (e.g., 1st to 2nd) or first-time setting
+      else {
+        if (existingRecord) {
+          // If there's an existing record for the normal progression
+          setWarningMessage(`You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`);
+          setShowExistingYearWarningModal(true);
+        } else {
+          // No existing record, proceed to select session year
+          setShowSessionYearModal(true);
+        }
+        return;
+      }
     }
 
     if (type === 'checkbox') {
@@ -361,27 +400,125 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
   const confirmEditAcademic = () => {
     setShowEditConfirmModal(false);
-    if (selectedCourseYear === '1st') {
-      setTempCourseYear(selectedCourseYear);
+    const academicDetail = academicData.find((detail) => detail.courseYear === selectedCourseYear);
+    if (academicDetail) {
+      // Set the current course year and session year
+      setStudent((prev) => ({
+        ...prev,
+        CourseYear: academicDetail.courseYear,
+        SessionYear: academicDetail.sessionYear,
+      }));
+      
+      // Store academic detail info temporarily
+      setTempCourseYear(academicDetail.courseYear);
+      
+      // Show session year modal
       setShowSessionYearModal(true);
-    } else {
-      setStudent((prev) => ({ ...prev, CourseYear: selectedCourseYear }));
+      
+      toast.info(`Select session year for ${selectedCourseYear} year`, {
+        position: "top-right",
+        autoClose: 3000
+      });
+    }
+  };
+
+  const handleExistingYearConfirm = () => {
+    setShowExistingYearWarningModal(false);
+    const academicDetail = academicData.find((detail) => detail.courseYear === tempCourseYear);
+    if (academicDetail) {
+      // Update course year but don't set other fields yet
+      setStudent((prev) => ({
+        ...prev,
+        CourseYear: academicDetail.courseYear,
+        SessionYear: academicDetail.sessionYear, // Set current session year as default
+      }));
+      
+      // Store the academic detail temporarily
+      setSelectedCourseYear(tempCourseYear);
+      
+      // Open session year selection modal
+      toast.info(`Choose a session year for ${tempCourseYear} year`, {
+        position: "top-right",
+        autoClose: 3000
+      });
       setShowSessionYearModal(true);
     }
   };
 
   const handleSessionYearSelect = (sessionYear: string) => {
+    setShowSessionYearModal(false);
+    setLoadingAcademic(true);
+    
+    // Check if we're editing an existing academic record
+    const academicDetail = academicData.find(
+      (detail) => detail.courseYear === (selectedCourseYear || tempCourseYear)
+    );
+    
+    if (academicDetail) {
+      // If editing existing record, load all details
+      setStudent((prev) => ({
+        ...prev,
+        CourseYear: academicDetail.courseYear,
+        SessionYear: sessionYear, // Use the newly selected session year
+        PaymentMode: academicDetail.paymentMode,
+        FineAmount: academicDetail.adminAmount,
+        RefundAmount: academicDetail.feesAmount,
+        LedgerNumber: academicDetail.ledgerNumber || '',
+        NumberOfEMI: academicDetail.numberOfEMI || null,
+        emiDetails: academicDetail.emiDetails || [],
+      }));
+      
+      setEmiDetails(
+        academicDetail.emiDetails.map((emi: any) => ({
+          emiNumber: emi.emiNumber,
+          amount: emi.amount,
+          dueDate: emi.dueDate ? new Date(emi.dueDate).toISOString().split('T')[0] : '',
+        }))
+      );
+    } else {
+      // For new course year, just update course year and session year
+      setStudent((prev) => ({
+        ...prev,
+        CourseYear: tempCourseYear,
+        SessionYear: sessionYear,
+      }));
+    }
+    
+    setStep(3); // Navigate to Payment Details
+    
+    toast.info(`Selected session year ${sessionYear} for ${selectedCourseYear || tempCourseYear} year`, {
+      position: "top-right",
+      autoClose: 3000
+    });
+    
+    // Reset selected course year after handling
+    setSelectedCourseYear('');
+  };
+
+  const handleCourseYearWarningConfirm = () => {
+    setShowCourseYearWarningModal(false);
+    // When going backwards, we should look for a suggested session year
+    const recommendedSession = getRecommendedSessionYear(tempCourseYear);
     setStudent((prev) => ({
       ...prev,
       CourseYear: tempCourseYear,
-      SessionYear: sessionYear,
+      SessionYear: recommendedSession || '', // Use recommended session or reset if none
     }));
-    setShowSessionYearModal(false);
-    setLoadingAcademic(true);
-    setStep(3);
-    setTimeout(() => {
-      setLoadingAcademic(false);
-    }, 1500);
+    setShowSessionYearModal(true);
+  };
+
+  const getRecommendedSessionYear = (courseYear: string): string => {
+    // If moving from a higher to lower year, suggest an appropriate session
+    // For simplicity we'll suggest a session before the current course's session
+    const currentYearRecord = academicData.find(detail => detail.courseYear === student.CourseYear);
+    if (currentYearRecord) {
+      const currentSessionIndex = sessionYears.indexOf(currentYearRecord.sessionYear);
+      if (currentSessionIndex > 0) {
+        // Suggest previous session
+        return sessionYears[currentSessionIndex - 1];
+      }
+    }
+    return '';
   };
 
   const handleUpdateConfirm = () => {
@@ -432,6 +569,10 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     } catch (error: any) {
       console.error('Error updating student:', error);
       setError(error.response?.data?.message || error.message || 'An error occurred while updating the form');
+      toast.error(error.response?.data?.message || 'Failed to update student', {
+        position: 'top-right',
+        autoClose: 5000,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -473,8 +614,16 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   };
 
   const handleTabClick = (tabNumber: number) => {
-    setStep(tabNumber);
-    setError('');
+    if (validateStep(step)) {
+      setStep(tabNumber);
+      setError('');
+    } else {
+      setError(`Please fill all required fields in Step ${step} before proceeding.`);
+      toast.warning(`Please fill all required fields in current tab before switching`, {
+        position: "top-right",
+        autoClose: 3000
+      });
+    }
   };
 
   const nextStep = () => {
@@ -483,12 +632,85 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setError('');
     } else {
       setError(`Please fill all required fields in Step ${step} before proceeding.`);
+      toast.warning(`Please fill all required fields before proceeding`, {
+        position: "top-right",
+        autoClose: 3000
+      });
     }
   };
 
   const prevStep = () => {
     setStep((prev) => Math.max(prev - 1, 1));
     setError('');
+  };
+
+  // Determine if a session year should be disabled
+  const isSessionYearDisabled = (sessionYear: string) => {
+    const currentIndex = courseYearOrder.indexOf(student.CourseYear);
+    const newIndex = courseYearOrder.indexOf(tempCourseYear);
+
+    // Case 1: Normal progression (e.g. 1st to 2nd)
+    if (newIndex > currentIndex && currentIndex !== -1) {
+      const currentYearRecord = academicData.find(data => data.courseYear === student.CourseYear);
+      if (currentYearRecord) {
+        const currentSessionIndex = sessionYears.indexOf(currentYearRecord.sessionYear);
+        const sessionIndex = sessionYears.indexOf(sessionYear);
+        // For progression, disable session years before the current year's session
+        return sessionIndex <= currentSessionIndex;
+      }
+    }
+
+    // Case 2: Going backwards (e.g. 2nd to 1st)
+    if (newIndex < currentIndex && currentIndex !== -1) {
+      const higherYearRecord = academicData.find(data => data.courseYear === student.CourseYear);
+      if (higherYearRecord) {
+        const higherSessionIndex = sessionYears.indexOf(higherYearRecord.sessionYear);
+        const sessionIndex = sessionYears.indexOf(sessionYear);
+        // For going backwards, disable session years after the higher year's session
+        return sessionIndex >= higherSessionIndex;
+      }
+    }
+
+    // Check for existing sequential records
+    if (newIndex > 0) {
+      const previousYearRecord = academicData.find(
+        data => data.courseYear === courseYearOrder[newIndex - 1]
+      );
+      if (previousYearRecord) {
+        const prevSessionIndex = sessionYears.indexOf(previousYearRecord.sessionYear);
+        const sessionIndex = sessionYears.indexOf(sessionYear);
+        // Disable session years before the previous year's session
+        return sessionIndex <= prevSessionIndex;
+      }
+    }
+
+    // Check for next course year
+    const nextYearRecord = academicData.find(
+      data => data.courseYear === courseYearOrder[newIndex + 1]
+    );
+    if (nextYearRecord) {
+      const nextSessionIndex = sessionYears.indexOf(nextYearRecord.sessionYear);
+      const sessionIndex = sessionYears.indexOf(sessionYear);
+      // Disable session years after the next year's session
+      return sessionIndex >= nextSessionIndex;
+    }
+
+    return false;
+  };
+
+  const formatDate = (dateString: string | Date): string => {
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      return '-';
+    }
   };
 
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
@@ -535,19 +757,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   type="text"
                   name="FName"
                   value={student.FName}
-                  onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-black">
-                  Last Name <RequiredAsterisk />
-                </label>
-                <input
-                  type="text"
-                  name="LName"
-                  value={student.LName}
                   onChange={handleChange}
                   className="w-full border p-1 rounded mt-1 text-xs"
                   required
@@ -946,23 +1155,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                             </div>
                           </td>
                           <td className="px-1 py-0.5 text-gray-500">₹{item.feesAmount.toLocaleString('en-IN')}</td>
-                          <td className="px-1 py-0.5 text-gray-500">
-                            {new Date(item.createdOn).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                            })}
-                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">{formatDate(item.createdOn)}</td>
                           <td className="px-1 py-0.5 text-gray-500">{item.createdBy || '-'}</td>
-                          <td className="px-1 py-0.5 text-gray-500">
-                            {item.modifiedOn
-                              ? new Date(item.modifiedOn).toLocaleDateString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                })
-                              : '-'}
-                          </td>
+                          <td className="px-1 py-0.5 text-gray-500">{item.modifiedOn ? formatDate(item.modifiedOn) : '-'}</td>
                           <td className="px-1 py-0.5 text-gray-500">{item.modifiedBy || '-'}</td>
                           <td className="px-1 py-0.5">
                             <button
@@ -989,7 +1184,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {loadingAcademic ? (
                 <div className="col-span-2 flex justify-center items-center">
-                  <div className="w-8 h-8 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                  <Loader size="lg" className="text-blue-500" />
                 </div>
               ) : (
                 <>
@@ -1274,11 +1469,149 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           </div>
         </form>
 
+        {/* Skip Year Warning Modal */}
+        <Modal 
+          show={showSkipYearWarningModal} 
+          onClose={() => setShowSkipYearWarningModal(false)} 
+          size="md" 
+          className="pt-44 bg-gray-300">
+          <Modal.Header className="bg-red-400">Course Year Sequence Error</Modal.Header>
+          <Modal.Body>
+            <div className="text-sm text-gray-600">{warningMessage}</div>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowSkipYearWarningModal(false)}
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+            >
+              Understood
+            </button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Course Year Warning Modal */}
+        <Modal 
+          show={showCourseYearWarningModal} 
+          onClose={() => setShowCourseYearWarningModal(false)} 
+          size="md" 
+          className="pt-44 bg-gray-300">
+          <Modal.Header className="bg-yellow-400">Confirm Course Year Change</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">{warningMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowCourseYearWarningModal(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleCourseYearWarningConfirm}
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+            >
+              Proceed
+            </button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Existing Year Warning Modal */}
+        <Modal 
+          show={showExistingYearWarningModal} 
+          onClose={() => setShowExistingYearWarningModal(false)} 
+          size="md" 
+          className="pt-44 bg-gray-300">
+          <Modal.Header className="bg-blue-400">Existing Academic Record</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">{warningMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => setShowExistingYearWarningModal(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleExistingYearConfirm}
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+            >
+              Edit This Record
+            </button>
+          </Modal.Footer>
+        </Modal>
+
+        {/* Session Year Selection Modal */}
+        <Modal 
+          show={showSessionYearModal} 
+          onClose={() => setShowSessionYearModal(false)} 
+          size="md" 
+          className="pt-44 bg-gray-400">
+          <Modal.Header>Select Session Year</Modal.Header>
+          <Modal.Body>
+            <p className="text-sm text-gray-600">
+              Please select a session year for course year {selectedCourseYear || tempCourseYear}.
+              {selectedCourseYear && (
+                <span className="block mt-1 text-blue-600">
+                  You are editing an existing academic record.
+                </span>
+              )}
+            </p>
+            <div className="mt-2">
+              <select
+                className="w-full border p-1 rounded text-sm"
+                value={student.SessionYear || ''}
+                onChange={(e) => setStudent((prev) => ({ ...prev, SessionYear: e.target.value }))}
+              >
+                <option value="" disabled>
+                  Select Session Year
+                </option>
+                {sessionYears.map((year) => (
+                  <option
+                    key={year}
+                    value={year}
+                    disabled={isSessionYearDisabled(year)}
+                    className={isSessionYearDisabled(year) ? 'text-gray-400 line-through opacity-50' : ''}
+                  >
+                    {year} {isSessionYearDisabled(year) ? '(Not Available)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <button
+              onClick={() => {
+                setShowSessionYearModal(false);
+                setSelectedCourseYear(''); // Reset selected course year if canceled
+              }}
+              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (student.SessionYear) {
+                  handleSessionYearSelect(student.SessionYear);
+                }
+              }}
+              disabled={!student.SessionYear}
+              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
+            >
+              Confirm
+            </button>
+          </Modal.Footer>
+        </Modal>
+
         {/* Edit Confirmation Modal */}
-        <Modal show={showEditConfirmModal} onClose={() => setShowEditConfirmModal(false)} size="md" className='pt-44'>
+        <Modal 
+          show={showEditConfirmModal} 
+          onClose={() => setShowEditConfirmModal(false)} 
+          size="md" 
+          className="pt-50 bg-gray-300">
           <Modal.Header>Confirm Edit</Modal.Header>
           <Modal.Body>
-            <p className="text-sm text-gray-600">Are you sure to edit the course year {selectedCourseYear || tempCourseYear}?</p>
+            <p className="text-sm text-gray-600">Are you sure you want to edit the course year {selectedCourseYear}?</p>
           </Modal.Body>
           <Modal.Footer>
             <button
@@ -1296,43 +1629,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           </Modal.Footer>
         </Modal>
 
-        {/* Session Year Selection Modal */}
-        <Modal show={showSessionYearModal} onClose={() => setShowSessionYearModal(false)} size="md" className='pt-44'>
-          <Modal.Header>Select Session Year</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">Please select a session year for course year {tempCourseYear}.</p>
-            <div className="mt-2">
-              <select
-                className="w-full border p-1 rounded text-sm"
-                onChange={(e) => handleSessionYearSelect(e.target.value)}
-                defaultValue=""
-              >
-                <option value="" disabled>
-                  Select Session Year
-                </option>
-                {sessionYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </Modal.Body>
-          <Modal.Footer>
-            <button
-              onClick={() => setShowSessionYearModal(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-          </Modal.Footer>
-        </Modal>
-
         {/* Update Confirmation Modal */}
-        <Modal show={showUpdateConfirmModal} onClose={() => setShowUpdateConfirmModal(false)} size="md">
-          <Modal.Header>Confirm Update</Modal.Header>
+        <Modal 
+          show={showUpdateConfirmModal} 
+          onClose={() => setShowUpdateConfirmModal(false)} 
+          size="md" 
+          className='pt-30'>
+          <Modal.Header className='bg-green-400'>Confirm Update</Modal.Header>
           <Modal.Body>
-            <p className="text-sm text-gray-600">Are you sure to update this student data?</p>
+            <p className="text-sm text-gray-600">Are you sure you want to update this student's data?</p>
           </Modal.Body>
           <Modal.Footer>
             <button
@@ -1344,8 +1649,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             <button
               onClick={confirmUpdate}
               className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+              disabled={isSubmitting}
             >
-              Confirm
+              {isSubmitting ? (
+                <>
+                  <Loader size="sm" className="inline-block mr-1" /> 
+                  Updating...
+                </>
+              ) : 'Confirm'}
             </button>
           </Modal.Footer>
         </Modal>
@@ -1454,13 +1765,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <span className="font-medium">Payment Mode:</span> {student.PaymentMode}
                   </div>
                   <div>
-                    <span className="font-medium">Admin Amount:</span> {student.FineAmount}
+                    <span className="font-medium">Admin Amount:</span> ₹{student.FineAmount.toLocaleString('en-IN')}
                   </div>
                   <div>
-                    <span className="font-medium">Fees Amount:</span> {student.RefundAmount}
+                    <span className="font-medium">Fees Amount:</span> ₹{student.RefundAmount.toLocaleString('en-IN')}
                   </div>
                   <div>
-                    <span className="font-medium">Ledger Number:</span> {student.LedgerNumber}
+                    <span className="font-medium">Ledger Number:</span> {student.LedgerNumber || '-'}
                   </div>
                   {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
                     <>
@@ -1469,8 +1780,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                       </div>
                       {emiDetails.map((emi, index) => (
                         <div key={index}>
-                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: {emi.amount}, Date:{' '}
-                          {emi.dueDate}
+                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: ₹{emi.amount.toLocaleString('en-IN')}, 
+                          Due Date: {emi.dueDate || 'Not set'}
                         </div>
                       ))}
                     </>
@@ -1536,7 +1847,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   disabled={isSubmitting}
                   className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:bg-green-300"
                 >
-                  {isSubmitting ? 'Updating...' : 'Update'}
+                  {isSubmitting ? (
+                    <>
+                      <Loader size="sm" className="inline-block mr-1" />
+                      Updating...
+                    </>
+                  ) : (
+                    'Update'
+                  )}
                 </button>
               </div>
             </div>
