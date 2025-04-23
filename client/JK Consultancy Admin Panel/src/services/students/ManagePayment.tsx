@@ -587,6 +587,62 @@ const ManagePayment: React.FC = () => {
       {/* Enhanced Filter Section */}
       <div className="p-1 mb-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
   <div className="flex flex-wrap gap-1 mb-1 text-black">
+
+    {/* Status */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaCheckCircle className="mr-1 text-gray-600 text-[10px]" /> Status
+      </label>
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.statuses).map((status) => (
+          <option key={status} value={status}>
+            {status}
+          </option>
+        ))}
+      </select>
+    </div>
+    {/* College */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaUniversity className="mr-1 text-gray-600 text-[10px]" /> College
+      </label>
+      <select
+        value={collegeFilter}
+        onChange={(e) => setCollegeFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.colleges).map((college) => (
+          <option key={college} value={college}>
+            {college}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    {/* Course */}
+    <div className="flex-1 min-w-[100px]">
+      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
+      </label>
+      <select
+        value={courseFilter}
+        onChange={(e) => setCourseFilter(e.target.value)}
+        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+      >
+        <option value="">All</option>
+        {Array.from(filterOptions.courses).map((course) => (
+          <option key={course} value={course}>
+            {course}
+          </option>
+        ))}
+      </select>
+    </div>
     {/* Session Year */}
     <div className="flex-1 min-w-[100px]">
       <label className="text-xs font-medium text-black flex items-center mb-0.5">
@@ -625,24 +681,7 @@ const ManagePayment: React.FC = () => {
       </select>
     </div>
 
-    {/* Status */}
-    <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
-        <FaCheckCircle className="mr-1 text-gray-600 text-[10px]" /> Status
-      </label>
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value)}
-        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-      >
-        <option value="">All</option>
-        {Array.from(filterOptions.statuses).map((status) => (
-          <option key={status} value={status}>
-            {status}
-          </option>
-        ))}
-      </select>
-    </div>
+    
 
     {/* Fees Filter */}
     <div className="flex-1 min-w-[100px]">
@@ -678,44 +717,7 @@ const ManagePayment: React.FC = () => {
         ))}
       </select>
     </div>
-    
-    {/* College */}
-    <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
-        <FaUniversity className="mr-1 text-gray-600 text-[10px]" /> College
-      </label>
-      <select
-        value={collegeFilter}
-        onChange={(e) => setCollegeFilter(e.target.value)}
-        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-      >
-        <option value="">All</option>
-        {Array.from(filterOptions.colleges).map((college) => (
-          <option key={college} value={college}>
-            {college}
-          </option>
-        ))}
-      </select>
-    </div>
 
-    {/* Course */}
-    <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
-        <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
-      </label>
-      <select
-        value={courseFilter}
-        onChange={(e) => setCourseFilter(e.target.value)}
-        className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
-      >
-        <option value="">All</option>
-        {Array.from(filterOptions.courses).map((course) => (
-          <option key={course} value={course}>
-            {course}
-          </option>
-        ))}
-      </select>
-    </div>
 
     <div className="flex gap-1 min-w-[300px]">
       {/* Search */}

@@ -4,7 +4,15 @@ import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Modal } from 'flowbite-react';
-import Loader from '../../common/Loader'; // Adjust path to where Loader.tsx is located
+import { FiEdit } from 'react-icons/fi';
+import Loader from '../../common/Loader';
+
+interface EditStudentModalProps {
+  studentId: number;
+  onClose: () => void;
+  onSuccess: () => void;
+  modifiedBy: string;
+}
 
 interface StudentFormData {
   StudentId: number;
@@ -43,18 +51,34 @@ interface StudentFormData {
   stdCollId: string;
 }
 
-interface FileData {
-  file: File | null;
-  preview: string | null;
+interface Documents {
+  StudentImage: { file: File | null; preview: string | null };
+  CasteCertificate: { file: File | null; preview: string | null };
+  TenthMarks: { file: File | null; preview: string | null };
+  TwelfthMarks: { file: File | null; preview: string | null };
+  Residential: { file: File | null; preview: string | null };
+  Income: { file: File | null; preview: string | null };
 }
 
-interface Documents {
-  StudentImage: FileData;
-  CasteCertificate: FileData;
-  TenthMarks: FileData;
-  TwelfthMarks: FileData;
-  Residential: FileData;
-  Income: FileData;
+interface ExistingDocument {
+  DocumentType: string;
+  Url: string;
+}
+
+interface AcademicHistory {
+  id: string;
+  courseYear: string;
+  sessionYear: string;
+  adminAmount: number;
+  feesAmount: number;
+  paymentMode: string;
+  numberOfEMI?: number;
+  emiDetails: Array<{ emiNumber: number; amount: number; dueDate: string }>;
+  createdOn: string;
+  createdBy: string;
+  modifiedOn?: string;
+  modifiedBy?: string;
+  ledgerNumber?: string;
 }
 
 interface College {
@@ -65,38 +89,6 @@ interface College {
 interface Course {
   id: number;
   courseName: string;
-  courseDuration: number;
-}
-
-interface ExistingDocument {
-  DocumentId: number;
-  DocumentType: string;
-  FileName: string;
-  Url: string;
-  PublicId: string;
-}
-
-interface AcademicHistory {
-  id: string;
-  courseYear: string;
-  sessionYear: string;
-  adminAmount: number;
-  paymentMode: string;
-  numberOfEMI?: number;
-  feesAmount: number;
-  ledgerNumber?: string;
-  createdOn: string | Date;
-  createdBy?: string;
-  modifiedOn?: string | Date;
-  modifiedBy?: string;
-  emiDetails: Array<{ emiNumber: number; amount: number; dueDate: string }>;
-}
-
-interface EditStudentModalProps {
-  studentId: number;
-  onClose: () => void;
-  onSuccess: () => void;
-  modifiedBy: string;
 }
 
 const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose, onSuccess, modifiedBy }) => {
@@ -117,6 +109,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [showExistingYearWarningModal, setShowExistingYearWarningModal] = useState(false);
   const [selectedCourseYear, setSelectedCourseYear] = useState<string>('');
   const [tempCourseYear, setTempCourseYear] = useState<string>('');
+  const [tempSessionYear, setTempSessionYear] = useState<string>('');
   const [warningMessage, setWarningMessage] = useState<string>('');
 
   const [student, setStudent] = useState<StudentFormData>({
@@ -167,17 +160,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
   const [existingDocuments, setExistingDocuments] = useState<Record<string, ExistingDocument>>({});
 
-  // Generate session years (5 years before and after current year)
   const currentYear = new Date().getFullYear();
   const sessionYears = Array.from({ length: 10 }, (_, i) => {
     const startYear = currentYear - 5 + i;
     return `${startYear}-${startYear + 1}`;
   });
 
-  // Course year order for validation
   const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
 
-  // Fetch initial student data, colleges, courses, documents, and academic details
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -215,17 +205,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
         setAcademicData(academicResponse.data.data);
       } catch (error: any) {
-        console.error('Error fetching data:', error);
-        setError(error.response?.data?.message || 'Failed to load student data, colleges, courses, or academic details');
+        setError(error.response?.data?.message || 'Failed to load student data');
         toast.error(error.response?.data?.message || 'Failed to load student data');
-        setTimeout(() => setError(''), 5000);
       }
     };
 
     fetchData();
   }, [studentId, modifiedBy]);
 
-  // Fetch academic details when CourseYear changes
   useEffect(() => {
     if (student.CourseYear && loadingAcademic) {
       const fetchAcademicDetails = async () => {
@@ -266,7 +253,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             setEmiDetails([]);
           }
         } catch (error) {
-          console.error('Error fetching academic details:', error);
           toast.error('Failed to load academic details');
         } finally {
           setLoadingAcademic(false);
@@ -298,46 +284,67 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
 
     if (name === 'CourseYear') {
-      if (value === student.CourseYear) return; // No action if same course year
+      if (value === student.CourseYear) return;
       setTempCourseYear(value);
 
-      // Check if there's an existing academic record for the selected course year
       const existingRecord = academicData.find(detail => detail.courseYear === value);
-
-      // Define course year order for comparison
       const currentIndex = courseYearOrder.indexOf(student.CourseYear);
       const newIndex = courseYearOrder.indexOf(value);
 
-      // If trying to skip years (e.g., 1st to 3rd)
+      if (newIndex < currentIndex && currentIndex !== -1) {
+        const missingYears = [];
+        for (let i = newIndex; i < currentIndex; i++) {
+          if (!academicData.find(detail => detail.courseYear === courseYearOrder[i])) {
+            missingYears.push(courseYearOrder[i]);
+          }
+        }
+        if (missingYears.length > 0) {
+          setWarningMessage(
+            `Please update the records for ${missingYears.join(', ')} year(s) before updating ${courseYearOrder[currentIndex]} year.`
+          );
+          setShowSkipYearWarningModal(true);
+          return;
+        }
+      }
+
       if (newIndex - currentIndex > 1 && currentIndex !== -1) {
         const skippedYears = courseYearOrder.slice(currentIndex + 1, newIndex).join(', ');
         setWarningMessage(`You cannot skip ${skippedYears} year(s). Please enroll in sequential order.`);
         setShowSkipYearWarningModal(true);
         return;
       }
-      // If moving to a lower course year
-      else if (newIndex < currentIndex && currentIndex !== -1) {
-        // If the selected year already has an academic record
+
+      if (newIndex < currentIndex && currentIndex !== -1) {
         if (existingRecord) {
-          setWarningMessage(`You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`);
+          setWarningMessage(
+            `You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`
+          );
           setShowExistingYearWarningModal(true);
         } else {
-          // No existing record, but going backwards
           setWarningMessage(`Are you sure you want to change from ${student.CourseYear} to ${value} year?`);
           setShowCourseYearWarningModal(true);
         }
         return;
-      } 
-      // For normal progression (e.g., 1st to 2nd) or first-time setting
-      else {
+      } else {
         if (existingRecord) {
-          // If there's an existing record for the normal progression
-          setWarningMessage(`You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`);
+          setWarningMessage(
+            `You already have an academic record for ${value} year with session ${existingRecord.sessionYear}. Do you want to edit it?`
+          );
           setShowExistingYearWarningModal(true);
         } else {
-          // No existing record, proceed to select session year
           setShowSessionYearModal(true);
         }
+        return;
+      }
+    }
+
+    if (name === 'SessionYear') {
+      const existingRecord = academicData.find(detail => detail.sessionYear === value );
+      if (existingRecord) {
+        setWarningMessage(
+          `This session year ${value} for ${student.CourseYear} year already exists in the database. Please update the existing record first.`
+        );
+        setShowExistingYearWarningModal(true);
         return;
       }
     }
@@ -402,23 +409,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     setShowEditConfirmModal(false);
     const academicDetail = academicData.find((detail) => detail.courseYear === selectedCourseYear);
     if (academicDetail) {
-      // Set the current course year and session year
       setStudent((prev) => ({
         ...prev,
         CourseYear: academicDetail.courseYear,
         SessionYear: academicDetail.sessionYear,
       }));
-      
-      // Store academic detail info temporarily
       setTempCourseYear(academicDetail.courseYear);
-      
-      // Show session year modal
+      setTempSessionYear(academicDetail.sessionYear);
       setShowSessionYearModal(true);
-      
-      toast.info(`Select session year for ${selectedCourseYear} year`, {
-        position: "top-right",
-        autoClose: 3000
-      });
+      toast.info(`Select session year for ${selectedCourseYear} year`);
     }
   };
 
@@ -426,40 +425,31 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     setShowExistingYearWarningModal(false);
     const academicDetail = academicData.find((detail) => detail.courseYear === tempCourseYear);
     if (academicDetail) {
-      // Update course year but don't set other fields yet
       setStudent((prev) => ({
         ...prev,
         CourseYear: academicDetail.courseYear,
-        SessionYear: academicDetail.sessionYear, // Set current session year as default
+        SessionYear: academicDetail.sessionYear,
       }));
-      
-      // Store the academic detail temporarily
       setSelectedCourseYear(tempCourseYear);
-      
-      // Open session year selection modal
-      toast.info(`Choose a session year for ${tempCourseYear} year`, {
-        position: "top-right",
-        autoClose: 3000
-      });
+      setTempSessionYear(academicDetail.sessionYear);
+      toast.info(`Choose a session year for ${tempCourseYear} year`);
       setShowSessionYearModal(true);
     }
   };
 
-  const handleSessionYearSelect = (sessionYear: string) => {
+  const handleSessionYearSelect = () => {
     setShowSessionYearModal(false);
     setLoadingAcademic(true);
-    
-    // Check if we're editing an existing academic record
+
     const academicDetail = academicData.find(
       (detail) => detail.courseYear === (selectedCourseYear || tempCourseYear)
     );
-    
+
     if (academicDetail) {
-      // If editing existing record, load all details
       setStudent((prev) => ({
         ...prev,
         CourseYear: academicDetail.courseYear,
-        SessionYear: sessionYear, // Use the newly selected session year
+        SessionYear: tempSessionYear || student.SessionYear,
         PaymentMode: academicDetail.paymentMode,
         FineAmount: academicDetail.adminAmount,
         RefundAmount: academicDetail.feesAmount,
@@ -467,7 +457,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         NumberOfEMI: academicDetail.numberOfEMI || null,
         emiDetails: academicDetail.emiDetails || [],
       }));
-      
       setEmiDetails(
         academicDetail.emiDetails.map((emi: any) => ({
           emiNumber: emi.emiNumber,
@@ -476,45 +465,35 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         }))
       );
     } else {
-      // For new course year, just update course year and session year
       setStudent((prev) => ({
         ...prev,
         CourseYear: tempCourseYear,
-        SessionYear: sessionYear,
+        SessionYear: tempSessionYear || student.SessionYear,
       }));
     }
-    
-    setStep(3); // Navigate to Payment Details
-    
-    toast.info(`Selected session year ${sessionYear} for ${selectedCourseYear || tempCourseYear} year`, {
-      position: "top-right",
-      autoClose: 3000
-    });
-    
-    // Reset selected course year after handling
+
+    setStep(3);
+    toast.info(`Selected session year ${tempSessionYear || student.SessionYear} for ${selectedCourseYear || tempCourseYear} year`);
     setSelectedCourseYear('');
+    setLoadingAcademic(false);
   };
 
   const handleCourseYearWarningConfirm = () => {
     setShowCourseYearWarningModal(false);
-    // When going backwards, we should look for a suggested session year
     const recommendedSession = getRecommendedSessionYear(tempCourseYear);
     setStudent((prev) => ({
       ...prev,
       CourseYear: tempCourseYear,
-      SessionYear: recommendedSession || '', // Use recommended session or reset if none
+      SessionYear: recommendedSession || '',
     }));
     setShowSessionYearModal(true);
   };
 
   const getRecommendedSessionYear = (courseYear: string): string => {
-    // If moving from a higher to lower year, suggest an appropriate session
-    // For simplicity we'll suggest a session before the current course's session
     const currentYearRecord = academicData.find(detail => detail.courseYear === student.CourseYear);
     if (currentYearRecord) {
       const currentSessionIndex = sessionYears.indexOf(currentYearRecord.sessionYear);
       if (currentSessionIndex > 0) {
-        // Suggest previous session
         return sessionYears[currentSessionIndex - 1];
       }
     }
@@ -522,7 +501,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   };
 
   const handleUpdateConfirm = () => {
-    setShowUpdateConfirmModal(true);
+    setIsPreviewOpen(true);
   };
 
   const confirmUpdate = async () => {
@@ -553,26 +532,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       });
 
       if (response.data.success) {
-        toast.success('Student Updated successfully!', {
-          position: 'top-right',
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        toast.success('Student Updated successfully!');
         onSuccess();
         onClose();
       } else {
         throw new Error(response.data.message || 'Failed to update student');
       }
     } catch (error: any) {
-      console.error('Error updating student:', error);
       setError(error.response?.data?.message || error.message || 'An error occurred while updating the form');
-      toast.error(error.response?.data?.message || 'Failed to update student', {
-        position: 'top-right',
-        autoClose: 5000,
-      });
+      toast.error(error.response?.data?.message || 'Failed to update student');
     } finally {
       setIsSubmitting(false);
     }
@@ -619,10 +587,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setError('');
     } else {
       setError(`Please fill all required fields in Step ${step} before proceeding.`);
-      toast.warning(`Please fill all required fields in current tab before switching`, {
-        position: "top-right",
-        autoClose: 3000
-      });
+      toast.warning(`Please fill all required fields in current tab before switching`);
     }
   };
 
@@ -632,10 +597,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setError('');
     } else {
       setError(`Please fill all required fields in Step ${step} before proceeding.`);
-      toast.warning(`Please fill all required fields before proceeding`, {
-        position: "top-right",
-        autoClose: 3000
-      });
+      toast.warning(`Please fill all required fields before proceeding`);
     }
   };
 
@@ -644,34 +606,28 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     setError('');
   };
 
-  // Determine if a session year should be disabled
   const isSessionYearDisabled = (sessionYear: string) => {
     const currentIndex = courseYearOrder.indexOf(student.CourseYear);
     const newIndex = courseYearOrder.indexOf(tempCourseYear);
 
-    // Case 1: Normal progression (e.g. 1st to 2nd)
     if (newIndex > currentIndex && currentIndex !== -1) {
       const currentYearRecord = academicData.find(data => data.courseYear === student.CourseYear);
       if (currentYearRecord) {
         const currentSessionIndex = sessionYears.indexOf(currentYearRecord.sessionYear);
         const sessionIndex = sessionYears.indexOf(sessionYear);
-        // For progression, disable session years before the current year's session
         return sessionIndex <= currentSessionIndex;
       }
     }
 
-    // Case 2: Going backwards (e.g. 2nd to 1st)
     if (newIndex < currentIndex && currentIndex !== -1) {
       const higherYearRecord = academicData.find(data => data.courseYear === student.CourseYear);
       if (higherYearRecord) {
         const higherSessionIndex = sessionYears.indexOf(higherYearRecord.sessionYear);
         const sessionIndex = sessionYears.indexOf(sessionYear);
-        // For going backwards, disable session years after the higher year's session
         return sessionIndex >= higherSessionIndex;
       }
     }
 
-    // Check for existing sequential records
     if (newIndex > 0) {
       const previousYearRecord = academicData.find(
         data => data.courseYear === courseYearOrder[newIndex - 1]
@@ -679,19 +635,16 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       if (previousYearRecord) {
         const prevSessionIndex = sessionYears.indexOf(previousYearRecord.sessionYear);
         const sessionIndex = sessionYears.indexOf(sessionYear);
-        // Disable session years before the previous year's session
         return sessionIndex <= prevSessionIndex;
       }
     }
 
-    // Check for next course year
     const nextYearRecord = academicData.find(
       data => data.courseYear === courseYearOrder[newIndex + 1]
     );
     if (nextYearRecord) {
       const nextSessionIndex = sessionYears.indexOf(nextYearRecord.sessionYear);
       const sessionIndex = sessionYears.indexOf(sessionYear);
-      // Disable session years after the next year's session
       return sessionIndex >= nextSessionIndex;
     }
 
@@ -716,11 +669,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-      <div className="bg-white p-3 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-sm font-bold">
-            Edit Student : <b>{student.stdCollId}</b>
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+      <div className="bg-white p-3 rounded-lg max-w-4xl w-full  h-auto overflow-y-auto shadow-lg">
+        <div className="flex justify-between items-center mb-1">
+          <h2 className="text-lg font-bold text-blue-800">
+            Edit Student: <span className="text-blue-500">{student.stdCollId}</span>
           </h2>
           <button
             onClick={onClose}
@@ -730,15 +683,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           </button>
         </div>
 
-        {error && <div className="mb-2 p-1 bg-red-100 text-xs text-red-700 rounded">{error}</div>}
+        {error && <div className="mb-1 p-1 bg-red-100 text-xs text-red-700 rounded">{error}</div>}
 
-        <div className="flex border-b mb-2">
+        <div className="flex border-b mb-1">
           {[1, 2, 3, 4].map((tab) => (
             <button
               key={tab}
               onClick={() => handleTabClick(tab)}
               className={`px-2 py-1 text-xs font-medium ${
-                step === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-black'
+                step === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {['Personal', 'Academic', 'Payment', 'Documents'][tab - 1]} Details
@@ -750,7 +703,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           {step === 1 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   First Name <RequiredAsterisk />
                 </label>
                 <input
@@ -758,12 +711,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="FName"
                   value={student.FName}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Roll Number <RequiredAsterisk />
                 </label>
                 <input
@@ -771,12 +724,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="RollNumber"
                   value={student.RollNumber}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   DOB <RequiredAsterisk />
                 </label>
                 <input
@@ -784,19 +737,19 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="DOB"
                   value={student.DOB}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Gender <RequiredAsterisk />
                 </label>
                 <select
                   name="Gender"
                   value={student.Gender}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 >
                   <option value="">Select</option>
@@ -806,14 +759,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Category <RequiredAsterisk />
                 </label>
                 <select
                   name="Category"
                   value={student.Category}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 >
                   <option value="">Select</option>
@@ -824,7 +777,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Father's Name <RequiredAsterisk />
                 </label>
                 <input
@@ -832,12 +785,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="FatherName"
                   value={student.FatherName}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Mother's Name <RequiredAsterisk />
                 </label>
                 <input
@@ -845,12 +798,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="MotherName"
                   value={student.MotherName}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Mobile Number <RequiredAsterisk />
                 </label>
                 <input
@@ -859,23 +812,23 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   maxLength={10}
                   value={student.MobileNumber}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">Alternate Number</label>
+                <label className="block text-xs font-medium text-gray-700">Alternate Number</label>
                 <input
                   type="tel"
                   name="AlternateNumber"
                   maxLength={10}
                   value={student.AlternateNumber}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Email ID <RequiredAsterisk />
                 </label>
                 <input
@@ -883,12 +836,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="EmailId"
                   value={student.EmailId}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Father's Mobile <RequiredAsterisk />
                 </label>
                 <input
@@ -896,12 +849,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="FatherMobileNumber"
                   value={student.FatherMobileNumber}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   City <RequiredAsterisk />
                 </label>
                 <input
@@ -909,12 +862,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="City"
                   value={student.City}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   State <RequiredAsterisk />
                 </label>
                 <input
@@ -922,12 +875,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   name="State"
                   value={student.State}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Pincode <RequiredAsterisk />
                 </label>
                 <input
@@ -936,19 +889,19 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   maxLength={6}
                   value={student.Pincode}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-black">
+                <label className="block text-xs font-medium text-gray-700">
                   Address <RequiredAsterisk />
                 </label>
                 <textarea
                   name="Address"
                   value={student.Address}
                   onChange={handleChange}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
                   rows={2}
                 />
@@ -957,18 +910,17 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           )}
 
           {step === 2 && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* College */}
+            <div className="space-y-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
                 <div>
-                  <label className="block text-xs font-medium text-black">
+                  <label className="block text-xs font-medium text-gray-700">
                     College <RequiredAsterisk />
                   </label>
                   <select
                     name="CollegeId"
                     value={student.CollegeId}
                     onChange={handleChange}
-                    className="w-full border p-1 rounded mt-1 text-xs disabled:cursor-not-allowed"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed"
                     required
                     disabled
                   >
@@ -980,17 +932,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     ))}
                   </select>
                 </div>
-
-                {/* Admission Mode */}
                 <div>
-                  <label className="block text-xs font-medium text-black">
+                  <label className="block text-xs font-medium text-gray-700">
                     Admission Mode <RequiredAsterisk />
                   </label>
                   <select
                     name="AdmissionMode"
                     value={student.AdmissionMode}
                     onChange={handleChange}
-                    className="w-full border p-1 rounded mt-1 text-xs disabled:cursor-not-allowed"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed"
                     required
                     disabled
                   >
@@ -999,17 +949,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <option value="entrance">Entrance</option>
                   </select>
                 </div>
-
-                {/* Course */}
                 <div>
-                  <label className="block text-xs font-medium text-black">
+                  <label className="block text-xs font-medium text-gray-700">
                     Course <RequiredAsterisk />
                   </label>
                   <select
                     name="CourseId"
                     value={student.CourseId}
                     onChange={handleChange}
-                    className="w-full border p-1 rounded mt-1 text-xs disabled:cursor-not-allowed"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 disabled:cursor-not-allowed"
                     required
                     disabled
                   >
@@ -1021,17 +969,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     ))}
                   </select>
                 </div>
-
-                {/* Course Year */}
                 <div>
-                  <label className="block text-xs font-medium text-black">
+                  <label className="block text-xs font-medium text-gray-700">
                     Course Year <RequiredAsterisk />
                   </label>
                   <select
                     name="CourseYear"
                     value={student.CourseYear}
                     onChange={handleChange}
-                    className="w-full border p-1 rounded mt-1 text-xs"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                     required
                   >
                     <option value="">Select</option>
@@ -1041,30 +987,26 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <option value="4th">4th</option>
                   </select>
                 </div>
-
-                {/* Admission Date */}
                 <div>
-                  <label className="block text-xs font-medium text-black">Admission Date</label>
+                  <label className="block text-xs font-medium text-gray-700">Admission Date</label>
                   <input
                     type="date"
                     name="AdmissionDate"
                     value={student.AdmissionDate}
                     onChange={handleChange}
                     max={new Date().toISOString().split('T')[0]}
-                    className="w-full border p-1 rounded mt-1 text-xs"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   />
                 </div>
-
-                {/* Session Year */}
                 <div>
-                  <label className="block text-xs font-medium text-black">
+                  <label className="block text-xs font-medium text-gray-700">
                     Session Year <RequiredAsterisk />
                   </label>
                   <select
                     name="SessionYear"
                     value={student.SessionYear}
                     onChange={handleChange}
-                    className="w-full border p-1 rounded mt-1 text-xs"
+                    className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                     required
                   >
                     <option value="">Select</option>
@@ -1075,97 +1017,86 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     ))}
                   </select>
                 </div>
-
-                {/* Is Discontinue */}
                 <div className="col-span-2">
-                  <label className="flex items-center text-xs font-medium text-black">
+                  <label className="flex items-center text-xs font-medium text-gray-700">
                     <input
                       type="checkbox"
                       name="IsDiscontinue"
                       checked={student.IsDiscontinue}
                       onChange={handleChange}
-                      className="mr-2"
+                      className="mr-1"
                     />
                     Is Discontinued?
                   </label>
                 </div>
-
-                {/* If Discontinued */}
                 {student.IsDiscontinue && (
                   <>
                     <div>
-                      <label className="block text-xs font-medium text-black">Discontinue Date</label>
+                      <label className="block text-xs font-medium text-gray-700">Discontinue Date</label>
                       <input
                         type="date"
                         name="DiscontinueOn"
                         value={student.DiscontinueOn}
                         onChange={handleChange}
-                        className="w-full border p-1 rounded mt-1 text-xs"
+                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-black">Discontinued By</label>
+                      <label className="block text-xs font-medium text-gray-700">Discontinued By</label>
                       <input
                         type="text"
                         name="DiscontinueBy"
                         value={student.DiscontinueBy}
                         onChange={handleChange}
-                        className="w-full border p-1 rounded mt-1 text-xs"
+                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                       />
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Academic History Table */}
-              <div className="mt-3">
-                <h2 className="text-xs font-semibold text-gray-800 mb-1">Academic History</h2>
+              <div className="mt-1">
+                <h2 className="text-xs font-semibold text-gray-800 mb-0.5">Academic History</h2>
                 <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
-                  <table className="min-w-full divide-y divide-gray-200 text-[10px]">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead className="bg-gray-100 text-gray-800 uppercase">
                       <tr>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">SAID</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Course Year</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Session</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Admin Amount</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Payment Mode</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Fees Amount</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created On</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Created By</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified On</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Modified By</th>
-                        <th className="px-1 py-1 text-left font-medium text-gray-500 uppercase">Action</th>
+                        {[
+                          'SAID', 'Course Year', 'Session', 'Admin Amount',
+                          'Payment Mode', 'Fees Amount', 'Created On',
+                          'Created By', 'Modified On', 'Modified By', 'Action'
+                        ].map(header => (
+                          <th key={header} className="px-1 py-0.5 text-left font-medium whitespace-nowrap">{header}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {academicData.map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50">
-                          <td className="px-1 py-0.5 text-gray-900">{item.id}</td>
-                          <td className="px-1 py-0.5 text-gray-900">{item.courseYear}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{item.sessionYear}</td>
-                          <td className="px-1 py-0.5 text-gray-500">₹{item.adminAmount.toLocaleString('en-IN')}</td>
-                          <td className="px-1 py-0.5 text-gray-500">
-                            <div className="flex items-center">
-                              {item.paymentMode}
-                              {item.numberOfEMI && (
-                                <span className="ml-0.5 bg-blue-200 text-blue-800 text-[8px] px-1 py-0.5 rounded-full">
-                                  {item.numberOfEMI} EMIs
-                                </span>
-                              )}
-                            </div>
+                        <tr key={item.id} className="hover:bg-gray-50 whitespace-nowrap">
+                          <td className="px-1 py-0.5">{item.id}</td>
+                          <td className="px-1 py-0.5">{item.courseYear}</td>
+                          <td className="px-1 py-0.5">{item.sessionYear}</td>
+                          <td className="px-1 py-0.5">₹{item.adminAmount.toLocaleString('en-IN')}</td>
+                          <td className="px-1 py-0.5 flex items-center gap-0.5">
+                            {item.paymentMode}
+                            {item.numberOfEMI && (
+                              <span className="bg-blue-100 text-blue-800 text-xs px-0.5 rounded-full">
+                                {item.numberOfEMI} EMI
+                              </span>
+                            )}
                           </td>
-                          <td className="px-1 py-0.5 text-gray-500">₹{item.feesAmount.toLocaleString('en-IN')}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{formatDate(item.createdOn)}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{item.createdBy || '-'}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{item.modifiedOn ? formatDate(item.modifiedOn) : '-'}</td>
-                          <td className="px-1 py-0.5 text-gray-500">{item.modifiedBy || '-'}</td>
+                          <td className="px-1 py-0.5">₹{item.feesAmount.toLocaleString('en-IN')}</td>
+                          <td className="px-1 py-0.5">{formatDate(item.createdOn)}</td>
+                          <td className="px-1 py-0.5">{item.createdBy || '-'}</td>
+                          <td className="px-1 py-0.5">{item.modifiedOn ? formatDate(item.modifiedOn) : '-'}</td>
+                          <td className="px-1 py-0.5">{item.modifiedBy || '-'}</td>
                           <td className="px-1 py-0.5">
                             <button
                               onClick={() => handleEditAcademic(item.courseYear)}
-                              className="text-blue-500 hover:text-blue-700 text-[10px] px-1 py-0.5 rounded bg-blue-100 hover:bg-blue-200"
+                              className="text-blue-500 hover:text-blue-700 p-0.5 rounded hover:bg-blue-100"
                               aria-label={`Edit academic details for ${item.courseYear}`}
                             >
-                              Edit
+                              <FiEdit size={12} />
                             </button>
                           </td>
                         </tr>
@@ -1173,7 +1104,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     </tbody>
                   </table>
                   {academicData.length === 0 && (
-                    <div className="text-center py-1 text-[10px] text-gray-500">No academic records found</div>
+                    <div className="text-center py-1 text-xs text-gray-500">No academic records found</div>
                   )}
                 </div>
               </div>
@@ -1181,7 +1112,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           )}
 
           {step === 3 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               {loadingAcademic ? (
                 <div className="col-span-2 flex justify-center items-center">
                   <Loader size="lg" className="text-blue-500" />
@@ -1189,44 +1120,44 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               ) : (
                 <>
                   <div className="col-span-2">
-                    <h2 className="text-xs font-semibold text-gray-800 mb-1">
+                    <h2 className="text-xs font-semibold text-gray-800 mb-0.5">
                       {student.CourseYear ? `${student.CourseYear} Year Payment Details` : 'Payment Details'}
                     </h2>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-black">Admin Amount</label>
+                    <label className="block text-xs font-medium text-gray-700">Admin Amount</label>
                     <input
                       type="number"
                       name="FineAmount"
                       value={student.FineAmount}
                       onChange={handleChange}
-                      className="w-full border p-1 rounded mt-1 text-xs"
+                      className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                       min="0"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-black">Ledger Number</label>
+                    <label className="block text-xs font-medium text-gray-700">Ledger Number</label>
                     <input
                       type="text"
                       name="LedgerNumber"
                       value={student.LedgerNumber}
                       onChange={handleChange}
-                      className="w-full border p-1 rounded mt-1 text-xs"
+                      className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-black">Fees Amount</label>
+                    <label className="block text-xs font-medium text-gray-700">Fees Amount</label>
                     <input
                       type="number"
                       name="RefundAmount"
                       value={student.RefundAmount}
                       onChange={handleChange}
-                      className="w-full border p-1 rounded mt-1 text-xs"
+                      className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                       min="0"
                     />
                   </div>
                   <div className="flex items-center">
-                    <label className="mr-2 block text-xs font-medium text-black">
+                    <label className="mr-1 block text-xs font-medium text-gray-700">
                       Payment Mode <RequiredAsterisk />
                     </label>
                     <label className="flex items-center">
@@ -1238,9 +1169,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         onChange={handleChange}
                         className="h-3 w-3 text-blue-600"
                       />
-                      <span className="ml-1 text-xs">One-Time</span>
+                      <span className="ml-0.5 text-xs">One-Time</span>
                     </label>
-                    <label className="flex items-center ml-2">
+                    <label className="flex items-center ml-1">
                       <input
                         type="radio"
                         name="PaymentMode"
@@ -1249,19 +1180,19 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         onChange={handleChange}
                         className="h-3 w-3 text-blue-600"
                       />
-                      <span className="ml-1 text-xs">EMI</span>
+                      <span className="ml-0.5 text-xs">EMI</span>
                     </label>
                   </div>
                   {student.PaymentMode === 'EMI' && (
                     <div>
-                      <label className="block text-xs font-medium text-black">
+                      <label className="block text-xs font-medium text-gray-700">
                         No of EMIs <RequiredAsterisk />
                       </label>
                       <select
                         name="NumberOfEMI"
                         value={student.NumberOfEMI || ''}
                         onChange={handleChange}
-                        className="w-full border p-1 rounded mt-1 text-xs"
+                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                         required
                       >
                         <option value="">Select</option>
@@ -1274,14 +1205,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     </div>
                   )}
                   {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
-                    <div className="col-span-2 mt-2">
+                    <div className="col-span-2 mt-1">
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
-                              <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">EMI</th>
-                              <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">Amount</th>
-                              <th className="px-1 py-0.5 text-left text-[10px] font-medium text-black">Date</th>
+                              <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">EMI</th>
+                              <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Amount</th>
+                              <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Date</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
@@ -1292,7 +1223,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                                     type="text"
                                     value={`EMI ${emi.emiNumber}`}
                                     disabled
-                                    className="w-full border p-0.5 rounded text-[10px] bg-gray-100"
+                                    className="w-full border p-0.5 rounded text-xs bg-gray-100"
                                   />
                                 </td>
                                 <td className="px-1 py-0.5">
@@ -1300,7 +1231,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                                     type="number"
                                     value={emi.amount || 0}
                                     onChange={(e) => handleEmiChange(index, 'amount', e.target.value)}
-                                    className="w-full border p-0.5 rounded text-[10px]"
+                                    className="w-full border p-0.5 rounded text-xs focus:ring-2 focus:ring-blue-300"
                                     min="0"
                                     required
                                   />
@@ -1310,7 +1241,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                                     type="date"
                                     value={emi.dueDate}
                                     onChange={(e) => handleEmiChange(index, 'dueDate', e.target.value)}
-                                    className="w-full border p-0.5 rounded text-[10px]"
+                                    className="w-full border p-0.5 rounded text-xs focus:ring-2 focus:ring-blue-300"
                                     required
                                   />
                                 </td>
@@ -1327,28 +1258,28 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           )}
 
           {step === 4 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               <div>
-                <label className="block text-xs font-medium text-black">Student Photo</label>
+                <label className="block text-xs font-medium text-gray-700">Student Photo</label>
                 <input
                   type="file"
                   accept=".jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'StudentImage')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {documents.StudentImage.preview ? (
-                  <img src={documents.StudentImage.preview} alt="New Preview" className="h-12 w-12 object-cover rounded mt-1" />
+                  <img src={documents.StudentImage.preview} alt="New Preview" className="h-10 w-10 object-cover rounded mt-0.5" />
                 ) : existingDocuments.StudentImage ? (
-                  <img src={existingDocuments.StudentImage.Url} alt="Current" className="h-12 w-12 object-cover rounded mt-1" />
+                  <img src={existingDocuments.StudentImage.Url} alt="Current" className="h-10 w-10 object-cover rounded mt-0.5" />
                 ) : null}
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">10th Marksheet</label>
+                <label className="block text-xs font-medium text-gray-700">10th Marksheet</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'TenthMarks')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {existingDocuments.TenthMarks && !documents.TenthMarks.file && (
                   <a
@@ -1362,12 +1293,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">12th Marksheet</label>
+                <label className="block text-xs font-medium text-gray-700">12th Marksheet</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'TwelfthMarks')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {existingDocuments.TwelfthMarks && !documents.TwelfthMarks.file && (
                   <a
@@ -1381,12 +1312,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">Caste Certificate</label>
+                <label className="block text-xs font-medium text-gray-700">Caste Certificate</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'CasteCertificate')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {existingDocuments.CasteCertificate && !documents.CasteCertificate.file && (
                   <a
@@ -1400,12 +1331,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">Income Certificate</label>
+                <label className="block text-xs font-medium text-gray-700">Income Certificate</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'Income')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {existingDocuments.Income && !documents.Income.file && (
                   <a
@@ -1419,12 +1350,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-black">Residential Proof</label>
+                <label className="block text-xs font-medium text-gray-700">Residential Proof</label>
                 <input
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={(e) => handleFileChange(e, 'Residential')}
-                  className="w-full border p-1 rounded mt-1 text-xs"
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                 />
                 {existingDocuments.Residential && !documents.Residential.file && (
                   <a
@@ -1440,11 +1371,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             </div>
           )}
 
-          <div className="flex justify-between pt-2">
+          <div className="flex justify-between pt-1">
             {step > 1 && (
               <button
                 onClick={prevStep}
-                className="px-2 py-1 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
+                className="px-2 py-0.5 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
               >
                 Previous
               </button>
@@ -1453,14 +1384,14 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               {step < 4 ? (
                 <button
                   onClick={nextStep}
-                  className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                  className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
                 >
                   Save & Next
                 </button>
               ) : (
                 <button
                   onClick={handleUpdateConfirm}
-                  className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                  className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                 >
                   Preview & Update
                 </button>
@@ -1469,99 +1400,105 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           </div>
         </form>
 
-        {/* Skip Year Warning Modal */}
-        <Modal 
-          show={showSkipYearWarningModal} 
-          onClose={() => setShowSkipYearWarningModal(false)} 
-          size="md" 
-          className="pt-44 bg-gray-300">
-          <Modal.Header className="bg-red-400">Course Year Sequence Error</Modal.Header>
-          <Modal.Body>
-            <div className="text-sm text-gray-600">{warningMessage}</div>
+        <Modal
+          show={showSkipYearWarningModal}
+          onClose={() => setShowSkipYearWarningModal(false)}
+          size="md"
+              className='bg-gray-200 backdrop-blur-sm'
+
+        >
+          <Modal.Header className="bg-red-500 text-white py-1 text-sm">Course Year Sequence Error</Modal.Header>
+          <Modal.Body className="py-2">
+            <div className="text-xs text-gray-600">{warningMessage}</div>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="py-1">
             <button
               onClick={() => setShowSkipYearWarningModal(false)}
-              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
             >
               Understood
             </button>
           </Modal.Footer>
         </Modal>
 
-        {/* Course Year Warning Modal */}
-        <Modal 
-          show={showCourseYearWarningModal} 
-          onClose={() => setShowCourseYearWarningModal(false)} 
-          size="md" 
-          className="pt-44 bg-gray-300">
-          <Modal.Header className="bg-yellow-400">Confirm Course Year Change</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">{warningMessage}</p>
+        <Modal
+          show={showCourseYearWarningModal}
+          onClose={() => setShowCourseYearWarningModal(false)}
+          size="md"
+          position="center"
+          className='bg-gray-200 backdrop-blur-sm'
+
+        >
+          <Modal.Header className="bg-yellow-500 text-white py-1 text-sm">Confirm Course Year Change</Modal.Header>
+          <Modal.Body className="py-2">
+            <p className="text-xs text-gray-600">{warningMessage}</p>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="py-1">
             <button
               onClick={() => setShowCourseYearWarningModal(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+              className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
             >
               Cancel
             </button>
             <button
               onClick={handleCourseYearWarningConfirm}
-              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
             >
               Proceed
             </button>
           </Modal.Footer>
         </Modal>
 
-        {/* Existing Year Warning Modal */}
-        <Modal 
-          show={showExistingYearWarningModal} 
-          onClose={() => setShowExistingYearWarningModal(false)} 
-          size="md" 
-          className="pt-44 bg-gray-300">
-          <Modal.Header className="bg-blue-400">Existing Academic Record</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">{warningMessage}</p>
+        <Modal
+          show={showExistingYearWarningModal}
+          onClose={() => setShowExistingYearWarningModal(false)}
+          size="md"
+          position="center"
+          className='bg-gray-200 backdrop-blur-sm'
+        >
+          <Modal.Header className="bg-blue-500 text-white py-1 text-sm">Existing Academic Record</Modal.Header>
+          <Modal.Body className="py-2">
+            <p className="text-xs text-gray-600">{warningMessage}</p>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="py-1">
             <button
               onClick={() => setShowExistingYearWarningModal(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+              className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
             >
               Cancel
             </button>
             <button
               onClick={handleExistingYearConfirm}
-              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
             >
               Edit This Record
             </button>
           </Modal.Footer>
         </Modal>
 
-        {/* Session Year Selection Modal */}
-        <Modal 
-          show={showSessionYearModal} 
-          onClose={() => setShowSessionYearModal(false)} 
-          size="md" 
-          className="pt-44 bg-gray-400">
-          <Modal.Header>Select Session Year</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">
+        <Modal
+          show={showSessionYearModal}
+          onClose={() => setShowSessionYearModal(false)}
+          size="md"
+          position="center"
+          className='bg-gray-200 backdrop-blur-sm'
+
+        >
+          <Modal.Header className="bg-blue-600 text-white py-1 text-sm">Select Session Year</Modal.Header>
+          <Modal.Body className="py-2">
+            <p className="text-xs text-gray-600">
               Please select a session year for course year {selectedCourseYear || tempCourseYear}.
               {selectedCourseYear && (
-                <span className="block mt-1 text-blue-600">
+                <span className="block mt-0.5 text-blue-600">
                   You are editing an existing academic record.
                 </span>
               )}
             </p>
-            <div className="mt-2">
+            <div className="mt-1">
               <select
-                className="w-full border p-1 rounded text-sm"
-                value={student.SessionYear || ''}
-                onChange={(e) => setStudent((prev) => ({ ...prev, SessionYear: e.target.value }))}
+                className="w-full border p-1 rounded text-xs focus:ring-2 focus:ring-blue-300"
+                value={tempSessionYear}
+                onChange={(e) => setTempSessionYear(e.target.value)}
               >
                 <option value="" disabled>
                   Select Session Year
@@ -1579,152 +1516,92 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               </select>
             </div>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="py-1">
             <button
               onClick={() => {
                 setShowSessionYearModal(false);
-                setSelectedCourseYear(''); // Reset selected course year if canceled
+                setSelectedCourseYear('');
               }}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+              className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
             >
               Cancel
             </button>
             <button
-              onClick={() => {
-                if (student.SessionYear) {
-                  handleSessionYearSelect(student.SessionYear);
-                }
-              }}
-              disabled={!student.SessionYear}
-              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
+              onClick={handleSessionYearSelect}
+              disabled={!tempSessionYear}
+              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:text-gray-500"
             >
               Confirm
             </button>
           </Modal.Footer>
         </Modal>
 
-        {/* Edit Confirmation Modal */}
-        <Modal 
-          show={showEditConfirmModal} 
-          onClose={() => setShowEditConfirmModal(false)} 
-          size="md" 
-          className="pt-50 bg-gray-300">
-          <Modal.Header>Confirm Edit</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">Are you sure you want to edit the course year {selectedCourseYear}?</p>
+        <Modal
+          show={showEditConfirmModal}
+          onClose={() => setShowEditConfirmModal(false)}
+          size="md"
+          position="center"
+          className='bg-gray-200 backdrop-blur-sm'
+
+        >
+          <Modal.Header className="bg-blue-600 text-white py-1 text-sm">Confirm Edit</Modal.Header>
+          <Modal.Body className="py-2">
+            <p className="text-xs text-gray-600">Are you sure you want to edit the course year {selectedCourseYear}?</p>
           </Modal.Body>
-          <Modal.Footer>
+          <Modal.Footer className="py-1">
             <button
               onClick={() => setShowEditConfirmModal(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+              className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
             >
               Cancel
             </button>
             <button
               onClick={confirmEditAcademic}
-              className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
             >
               Confirm
             </button>
           </Modal.Footer>
         </Modal>
 
-        {/* Update Confirmation Modal */}
-        <Modal 
-          show={showUpdateConfirmModal} 
-          onClose={() => setShowUpdateConfirmModal(false)} 
-          size="md" 
-          className='pt-30'>
-          <Modal.Header className='bg-green-400'>Confirm Update</Modal.Header>
-          <Modal.Body>
-            <p className="text-sm text-gray-600">Are you sure you want to update this student's data?</p>
-          </Modal.Body>
-          <Modal.Footer>
-            <button
-              onClick={() => setShowUpdateConfirmModal(false)}
-              className="px-3 py-1 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={confirmUpdate}
-              className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader size="sm" className="inline-block mr-1" /> 
-                  Updating...
-                </>
-              ) : 'Confirm'}
-            </button>
-          </Modal.Footer>
-        </Modal>
-
         {isPreviewOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white p-3 rounded-lg max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-lg">
-              <h2 className="text-sm font-bold mb-2 text-center">Student Details Preview</h2>
-              <div className="flex justify-center mb-4">
+              <h2 className="text-lg font-bold mb-1 text-center text-blue-800">Student Details Preview</h2>
+              <div className="flex justify-center mb-2">
                 {documents.StudentImage.preview ? (
-                  <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-blue-200">
+                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-blue-200">
                     <img src={documents.StudentImage.preview} alt="Student" className="h-full w-full object-cover" />
                   </div>
                 ) : existingDocuments.StudentImage ? (
-                  <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-blue-200">
+                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-blue-200">
                     <img src={existingDocuments.StudentImage.Url} alt="Student" className="h-full w-full object-cover" />
                   </div>
                 ) : (
-                  <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                  <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
                     No Image
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-xs">
-                <div className="space-y-1">
-                  <h3 className="font-bold text-blue-600 border-b pb-1">Personal Details</h3>
-                  <div>
-                    <span className="font-medium">Name:</span> {student.FName} {student.LName}
-                  </div>
-                  <div>
-                    <span className="font-medium">Roll Number:</span> {student.RollNumber}
-                  </div>
-                  <div>
-                    <span className="font-medium">DOB:</span> {student.DOB}
-                  </div>
-                  <div>
-                    <span className="font-medium">Gender:</span> {student.Gender}
-                  </div>
-                  <div>
-                    <span className="font-medium">Mobile:</span> {student.MobileNumber}
-                  </div>
-                  <div>
-                    <span className="font-medium">Email:</span> {student.EmailId}
-                  </div>
-                  <div>
-                    <span className="font-medium">Father's Name:</span> {student.FatherName}
-                  </div>
-                  <div>
-                    <span className="font-medium">Mother's Name:</span> {student.MotherName}
-                  </div>
-                  <div>
-                    <span className="font-medium">Category:</span> {student.Category}
-                  </div>
-                  <div>
-                    <span className="font-medium">Address:</span> {student.Address}
-                  </div>
-                  <div>
-                    <span className="font-medium">City:</span> {student.City}
-                  </div>
-                  <div>
-                    <span className="font-medium">State:</span> {student.State}
-                  </div>
-                  <div>
-                    <span className="font-medium">Pincode:</span> {student.Pincode}
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2 text-xs">
+                <div className="space-y-0.5">
+                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Personal Details</h3>
+                  <div><span className="font-medium">Name:</span> {student.FName} {student.LName}</div>
+                  <div><span className="font-medium">Roll Number:</span> {student.RollNumber}</div>
+                  <div><span className="font-medium">DOB:</span> {student.DOB}</div>
+                  <div><span className="font-medium">Gender:</span> {student.Gender}</div>
+                  <div><span className="font-medium">Mobile:</span> {student.MobileNumber}</div>
+                  <div><span className="font-medium">Email:</span> {student.EmailId}</div>
+                  <div><span className="font-medium">Father's Name:</span> {student.FatherName}</div>
+                  <div><span className="font-medium">Mother's Name:</span> {student.MotherName}</div>
+                  <div><span className="font-medium">Category:</span> {student.Category}</div>
+                  <div><span className="font-medium">Address:</span> {student.Address}</div>
+                  <div><span className="font-medium">City:</span> {student.City}</div>
+                  <div><span className="font-medium">State:</span> {student.State}</div>
+                  <div><span className="font-medium">Pincode:</span> {student.Pincode}</div>
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-blue-600 border-b pb-1">Academic Details</h3>
+                <div className="space-y-0.5">
+                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Academic Details</h3>
                   <div>
                     <span className="font-medium">College:</span>{' '}
                     {colleges.find((c) => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}
@@ -1733,51 +1610,27 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <span className="font-medium">Course:</span>{' '}
                     {courses.find((c) => c.id === parseInt(student.CourseId))?.courseName || 'N/A'}
                   </div>
-                  <div>
-                    <span className="font-medium">Course Year:</span> {student.CourseYear}
-                  </div>
-                  <div>
-                    <span className="font-medium">Admission Mode:</span> {student.AdmissionMode}
-                  </div>
-                  <div>
-                    <span className="font-medium">Admission Date:</span> {student.AdmissionDate}
-                  </div>
-                  <div>
-                    <span className="font-medium">Session Year:</span> {student.SessionYear}
-                  </div>
-                  <div>
-                    <span className="font-medium">Is Discontinued:</span> {student.IsDiscontinue ? 'Yes' : 'No'}
-                  </div>
+                  <div><span className="font-medium">Course Year:</span> {student.CourseYear}</div>
+                  <div><span className="font-medium">Admission Mode:</span> {student.AdmissionMode}</div>
+                  <div><span className="font-medium">Admission Date:</span> {student.AdmissionDate}</div>
+                  <div><span className="font-medium">Session Year:</span> {student.SessionYear}</div>
+                  <div><span className="font-medium">Is Discontinued:</span> {student.IsDiscontinue ? 'Yes' : 'No'}</div>
                   {student.IsDiscontinue && (
                     <>
-                      <div>
-                        <span className="font-medium">Discontinue Date:</span> {student.DiscontinueOn}
-                      </div>
-                      <div>
-                        <span className="font-medium">Discontinued By:</span> {student.DiscontinueBy}
-                      </div>
+                      <div><span className="font-medium">Discontinue Date:</span> {student.DiscontinueOn}</div>
+                      <div><span className="font-medium">Discontinued By:</span> {student.DiscontinueBy}</div>
                     </>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-blue-600 border-b pb-1">Payment Details</h3>
-                  <div>
-                    <span className="font-medium">Payment Mode:</span> {student.PaymentMode}
-                  </div>
-                  <div>
-                    <span className="font-medium">Admin Amount:</span> ₹{student.FineAmount.toLocaleString('en-IN')}
-                  </div>
-                  <div>
-                    <span className="font-medium">Fees Amount:</span> ₹{student.RefundAmount.toLocaleString('en-IN')}
-                  </div>
-                  <div>
-                    <span className="font-medium">Ledger Number:</span> {student.LedgerNumber || '-'}
-                  </div>
+                <div className="space-y-0.5">
+                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Payment Details</h3>
+                  <div><span className="font-medium">Payment Mode:</span> {student.PaymentMode}</div>
+                  <div><span className="font-medium">Admin Amount:</span> ₹{student.FineAmount.toLocaleString('en-IN')}</div>
+                  <div><span className="font-medium">Fees Amount:</span> ₹{student.RefundAmount.toLocaleString('en-IN')}</div>
+                  <div><span className="font-medium">Ledger Number:</span> {student.LedgerNumber || '-'}</div>
                   {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
                     <>
-                      <div>
-                        <span className="font-medium">No of EMIs:</span> {student.NumberOfEMI}
-                      </div>
+                      <div><span className="font-medium">No of EMIs:</span> {student.NumberOfEMI}</div>
                       {emiDetails.map((emi, index) => (
                         <div key={index}>
                           <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: ₹{emi.amount.toLocaleString('en-IN')}, 
@@ -1787,39 +1640,23 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     </>
                   )}
                 </div>
-                <div className="space-y-1">
-                  <h3 className="font-bold text-blue-600 border-b pb-1">Document Details</h3>
+                <div className="space-y-0.5">
+                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Document Details</h3>
                   <div>
                     <span className="font-medium">Student Photo:</span>{' '}
-                    {documents.StudentImage.file
-                      ? 'New Uploaded'
-                      : existingDocuments.StudentImage
-                      ? 'Existing'
-                      : 'Not Uploaded'}
+                    {documents.StudentImage.file ? 'New Uploaded' : existingDocuments.StudentImage ? 'Existing' : 'Not Uploaded'}
                   </div>
                   <div>
                     <span className="font-medium">10th Marksheet:</span>{' '}
-                    {documents.TenthMarks.file
-                      ? 'New Uploaded'
-                      : existingDocuments.TenthMarks
-                      ? 'Existing'
-                      : 'Not Uploaded'}
+                    {documents.TenthMarks.file ? 'New Uploaded' : existingDocuments.TenthMarks ? 'Existing' : 'Not Uploaded'}
                   </div>
                   <div>
                     <span className="font-medium">12th Marksheet:</span>{' '}
-                    {documents.TwelfthMarks.file
-                      ? 'New Uploaded'
-                      : existingDocuments.TwelfthMarks
-                      ? 'Existing'
-                      : 'Not Uploaded'}
+                    {documents.TwelfthMarks.file ? 'New Uploaded' : existingDocuments.TwelfthMarks ? 'Existing' : 'Not Uploaded'}
                   </div>
                   <div>
                     <span className="font-medium">Caste Certificate:</span>{' '}
-                    {documents.CasteCertificate.file
-                      ? 'New Uploaded'
-                      : existingDocuments.CasteCertificate
-                      ? 'Existing'
-                      : 'Not Uploaded'}
+                    {documents.CasteCertificate.file ? 'New Uploaded' : existingDocuments.CasteCertificate ? 'Existing' : 'Not Uploaded'}
                   </div>
                   <div>
                     <span className="font-medium">Income Certificate:</span>{' '}
@@ -1827,36 +1664,56 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   </div>
                   <div>
                     <span className="font-medium">Residential Proof:</span>{' '}
-                    {documents.Residential.file
-                      ? 'New Uploaded'
-                      : existingDocuments.Residential
-                      ? 'Existing'
-                      : 'Not Uploaded'}
+                    {documents.Residential.file ? 'New Uploaded' : existingDocuments.Residential ? 'Existing' : 'Not Uploaded'}
                   </div>
                 </div>
               </div>
               <div className="flex justify-end space-x-1">
                 <button
                   onClick={() => setIsPreviewOpen(false)}
-                  className="px-2 py-1 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
+                  className="px-2 py-0.5 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
                 >
                   Back
                 </button>
                 <button
-                  onClick={handleUpdateConfirm}
-                  disabled={isSubmitting}
-                  className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 disabled:bg-green-300"
+                  onClick={() => setShowUpdateConfirmModal(true)}
+                  className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <Loader size="sm" className="inline-block mr-1" />
-                      Updating...
-                    </>
-                  ) : (
-                    'Update'
-                  )}
+                  Confirm Update
                 </button>
               </div>
+
+              <Modal
+                show={showUpdateConfirmModal}
+                onClose={() => setShowUpdateConfirmModal(false)}
+                size="md"
+                position="center"
+              >
+                <Modal.Header className="bg-green-500 text-white py-1 text-sm">Confirm Update</Modal.Header>
+                <Modal.Body className="py-2">
+                  <p className="text-xs text-gray-600">Are you sure you want to update this student's data?</p>
+                </Modal.Body>
+                <Modal.Footer className="py-1">
+                  <button
+                    onClick={() => setShowUpdateConfirmModal(false)}
+                    className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmUpdate}
+                    className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader size="sm" className="inline-block mr-0.5" />
+                        Updating...
+                      </>
+                    ) : 'Confirm'}
+                  </button>
+                </Modal.Footer>
+              </Modal>
             </div>
           </div>
         )}
