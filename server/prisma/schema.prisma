@@ -283,12 +283,12 @@ model StudentPayment {
   paymentMode         String?   // Cash, Check, Bank Transfer, UPI
   transactionNumber   String?   // Check/Transaction/Receipt #
   amount              Float?
-  refundAmount        Float?    // New field for refund amount
+ 
   receivedDate        DateTime?
   approvedBy          String?
 
   amountType          String?   // adminamount, AmountFees
-  comment             String?
+
 
   receiptUrl          String?   // Cloudinary URL
   receiptPublicId     String?   // Cloudinary Public ID

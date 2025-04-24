@@ -10,7 +10,6 @@ import {
   FaCalendarAlt,
   FaCheckCircle,
   FaUniversity,
-
   FaCoins,
   FaHandHoldingUsd,
   FaExchangeAlt,
@@ -446,11 +445,11 @@ const ManagePayment: React.FC = () => {
   };
      
   // Filter payments by amount type
-  const filterPaymentsByAmountType = (payments: StudentPayment[]): StudentPayment[] => {
-    if (!amountTypeFilter) return payments;
+  // const filterPaymentsByAmountType = (payments: StudentPayment[]): StudentPayment[] => {
+  //   if (!amountTypeFilter) return payments;
     
-    return payments.filter(payment => payment.amountType === amountTypeFilter);
-  };
+  //   return payments.filter(payment => payment.amountType === amountTypeFilter);
+  // };
 
   const filteredStudents = students
     .map((student) => {
@@ -564,21 +563,21 @@ const ManagePayment: React.FC = () => {
   if (loading) return <div className="text-xs text-black p-1">Loading...</div>;
   if (error) return <div className="text-xs text-red-500 p-1">{error}</div>;
 
-  // Get icon for amount type
-  const getAmountTypeIcon = (type: string) => {
-    switch (type) {
-      case 'feesAmount':
-        return <FaMoneyBill className="text-green-600" />;
-      case 'adminAmount':
-        return <FaMoneyCheck className="text-blue-600" />;
-      case 'fineAmount':
-        return <FaHandHoldingUsd className="text-red-600" />;
-      case 'refundAmount':
-        return <FaExchangeAlt className="text-amber-600" />;
-      default:
-        return <FaCoins className="text-gray-600" />;
-    }
-  };
+  // // Get icon for amount type
+  // const getAmountTypeIcon = (type: string) => {
+  //   switch (type) {
+  //     case 'feesAmount':
+  //       return <FaMoneyBill className="text-green-600" />;
+  //     case 'adminAmount':
+  //       return <FaMoneyCheck className="text-blue-600" />;
+  //     case 'fineAmount':
+  //       return <FaHandHoldingUsd className="text-red-600" />;
+  //     case 'refundAmount':
+  //       return <FaExchangeAlt className="text-amber-600" />;
+  //     default:
+  //       return <FaCoins className="text-gray-600" />;
+  //   }
+  // };
 
   return (
     <>
@@ -1005,21 +1004,21 @@ const ManagePayment: React.FC = () => {
                       (emi) => emi.emiNumber === 2 && emi.studentAcademicId === academic.id
                     );
 
-                    // Get the relevant amount types for this student/academic
-                    const amountTypes = payments.filter(
-                      payment => 
-                        payment.studentId === student.id && 
-                        (payment.studentAcademic.id === academic.id || amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount')
-                    );
+                    // // Get the relevant amount types for this student/academic
+                    // const amountTypes = payments.filter(
+                    //   payment => 
+                    //     payment.studentId === student.id && 
+                    //     (payment.studentAcademic.id === academic.id || amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount')
+                    // );
 
-                    // Filter by selected amount type if any
-                    const filteredAmountTypes = amountTypeFilter 
-                      ? amountTypes.filter(payment => payment.amountType === amountTypeFilter)
-                      : amountTypes;
+                    // // Filter by selected amount type if any
+                    // const filteredAmountTypes = amountTypeFilter 
+                    //   ? amountTypes.filter(payment => payment.amountType === amountTypeFilter)
+                    //   : amountTypes;
 
-                    // Get the amount type to display (for filtered view)
-                    const displayAmountType = amountTypeFilter || 
-                      (filteredAmountTypes.length > 0 ? filteredAmountTypes[0].amountType : 'feesAmount');
+                    // // Get the amount type to display (for filtered view)
+                    // const displayAmountType = amountTypeFilter || 
+                    //   (filteredAmountTypes.length > 0 ? filteredAmountTypes[0].amountType : 'feesAmount');
 
                     return (
                       <tr

@@ -4,7 +4,7 @@ import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/css/froala_style.min.css';
-import Loader from './common/Loader';
+import {Loader} from './common/Loader/index';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
@@ -27,6 +27,7 @@ import CreatePage from './pages/Configuration/CreatePage';
 // import AddStudent from './services/students/AddStudent';
 import StudentManagement from './services/students/StudentManagement';
 import ManagePayment from './services/students/ManagePayment';
+import CashHandover from './services/students/CashHandover';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -152,6 +153,15 @@ const App: React.FC = () => {
       ),
     },
     {
+      path: '/cashhandover',
+      element: (
+        <>
+          <PageTitle title="Cash Handover" />
+          <CashHandover />
+        </>
+      ),
+    },
+    {
       path: '/assign-page-to-role',
       element: (
         <>
@@ -183,6 +193,7 @@ const App: React.FC = () => {
     '/settings',
     '/student',
     '/managePayment',
+    '/cashhandover',
     '/assign-page-to-role',
   ];
 

@@ -441,8 +441,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     <input
                       type="text"
                       name="approvedBy"
-                      value={formData.approvedBy}
+                      value={user?.name}
                       onChange={handleInputChange}
+                      disabled
                       className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
                     />
                   </div>

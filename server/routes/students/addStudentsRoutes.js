@@ -1077,8 +1077,6 @@ async function deleteFromCloudinary(publicId) {
   }
 }
 
-
-
 // GET academic details for a student
 router.get('/students/:studentId/academic-details', async (req, res) => {
   try {
@@ -1147,8 +1145,8 @@ router.get('/students/:studentId/academic-details/latest', async (req, res) => {
 // Create new payment
 router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
   try {
-    console.log('Request body:', req.body);
-    console.log('Request file:', req.file);
+    // console.log('Request body:', req.body);
+    // console.log('Request file:', req.file);
 
     const {
       studentId,
@@ -1345,4 +1343,57 @@ router.get('/amountType', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
+//  get   
+router.get('/amountType', async (req, res) => {
+  try {
+    const payments = await prisma.studentPayment.findMany({
+      select: {
+        id: true,
+        amount: true,
+        amountType: true,
+        paymentMode: true,
+        receivedDate: true,
+        transactionNumber: true,
+        courseYear: true,
+        sessionYear: true,
+        student: {
+          select: {
+            id: true,
+            fName: true,
+            lName: true,
+            rollNumber: true,
+            mobileNumber: true,
+            email: true,
+            course: {
+              select: {
+                courseName: true
+              }
+            },
+            college: {
+              select: {
+                collegeName: true
+              }
+            }
+          }
+        },
+        studentAcademic: {
+          select: {
+            id: true,
+            sessionYear: true,
+            feesAmount: true,
+            adminAmount: true,
+            paymentMode: true,
+            courseYear: true
+          }
+        }
+      }
+    });
+    
+    res.status(200).json({ success: true, data: payments });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
+
 module.exports = router;

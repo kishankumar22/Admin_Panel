@@ -11,7 +11,7 @@ import { BiImageAdd } from "react-icons/bi";
 import { CgProfile } from "react-icons/cg";
 import { useAuth } from '../../context/AuthContext';
 import { MdCreateNewFolder, MdOutlineAssignmentTurnedIn, MdOutlineManageHistory } from "react-icons/md";
-import { FaMoneyBill, FaUserPlus } from "react-icons/fa";
+import { FaHandHoldingUsd, FaMoneyBill, FaUserPlus } from "react-icons/fa";
 import { PiStudent } from "react-icons/pi";
 import { IoIosPersonAdd } from "react-icons/io";
 
@@ -249,6 +249,20 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           Manage Payment
                         </NavLink>
                       </li>
+
+                      <li>
+                        <NavLink
+                          to="/cashhandover"
+                          className={({ isActive }) =>
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'
+                            }`
+                          }
+                        >
+                          <FaHandHoldingUsd className="w-4 h-4" />
+                          Cash Handover
+                        </NavLink>
+                      </li>
+
                     </ul>
                   </div>
                 </>
