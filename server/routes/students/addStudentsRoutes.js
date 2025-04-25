@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
-const cloudinary = require('../../config/cloudinaryConfig');
 const bcrypt = require('bcrypt');
 
 
@@ -1244,9 +1243,6 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
   }
 });
 
-
-//   get payment   details 
-
 // GET payments for a specific student by studentId
 router.get('/studentPayment/:studentId', async (req, res) => {
   try {
@@ -1288,8 +1284,6 @@ router.get('/studentPayment/:studentId', async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
-
-// amount type get sum 
 
 // routes/studentPayment.js
 router.get('/amountType', async (req, res) => {
@@ -1344,56 +1338,7 @@ router.get('/amountType', async (req, res) => {
   }
 });
 //  get   
-router.get('/amountType', async (req, res) => {
-  try {
-    const payments = await prisma.studentPayment.findMany({
-      select: {
-        id: true,
-        amount: true,
-        amountType: true,
-        paymentMode: true,
-        receivedDate: true,
-        transactionNumber: true,
-        courseYear: true,
-        sessionYear: true,
-        student: {
-          select: {
-            id: true,
-            fName: true,
-            lName: true,
-            rollNumber: true,
-            mobileNumber: true,
-            email: true,
-            course: {
-              select: {
-                courseName: true
-              }
-            },
-            college: {
-              select: {
-                collegeName: true
-              }
-            }
-          }
-        },
-        studentAcademic: {
-          select: {
-            id: true,
-            sessionYear: true,
-            feesAmount: true,
-            adminAmount: true,
-            paymentMode: true,
-            courseYear: true
-          }
-        }
-      }
-    });
-    
-    res.status(200).json({ success: true, data: payments });
-  } catch (error) {
-    console.error('Error fetching payments:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch payments' });
-  }
-});
+// GET: /student/:id/full-details
+
 
 module.exports = router;

@@ -12,6 +12,7 @@ const galleryRoutes=require('./routes/galleryRoutes')
 const userRoutes=require('./routes/userRoutes')
 const createpageRoutes=require('./routes/createPageRoutes')
 const addStudentsRoutes=require('./routes/students/addStudentsRoutes')
+const cashHandoverRoutes=require('./routes/students/cashHandoverRoutes')
 const assignroleRoutes=require('./routes/assignroleRoutes')
 const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
 
@@ -68,6 +69,7 @@ app.use('/api',userRoutes)
 app.use('/api',createpageRoutes)
 app.use('/api',assignroleRoutes)
 app.use('/api',addStudentsRoutes)
+app.use('/api',cashHandoverRoutes)
 
 // Routes 
 

@@ -203,7 +203,7 @@ model Documents {
 
 model Student {
   id              Int       @id @default(autoincrement())
-  stdCollId       String? 
+  stdCollId       String?
   fName           String
   lName           String?
   rollNumber      String
@@ -233,12 +233,14 @@ model Student {
   modifiedBy      String?
   modifiedOn      DateTime?
   status          Boolean    @default(true)
+  
   college         College    @relation(fields: [collegeId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   course          Course     @relation(fields: [courseId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   documents       Documents[]
   academicDetails StudentAcademicDetails[]
   emiDetails      EMIDetails[]
   payments        StudentPayment[]
+  cashHandovers   CashHandover[]
 }
 
 model StudentAcademicDetails {
@@ -255,6 +257,7 @@ model StudentAcademicDetails {
   createdOn    DateTime  @default(now())
   modifiedBy   String?
   modifiedOn   DateTime?
+
   student      Student   @relation(fields: [studentId], references: [id])
   emiDetails   EMIDetails[]
   payments     StudentPayment[]
@@ -271,6 +274,7 @@ model EMIDetails {
   createdOn           DateTime  @default(now())
   modifiedBy          String?
   modifiedOn          DateTime?
+
   student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   studentAcademic     StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
 }
@@ -279,23 +283,17 @@ model StudentPayment {
   id                  Int       @id @default(autoincrement())
   studentId           Int
   studentAcademicId   Int?
-
   paymentMode         String?   // Cash, Check, Bank Transfer, UPI
   transactionNumber   String?   // Check/Transaction/Receipt #
   amount              Float?
- 
+  handoverAmount      Float     @default(0) // New field to track handed over amount
   receivedDate        DateTime?
-  approvedBy          String?
-
-  amountType          String?   // adminamount, AmountFees
-
-
+  approvedBy          String?   // This represents "Received By"
+  amountType          String?   // feesAmount, adminAmount, fineAmount, refundAmount
   receiptUrl          String?   // Cloudinary URL
   receiptPublicId     String?   // Cloudinary Public ID
-
   courseYear          String?
   sessionYear         String?
-
   createdBy           String?
   createdOn           DateTime  @default(now())
   modifiedBy          String?
@@ -303,4 +301,26 @@ model StudentPayment {
 
   student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   studentAcademic     StudentAcademicDetails? @relation(fields: [studentAcademicId], references: [id], onDelete: SetNull)
+  cashHandovers       CashHandover[]
+}
+
+model CashHandover {
+  id                  Int       @id @default(autoincrement())
+  paymentId           Int
+  studentId           Int
+  amount              Float
+  receivedBy          String    // Staff who initially received the payment
+  handedOverTo        String    // Admin who received the handover
+  handoverDate        DateTime
+  remarks             String?
+  verified            Boolean   @default(false)
+  verifiedBy          String?
+  verifiedOn          DateTime?
+  createdOn           DateTime  @default(now())
+  modifiedOn          DateTime?
+  createdBy     String?
+  modifiedBy    String?
+
+  payment             StudentPayment @relation(fields: [paymentId], references: [id])
+  student             Student @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
 }
