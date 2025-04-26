@@ -277,7 +277,7 @@ const [yearFilter, setYearFilter] = useState('');
     <>
       <Breadcrumb pageName="Student List" />
       <div className="">
-      <div className="p-2 mb-2 bg-gray-50 rounded-lg shadow-md">
+      <div className="p-2 mt-2 bg-gray-50 rounded-lg shadow-md">
   <div className="mb-1">
     <div className="flex justify-between items-center text-blue-800 text-[10px]">
       <span className="flex items-center">

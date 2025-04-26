@@ -2,6 +2,8 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const router = express.Router();
+const bcrypt = require('bcrypt');
+
 // Get all payments
 router.get('/amountType', async (req, res) => {
   try {
@@ -57,7 +59,7 @@ router.get('/approved-by', async (req, res) => {
   }
 });
 // Get faculty members for "Handed Over To" dropdown
-router.get('/faculty1', async (req, res) => {
+router.get('/facultylist', async (req, res) => {
   try {
     const faculties = await prisma.faculty.findMany({
       select: {
@@ -247,6 +249,35 @@ router.put('/cash-handovers/:id/verify', async (req, res) => {
       message: 'Failed to verify cash handover',
       error: error.message,
     });
+  }
+});
+
+router.post('/verify-password', async (req, res) => {
+  const { userId, password } = req.body;
+
+  if (!userId || !password) {
+    return res.status(400).json({ success: false, message: 'User ID and password are required' });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!user || !user.password) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: 'Incorrect password' });
+    }
+
+    return res.json({ success: true, message: 'Password verified' });
+  } catch (error) {
+    console.error('Password verification error:', error);
+    return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 module.exports = router;

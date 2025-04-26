@@ -584,8 +584,9 @@ const ManagePayment: React.FC = () => {
       <Breadcrumb pageName="Payment Management" />
 
       {/* Enhanced Filter Section */}
-      <div className="p-1 mb-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
-  <div className="flex flex-wrap gap-1 mb-1 text-black">
+      <div className="p-1 mt-3 mb-2 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
+
+    <div className="flex flex-wrap gap-1 mb-1 text-black">
 
     {/* Status */}
     <div className="flex-1 min-w-[100px]">

@@ -228,7 +228,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
 
     // Validate paymentMode
-    const validPaymentModes = ['cash', 'check', 'bank', 'upi'];
+    const validPaymentModes = ['cash', 'check', 'bank transfer', 'upi'];
     if (!validPaymentModes.includes(formData.paymentMode)) {
       setError('Please select a valid payment mode');
       toast.error('Please select a valid payment mode', { autoClose: 3000 });
@@ -388,7 +388,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       </option>
                       <option value="cash">Cash</option>
                       <option value="check">Check</option>
-                      <option value="bank">Bank Transfer</option>
+                      <option value="bank transfer">Bank Transfer</option>
                       <option value="upi">UPI</option>
                     </select>
                   </div>
