@@ -31,6 +31,7 @@ router.get('/amountType', async (req, res) => {
     });
   }
 });
+
 // New endpoint: Get unique approvedBy values for "Received By" dropdown
 router.get('/approved-by', async (req, res) => {
   try {
@@ -58,28 +59,9 @@ router.get('/approved-by', async (req, res) => {
     });
   }
 });
-// Get faculty members for "Handed Over To" dropdown
-router.get('/facultylist', async (req, res) => {
-  try {
-    const faculties = await prisma.faculty.findMany({
-      select: {
-        id: true,
-        faculty_name: true,
-      },
-    });
-    res.status(200).json({
-      success: true,
-      data: faculties,
-    });
-  } catch (error) {
-    console.error('Error fetching faculties:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching faculties',
-      error: error.message,
-    });
-  }
-});
+
+
+
 // Get payments by staff member (approvedBy) - Modified to include remaining amount
 router.get('/payments-by-staff/:staffName', async (req, res) => {
   try {
@@ -125,8 +107,9 @@ router.get('/payments-by-staff/:staffName', async (req, res) => {
     });
   }
 });
-// Create a cash handover record - Updated for partial handovers
-router.post('/cash-handovers', async (req, res) => {
+
+// Create a payment handover record - Updated for partial handovers
+router.post('/payment-handovers', async (req, res) => {
   try {
     const { paymentData, handedOverTo, handoverDate, remarks, createdBy } = req.body;
     // Start a transaction to ensure all updates are done together
@@ -162,7 +145,7 @@ router.post('/cash-handovers', async (req, res) => {
           },
         });
         // Create the handover record
-        const handover = await prisma.cashHandover.create({
+        const handover = await prisma.paymentHandover.create({
           data: {
             paymentId: paymentId,
             studentId: paymentRecord.studentId,
@@ -187,18 +170,19 @@ router.post('/cash-handovers', async (req, res) => {
       data: handovers,
     });
   } catch (error) {
-    console.error('Error creating cash handovers:', error);
+    console.error('Error creating payment handovers:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create cash handovers',
+      message: 'Failed to create payment handovers',
       error: error.message,
     });
   }
 });
-// Get all cash handovers
-router.get('/cash-handovers', async (req, res) => {
+
+// Get all payment handovers
+router.get('/payment-handovers', async (req, res) => {
   try {
-    const handovers = await prisma.cashHandover.findMany({
+    const handovers = await prisma.paymentHandover.findMany({
       include: {
         payment: true,
         student: {
@@ -217,20 +201,21 @@ router.get('/cash-handovers', async (req, res) => {
       data: handovers,
     });
   } catch (error) {
-    console.error('Error fetching cash handovers:', error);
+    console.error('Error fetching payment handovers:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch cash handovers',
+      message: 'Failed to fetch payment handovers',
       error: error.message,
     });
   }
 });
-// Verify a cash handover (not needed anymore as handovers are auto-verified, but kept for backward compatibility)
-router.put('/cash-handovers/:id/verify', async (req, res) => {
+
+// Verify a payment handover (not needed anymore as handovers are auto-verified, but kept for backward compatibility)
+router.put('/payment-handovers/:id/verify', async (req, res) => {
   try {
     const { id } = req.params;
     const { verifiedBy } = req.body;
-    const handover = await prisma.cashHandover.update({
+    const handover = await prisma.paymentHandover.update({
       where: { id: parseInt(id) },
       data: {
         verified: true,
@@ -243,10 +228,10 @@ router.put('/cash-handovers/:id/verify', async (req, res) => {
       data: handover,
     });
   } catch (error) {
-    console.error('Error verifying cash handover:', error);
+    console.error('Error verifying payment handover:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to verify cash handover',
+      message: 'Failed to verify payment handover',
       error: error.message,
     });
   }
@@ -280,10 +265,5 @@ router.post('/verify-password', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 module.exports = router;
-
-
-
-
-
-

@@ -116,6 +116,7 @@ interface SummaryData {
 const ManagePayment: React.FC = () => {
   const { user, isLoggedIn } = useAuth();
   console.log(isLoggedIn, user);
+
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -590,8 +591,8 @@ const ManagePayment: React.FC = () => {
 
     {/* Status */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
-        <FaCheckCircle className="mr-1 text-gray-600 text-[10px]" /> Status
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
+        <FaCheckCircle className="mr-1 text-gray-600 text-[12px]" /> Status
       </label>
       <select
         value={statusFilter}
@@ -608,7 +609,7 @@ const ManagePayment: React.FC = () => {
     </div>
     {/* College */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaUniversity className="mr-1 text-gray-600 text-[10px]" /> College
       </label>
       <select
@@ -627,7 +628,7 @@ const ManagePayment: React.FC = () => {
 
     {/* Course */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
       </label>
       <select
@@ -645,7 +646,7 @@ const ManagePayment: React.FC = () => {
     </div>
     {/* Session Year */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Session Year
       </label>
       <select
@@ -664,7 +665,7 @@ const ManagePayment: React.FC = () => {
 
     {/* Course Year */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Year
       </label>
       <select
@@ -685,7 +686,7 @@ const ManagePayment: React.FC = () => {
 
     {/* Fees Filter */}
     <div className="flex-1 min-w-[100px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaMoneyBill className="mr-1 text-gray-600 text-[10px]" /> Fees
       </label>
       <select
@@ -701,7 +702,7 @@ const ManagePayment: React.FC = () => {
 
     {/* Amount Type Filter - NEW */}
     <div className="flex-1 min-w-[110px]">
-      <label className="text-xs font-medium text-black flex items-center mb-0.5">
+      <label className="text-xs font-semibold text-black flex items-center mb-0.5">
         <FaCoins className="mr-1 text-gray-600 text-[10px]" /> Amount Type
       </label>
       <select
@@ -722,7 +723,7 @@ const ManagePayment: React.FC = () => {
     <div className="flex gap-1 min-w-[300px]">
       {/* Search */}
       <div className="flex-1 min-w-[150px]">
-        <label className="text-xs font-medium text-black flex items-center mb-0.5">
+        <label className="text-xs font-semibold text-black flex items-center mb-0.5">
           <FaSearch className="mr-1 text-gray-600 text-[10px]" /> Search
         </label>
         <div className="relative">
@@ -756,16 +757,16 @@ const ManagePayment: React.FC = () => {
 </div>
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-1.5 mb-1.5">
   {/* Total Students Card with Fine & Refund */}
-  <div className="bg-gradient-to-br from-white to-gray-50 p-1.5 rounded-lg shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
+  <div className="bg-gradient-to-br from-white to-pink-100 p-1.5 rounded-lg shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
     <div className="flex justify-between items-center mb-1">
-      <p className="text-xs font-semibold text-gray-700 flex items-center">
-        <FaUsers className="mr-1 text-blue-500" size={12} />
+      <p className="text-md font-semibold text-gray-700 flex items-center">
+        <FaUsers className="mr-1 text-blue-500" size={20} />
         Students
       </p>
       <div className="flex space-x-1.5">
         <span className="bg-blue-100 text-blue-800 text-semibold px-1 py-0 rounded-full flex  items-center">
           <span className="w-0.5 p-1.5  font-xs   rounded-full bg-blue-500 "></span>
-        Total : <b>{summaryData.totalStudents}</b> 
+        Total :<b> {summaryData.totalStudents}</b> 
         </span>
         <span className="bg-amber-100 text-amber-800 text-bold px-1 py-0 rounded-full flex  items-center">
           <span className="w-0.5 p-1  font-semibold  rounded-full bg-amber-500 mr-0.5"></span>
@@ -777,16 +778,16 @@ const ManagePayment: React.FC = () => {
     <div className="border-t border-gray-100 pt-1 mt-1">
       <div className="flex items-center mb-0.5">
         <div className="flex space-x-0.5 items-center">
-          <FaHandHoldingUsd className="text-red-600" size={10} />
-          <FaExchangeAlt className="text-amber-600" size={10} />
+          <FaHandHoldingUsd className="text-red-600" size={20} />
+          <FaExchangeAlt className="text-amber-600" size={20} />
         </div>
-        <span className="text-xs font-semibold text-gray-700 ml-1">Fine & Refund</span>
+        <span className="text-md font-semibold text-gray-700 ml-1">Fine & Refund</span>
       </div>
 
       <div className="grid grid-cols-2 gap-1 mb-0.5">
         <div>
           <div className="flex items-center justify-between">
-            <p className="text-[10px] text-gray-500 font-medium">Fine</p>
+            <p className="text-[14px] text-black font-medium">Fine</p>
             <p className="text-xs font-bold text-red-600">
               ₹{summaryData.totalFine.toLocaleString()}
             </p>
@@ -802,7 +803,7 @@ const ManagePayment: React.FC = () => {
         </div>
         <div>
           <div className="flex items-center justify-between">
-            <p className="text-[10px] text-gray-500 font-medium">Refund</p>
+            <p className="text-[13px] text-black font-medium">Refund</p>
             <p className="text-xs font-bold text-amber-600">
               ₹{summaryData.totalRefund.toLocaleString()}
             </p>
@@ -824,11 +825,11 @@ const ManagePayment: React.FC = () => {
   <div className="bg-gradient-to-br from-white to-blue-50 rounded-lg shadow-sm border border-blue-100 p-1.5 transition-all duration-200 hover:shadow-md">
     <div className="flex justify-between items-center mb-1">
       <div className="flex items-center">
-        <FaMoneyCheck className="text-blue-600 mr-1" size={12} />
-        <span className="text-xs font-semibold text-gray-700">Admin Amount</span>
+        <FaMoneyCheck className="text-blue-600 mr-1" size={20} />
+        <span className="text-md font-semibold text-gray-700">Admin Amount</span>
       </div>
-      <div className="h-5 w-5 rounded-full bg-blue-200 flex items-center justify-center">
-        <span className="text-[9px] font-bold text-blue-800">
+      <div className="h-10 w-10 rounded-full bg-blue-200 flex items-center justify-center">
+        <span className="text-[13px] font-bold text-blue-800">
           {Math.round((summaryData.adminReceived / (summaryData.adminAmount || 1)) * 100)}%
         </span>
       </div>
@@ -843,14 +844,14 @@ const ManagePayment: React.FC = () => {
     <div className="flex items-center justify-between text-[12px] space-x-2">
       <div className="flex items-center ">
         <div className="w-1 h-1 rounded-full bg-green-500 mr-0.5"></div>
-        <span className="text-gray-600">Received:</span>
+        <span className="text-gray-600 text-[13px] ">Received:</span>
         <span className="text-green-700 font-medium ml-0.5">
           ₹{summaryData.adminReceived.toLocaleString()}
         </span>
       </div>
       <div className="flex items-center">
         <div className="w-1 h-1 rounded-full bg-red-500 mr-0.5"></div>
-        <span className="text-gray-600">Pending:</span>
+        <span className="text-gray-600 text-[13px]">Pending:</span>
         <span className="text-red-600 font-medium ml-0.5">
           ₹{summaryData.adminPending.toLocaleString()}
         </span>
@@ -862,11 +863,11 @@ const ManagePayment: React.FC = () => {
   <div className="bg-gradient-to-br  from-white to-green-50 rounded-lg shadow-sm border border-green-100 p-1.5 transition-all duration-200 hover:shadow-md">
     <div className="flex justify-between  items-center mb-1">
       <div className="flex items-center ">
-        <FaMoneyBill className="text-green-600 mr-1" size={12} />
-        <span className="text-xs font-semibold text-gray-700">Fees Amount</span>
+        <FaMoneyBill className="text-green-600 mr-1" size={20} />
+        <span className="text-md font-semibold text-gray-700 ">Fees Amount</span>
       </div>
-      <div className="h-5 w-5 rounded-full bg-green-200 flex items-center justify-center">
-        <span className="text-[9px] font-bold text-green-800">
+      <div className="h-10 w-10 rounded-full bg-green-200 flex items-center justify-center">
+        <span className="text-[13px] font-bold text-green-800">
           {Math.round((summaryData.feesReceived / (summaryData.feesAmount || 1)) * 100)}%
         </span>
       </div>
@@ -881,14 +882,14 @@ const ManagePayment: React.FC = () => {
     <div className="flex items-center text-[12px] justify-between space-x-2">
       <div className="flex items-center ">
         <div className="w-1 h-1 rounded-full bg-green-500 mr-0.5"></div>
-        <span className="text-gray-600">Received:</span>
+        <span className="text-gray-600 text-[13px]">Received:</span>
         <span className="text-green-700 font-medium ml-0.5">
           ₹{summaryData.feesReceived.toLocaleString()}
         </span>
       </div>
       <div className="flex items-center">
         <div className="w-1 h-1 rounded-full bg-red-500 mr-0.5"></div>
-        <span className="text-gray-600">Pending:</span>
+        <span className="text-gray-600 text-[13px]">Pending:</span>
         <span className="text-red-600 font-medium ml-0.5">
           ₹{summaryData.feesPending.toLocaleString()}
         </span>

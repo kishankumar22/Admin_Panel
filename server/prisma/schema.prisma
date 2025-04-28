@@ -201,6 +201,43 @@ model Documents {
   student      Student   @relation(fields: [studentId], references: [id])
 }
 
+
+model StudentAcademicDetails {
+  id           Int       @id @default(autoincrement())
+  studentId    Int
+  sessionYear  String
+  paymentMode  String
+  adminAmount  Float     @default(0.0)
+  feesAmount   Float
+  numberOfEMI  Int?
+  ledgerNumber String?
+  courseYear   String?
+  createdBy    String
+  createdOn    DateTime  @default(now())
+  modifiedBy   String?
+  modifiedOn   DateTime?
+
+  student      Student   @relation(fields: [studentId], references: [id])
+  emiDetails   EMIDetails[]
+  payments     StudentPayment[]
+}
+
+model EMIDetails {
+  id                  Int       @id @default(autoincrement())
+  studentId           Int
+  studentAcademicId   Int
+  emiNumber           Int
+  amount              Float
+  dueDate             DateTime
+  createdBy           String
+  createdOn           DateTime  @default(now())
+  modifiedBy          String?
+  modifiedOn          DateTime?
+
+  student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  studentAcademic     StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
+}
+
 model Student {
   id              Int       @id @default(autoincrement())
   stdCollId       String?
@@ -240,43 +277,7 @@ model Student {
   academicDetails StudentAcademicDetails[]
   emiDetails      EMIDetails[]
   payments        StudentPayment[]
-  cashHandovers   CashHandover[]
-}
-
-model StudentAcademicDetails {
-  id           Int       @id @default(autoincrement())
-  studentId    Int
-  sessionYear  String
-  paymentMode  String
-  adminAmount  Float     @default(0.0)
-  feesAmount   Float
-  numberOfEMI  Int?
-  ledgerNumber String?
-  courseYear   String?
-  createdBy    String
-  createdOn    DateTime  @default(now())
-  modifiedBy   String?
-  modifiedOn   DateTime?
-
-  student      Student   @relation(fields: [studentId], references: [id])
-  emiDetails   EMIDetails[]
-  payments     StudentPayment[]
-}
-
-model EMIDetails {
-  id                  Int       @id @default(autoincrement())
-  studentId           Int
-  studentAcademicId   Int
-  emiNumber           Int
-  amount              Float
-  dueDate             DateTime
-  createdBy           String
-  createdOn           DateTime  @default(now())
-  modifiedBy          String?
-  modifiedOn          DateTime?
-
-  student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
-  studentAcademic     StudentAcademicDetails @relation(fields: [studentAcademicId], references: [id], onDelete: Cascade)
+  paymentHandovers PaymentHandover[]
 }
 
 model StudentPayment {
@@ -301,10 +302,10 @@ model StudentPayment {
 
   student             Student   @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   studentAcademic     StudentAcademicDetails? @relation(fields: [studentAcademicId], references: [id], onDelete: SetNull)
-  cashHandovers       CashHandover[]
+  paymentHandovers    PaymentHandover[]
 }
 
-model CashHandover {
+model PaymentHandover {
   id                  Int       @id @default(autoincrement())
   paymentId           Int
   studentId           Int
@@ -318,8 +319,8 @@ model CashHandover {
   verifiedOn          DateTime?
   createdOn           DateTime  @default(now())
   modifiedOn          DateTime?
-  createdBy     String?
-  modifiedBy    String?
+  createdBy           String?
+  modifiedBy          String?
 
   payment             StudentPayment @relation(fields: [paymentId], references: [id])
   student             Student @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)

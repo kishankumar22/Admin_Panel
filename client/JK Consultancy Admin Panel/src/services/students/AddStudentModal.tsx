@@ -340,8 +340,8 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-50">
-      <div className="bg-white p-3 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
-        <div className="flex justify-between items-center mb-2">
+      <div className="bg-white p-3 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
+        <div className="flex justify-between items-center mb-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-2 rounded-t-lg">
           <h2 className="text-sm font-bold">Add New Student</h2>
           <button onClick={onClose} className="text-red-500 hover:text-red-700 text-lg p-1 rounded focus:ring-2 focus:ring-blue-300">
             <FaTimes />
@@ -355,8 +355,11 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
             <button
               key={tab}
               onClick={() => handleTabClick(tab)}
-              className={`px-2 py-1 text-xs font-medium ${step === tab ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-black'}`}
-            >
+              className={`px-2 py-1 mb-2 text-xs font-medium rounded-md transition-colors duration-300 focus:ring-2 mr-2 ${
+                step === tab 
+                  ? 'text-white bg-blue-600 shadow-md' 
+                  : 'text-gray-600 hover:bg-gray-300'
+              }`}>
               {['Personal', 'Academic', 'Payment', 'Documents'][tab - 1]} Details
             </button>
           ))}
@@ -364,7 +367,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
         <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
           {step === 1 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="bg-blue-50 p-2 rounded grid grid-cols-1 md:grid-cols-2 gap-2">
               <div><label className="block text-xs font-medium text-black">First Name <RequiredAsterisk /></label><input type="text" name="FName" value={student.FName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-black">Last Name <RequiredAsterisk /></label><input type="text" name="LName" value={student.LName} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-black">Roll Number <RequiredAsterisk /></label><input type="text" name="RollNumber" value={student.RollNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
@@ -380,12 +383,12 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
               <div><label className="block text-xs font-medium text-black">City <RequiredAsterisk /></label><input type="text" name="City" value={student.City} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-black">State <RequiredAsterisk /></label><input type="text" name="State" value={student.State} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
               <div><label className="block text-xs font-medium text-black">Pincode <RequiredAsterisk /></label><input type="text" name="Pincode" value={student.Pincode}maxLength={6} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required /></div>
-              <div className="md:col-span-2"><label className="block text-xs font-medium text-black">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={2} /></div>
+              <div className=""><label className="block text-xs font-medium text-black">Address <RequiredAsterisk /></label><textarea name="Address" value={student.Address} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required rows={1} /></div>
             </div>
           )}
 
           {step === 2 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className=" bg-purple-50  p-2  rounded grid grid-cols-1 md:grid-cols-2 gap-2">
               <div><label className="block text-xs font-medium text-black ">College <RequiredAsterisk /></label><select name="CollegeId" value={student.CollegeId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{colleges.map(college => (<option key={college.id} value={college.id}>{college.collegeName}</option>))}</select></div>
               <div><label className="block text-xs font-medium text-black">Course <RequiredAsterisk /></label><select name="CourseId" value={student.CourseId} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option>{courses.map(course => (<option key={course.id} value={course.id}>{course.courseName}</option>))}</select></div>
               <div><label className="block text-xs font-medium text-black">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
@@ -405,7 +408,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
           )}
 
           {step === 3 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="bg-pink-50 p-2 rounded grid grid-cols-1 md:grid-cols-2 gap-2">
               <div><label className="block text-xs font-medium text-black">Admin Amount</label><input type="number" name="FineAmount" value={student.FineAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
               <div><label className="block text-xs font-medium text-black">Ledger Number</label><input type="text" name="LedgerNumber" value={student.LedgerNumber} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-black">Fees Amount</label><input type="number" name="RefundAmount" value={student.RefundAmount} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" min="0" /></div>
@@ -441,13 +444,13 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
           )}
 
           {step === 4 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div><label className="block text-xs font-medium text-black">Student Photo</label><input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'StudentImage')} className="w-full border p-1 rounded mt-1 text-xs" />{documents.StudentImage.preview && <img src={documents.StudentImage.preview} alt="Preview" className="h-12 w-12 object-cover rounded mt-1" />}</div>
-              <div><label className="block text-xs font-medium text-black">10th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TenthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-black">12th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TwelfthMarks')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-black">Caste Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'CasteCertificate')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-black">Income Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Income')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
-              <div><label className="block text-xs font-medium text-black">Residential Proof</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Residential')} className="w-full border p-1 rounded mt-1 text-xs" /></div>
+            <div className="bg-blue-50 p-2  rounded grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div><label className="block text-xs font-medium text-black">Student Photo</label><input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'StudentImage')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" />{documents.StudentImage.preview && <img src={documents.StudentImage.preview} alt="Preview" className="h-12 w-12 object-cover rounded mt-1" />}</div>
+              <div><label className="block text-xs font-medium text-black">10th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TenthMarks')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" /></div>
+              <div><label className="block text-xs font-medium text-black">12th Marksheet</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'TwelfthMarks')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" /></div>
+              <div><label className="block text-xs font-medium text-black">Caste Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'CasteCertificate')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" /></div>
+              <div><label className="block text-xs font-medium text-black">Income Certificate</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Income')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" /></div>
+              <div><label className="block text-xs font-medium text-black">Residential Proof</label><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => handleFileChange(e, 'Residential')} className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300" /></div>
             </div>
           )}
 

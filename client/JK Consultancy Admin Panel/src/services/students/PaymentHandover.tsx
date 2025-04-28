@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { Search, Check, X, FileText, ArrowLeftRight, Calendar, DollarSign, User, Users, Plus, Eye, Lock, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Check, X, ArrowLeftRight, Calendar, DollarSign, User, Users, Plus, Eye, Lock, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -121,7 +121,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-auto">
+      <div className="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-auto">
         <div className="p-2 border-b flex justify-between items-center bg-blue-500">
           <h3 className="text-sm font-bold text-black rounded">{title}</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-red-700">
@@ -195,7 +195,6 @@ interface CashHandover {
   payment?: Payment;
 }
 
-
 interface ApprovedBy {
   approvedBy: string;
 }
@@ -205,7 +204,7 @@ interface PaymentWithHandover extends Payment {
   isPartial: boolean;
 }
 
-const CashHandover: React.FC = () => {
+const PaymentHandover: React.FC = () => {
   const [cashHandovers, setCashHandovers] = useState<CashHandover[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -254,7 +253,7 @@ const CashHandover: React.FC = () => {
         }
 
         // Fetch cash handovers
-        const handoversRes = await axiosInstance.get('/cash-handovers');
+        const handoversRes = await axiosInstance.get('/payment-handovers');
         if (handoversRes.data.success) {
           setCashHandovers(handoversRes.data.data);
         } else {
@@ -452,8 +451,10 @@ const CashHandover: React.FC = () => {
   const handleInitiateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-
-
+    if (selectedPayments.length === 0) {
+      // setError('Please select at least one payment to handover');
+      return;
+    }
     setShowPasswordModal(true);
   };
 
@@ -495,7 +496,7 @@ const CashHandover: React.FC = () => {
       }
       
       // Password verified, proceed with handover creation
-      const res = await axiosInstance.post('/cash-handovers', {
+      const res = await axiosInstance.post('/payment-handovers', {
         paymentData: selectedPayments.map(p => ({
           id: p.id,
           handoverAmount: p.handoverAmount
@@ -511,7 +512,7 @@ const CashHandover: React.FC = () => {
 
       if (res.data.success) {
         // Refresh handovers list
-        const handoversRes = await axiosInstance.get('/cash-handovers');
+        const handoversRes = await axiosInstance.get('/payment-handovers');
         if (handoversRes.data.success) {
           setCashHandovers(handoversRes.data.data);
         }
@@ -538,29 +539,45 @@ const CashHandover: React.FC = () => {
   const handoverTotalPages = Math.ceil(filteredHandovers.length / itemsPerPage);
   const paymentsTotalPages = Math.ceil(Object.keys(paymentsByStudent).length / itemsPerPage);
 
-  // ReceiptModal component (Made compact)
-  const ReceiptViewerModal = () => (
-    <Modal
-      isOpen={!!viewReceiptUrl}
-      onClose={() => setViewReceiptUrl(null)}
-      title="View Receipt"
-    >
-      {viewReceiptUrl?.endsWith('.pdf') ? (
-        <iframe 
-          src={viewReceiptUrl} 
-          className="w-full" 
-          style={{ height: '40vh' }} 
-          title="Receipt PDF"
-        />
-      ) : (
-        <img 
-          src={viewReceiptUrl || ''} 
-          alt="Receipt" 
-          className="max-w-full mx-auto h-auto"
-        />
+  // ReceiptModal component (Updated with larger size and Cancel button)
+  const ReceiptViewerModal = () => {
+    const modalFooter = (
+      <div className="flex justify-end space-x-2">
+        <button
+          type="button"
+          onClick={() => setViewReceiptUrl(null)}
+          className="px-2 py-0.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+
+    return (
+      <Modal
+        isOpen={!!viewReceiptUrl}
+        onClose={() => setViewReceiptUrl(null)}
+        title="View Receipt"
+        footer={modalFooter}
+      >
+        {viewReceiptUrl?.endsWith('.pdf') ? (
+          <iframe 
+            src={viewReceiptUrl} 
+            className="w-full" 
+            style={{ height: '70vh' }} 
+            title="Receipt PDF"
+          />
+        ) : (
+          <img 
+            src={viewReceiptUrl || ''} 
+            alt="Receipt" 
+            className="max-w-full mx-auto h-auto"
+            style={{ maxHeight: '70vh' }}
+          />
         )}
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   // Password verification modal (Made compact)
   const PasswordVerificationModal = () => {
@@ -656,11 +673,11 @@ const CashHandover: React.FC = () => {
     );
   };
 
+  
   return (
     <>
-      <Breadcrumb pageName="Cash Handover" />
-
-      <div className="flex flex-col bg-gray-50">
+      <Breadcrumb pageName="Payment Handover" />
+<div className="flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-200 px-3 py-1.5 rounded-t-lg shadow-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             {/* Left side with search */}
@@ -677,24 +694,28 @@ const CashHandover: React.FC = () => {
             
             {/* Right side with action buttons */}
             <div className="flex items-center space-x-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
-              <button
-                className="inline-flex items-center px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors duration-150"
-                onClick={() => {
-                  if (showAddForm) {
-                    handleCancelForm();
-                  } else {
-                    setShowAddForm(true);
-                  }
-                }}
-              >
-                {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                {showAddForm ? 'Cancel' : 'New Handover'}
-              </button>
-              <button className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150">
-                <ArrowLeftRight className="w-3 h-3 mr-1" />
-                View Reports
-              </button>
-            </div>
+  <button
+    className={`inline-flex items-center px-2 py-1 ${
+      showAddForm ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+    } text-white rounded text-xs font-medium transition-colors duration-150`}
+    onClick={() => {
+      if (showAddForm) {
+        handleCancelForm();
+      } else {
+        setShowAddForm(true);
+      }
+    }}
+  >
+    {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+    {showAddForm ? 'Cancel' : 'New Handover'}
+  </button>
+
+  <button className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150">
+    <ArrowLeftRight className="w-3 h-3 mr-1" />
+    View Reports
+  </button>
+</div>
+
           </div>
         </header>
 
@@ -707,7 +728,7 @@ const CashHandover: React.FC = () => {
 
           {showAddForm && (
             <div className="bg-white rounded-lg shadow mb-3 p-2">
-              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg bg-blue-100 p-2 rounded">New Cash Handover</h2>
+              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg-blue-100 p-2 rounded">New Cash Handover</h2>
               <form onSubmit={handleInitiateSubmit} className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -901,7 +922,7 @@ const CashHandover: React.FC = () => {
                             Note: You have selected partial amounts for one or more payments.
                           </div>
                         )}
-                       payment to handover
+                       
                       </div>
                     )}
 
@@ -1071,7 +1092,7 @@ const CashHandover: React.FC = () => {
   );
 };
 
-export default CashHandover;
+export default PaymentHandover;
 
 // Export the reusable components as well
 export { Pagination, Modal };

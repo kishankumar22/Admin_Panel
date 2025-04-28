@@ -27,7 +27,8 @@ import CreatePage from './pages/Configuration/CreatePage';
 // import AddStudent from './services/students/AddStudent';
 import StudentManagement from './services/students/StudentManagement';
 import ManagePayment from './services/students/ManagePayment';
-import CashHandover from './services/students/CashHandover';
+import CashHandover from './services/students/PaymentHandover';
+import PaymentHandover from './services/students/PaymentHandover';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -153,11 +154,11 @@ const App: React.FC = () => {
       ),
     },
     {
-      path: '/cashhandover',
+      path: '/paymenthandover',
       element: (
         <>
-          <PageTitle title="Cash Handover" />
-          <CashHandover />
+          <PageTitle title="payment Handover" />
+          <PaymentHandover />
         </>
       ),
     },
@@ -193,7 +194,7 @@ const App: React.FC = () => {
     '/settings',
     '/student',
     '/managePayment',
-    '/cashhandover',
+    '/paymenthandover',
     '/assign-page-to-role',
   ];
 

@@ -277,9 +277,9 @@ const [yearFilter, setYearFilter] = useState('');
     <>
       <Breadcrumb pageName="Student List" />
       <div className="">
-      <div className="p-2 mt-2 bg-gray-50 rounded-lg shadow-md">
-  <div className="mb-1">
-    <div className="flex justify-between items-center text-blue-800 text-[10px]">
+      <div className="p-2 mt-2 mb-2 bg-gradient-to-r from-purple-100 to-indigo-100  rounded shadow-md">
+  <div className="mb-1 ">
+    <div className="flex justify-between items-center text-blue-800 text-[14px]">
       <span className="flex items-center">
         Total Students: <b className="text-base ml-0.5">{students.length}</b>
       </span>
@@ -288,7 +288,7 @@ const [yearFilter, setYearFilter] = useState('');
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="ml-0.5 border rounded-md p-1.5 text-[10px] bg-white focus:ring-2 focus:border-blue-500 w-28"
+          className="ml-0.5 border rounded-md p-1.5 text-[14px] bg-white focus:ring-2 focus:border-blue-500 w-28"
         >
           <option value="">Active</option>
           <option value="StatusIn">Inactive</option>
@@ -306,17 +306,17 @@ const [yearFilter, setYearFilter] = useState('');
         <input
           type="text"
           placeholder="Search..."
-          className="pl-5 pr-1 py-0.5 border rounded-md text-[10px] w-full focus:ring-4 focus:border-blue-500"
+          className="pl-5 pr-1 py-0.5 border rounded-md text-[14px] w-full focus:ring-4 focus:border-blue-500"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <FaSearch className="absolute left-1.5 top-2.5 text-black text-[10px]" />
+        <FaSearch className="absolute left-1.5 top-2.5 text-black text-[12px]" />
       </div>
 
       <select
         value={courseYearFilter}
         onChange={(e) => setCourseYearFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">Course Year</option>
         {[...filterOptions.courseYears].map(year => (
@@ -327,7 +327,7 @@ const [yearFilter, setYearFilter] = useState('');
       <select
         value={collegeFilter}
         onChange={(e) => setCollegeFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">College</option>
         {[...filterOptions.colleges].map(college => (
@@ -338,7 +338,7 @@ const [yearFilter, setYearFilter] = useState('');
       <select
         value={sessionYearFilter}
         onChange={(e) => setSessionYearFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">Session Year</option>
         {[...filterOptions.sessionYears].map(year => (
@@ -349,7 +349,7 @@ const [yearFilter, setYearFilter] = useState('');
       <select
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">Category</option>
         {['Gen', 'OBC', 'SC', 'ST'].filter(cat => filterOptions.categories.has(cat)).map(category => (
@@ -361,7 +361,7 @@ const [yearFilter, setYearFilter] = useState('');
       <select
         value={admissionModeFilter}
         onChange={(e) => setAdmissionModeFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">Admission Mode</option>
         {[...filterOptions.admissionModes].map(mode => (
@@ -372,7 +372,7 @@ const [yearFilter, setYearFilter] = useState('');
       <select
         value={emailFilter}
         onChange={(e) => setEmailFilter(e.target.value)}
-        className="border rounded-md p-0.5 text-[10px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
+        className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
       >
         <option value="">Email</option>
         {[...filterOptions.emails].map(email => (
@@ -392,7 +392,7 @@ const [yearFilter, setYearFilter] = useState('');
       <div className="col-span-2">
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-blue-500 text-white px-1 py-0.5 rounded-md text-[10px] hover:bg-blue-600 w-full focus:ring-0 focus:border-blue-500"
+          className="bg-blue-500 text-white px-1 py-0.5 rounded-md text-[12px] hover:bg-blue-600 w-full focus:ring-0 focus:border-blue-500"
         >
           Add Student
         </button>
@@ -400,11 +400,11 @@ const [yearFilter, setYearFilter] = useState('');
 
     </div>
   </div>
-</div>
+ </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border rounded-lg text-[10px] text-black">
-            <thead className="bg-gray-100">
+          <table className="min-w-full bg-white border rounded-lg text-[14px] text-black">
+            <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 ">
               <tr>
                 <th className="py-1 px-2 border font-medium">#</th>
                 <th className="py-1 px-2 border font-medium">Name</th>
