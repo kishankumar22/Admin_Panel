@@ -7,6 +7,7 @@ import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 import StudentPaymentModal from '../students/StudentPaymentModal'; // New modal import
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
+import PromoteStudentModal from './PromoteStudentModal';
 
 interface EmiDetail {
   id: number;
@@ -40,6 +41,7 @@ interface AcademicDetail {
 }
 
 interface Student {
+  StudentId:number;
   id: number;
   rollNumber: string;
   fName: string;
@@ -72,6 +74,7 @@ interface Student {
 
 
 const StudentManagement: React.FC = () => {
+
   const { user } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +94,14 @@ const StudentManagement: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false); // New state for payment modal
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
+    // In your StudentList component's state declarations, add:
+  const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const handlePromoteClick = (studentId: number) => {
+    setSelectedStudentId(studentId);
+    setIsPromoteModalOpen(true);
+  };
+  
 const [yearFilter, setYearFilter] = useState('');
   const [filterOptions, setFilterOptions] = useState({
     courseYears: new Set<string>(),
@@ -381,12 +392,14 @@ const [yearFilter, setYearFilter] = useState('');
       </select>
 
       <div className="col-span-1 flex space-x-0.5">
-        <button
-          onClick={clearFilters}
-          className="bg-blue-300  text-emerald-800 text-[12px] px-1 p-0.5 rounded-md  focus:ring-4 focus:border-blue-500 hover:text-red-400 hover:bg-blue-400 flex items-center flex-1"
-        >
-          <FaTimes className="w-5 h-5 " /> Clear Filter 
-        </button>
+
+      <button
+  onClick={clearFilters}
+  className="bg-red-50 text-red-500 text-[12px] px-2 p-0.5 rounded-md border border-red-200 focus:ring-4 focus:ring-red-300 focus:outline-none hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors duration-150 flex items-center flex-1"
+>
+  <FaTimes className="w-4 h-4 mr-1" /> Clear Filter
+</button>
+
       </div>
 
       <div className="col-span-2">
@@ -445,7 +458,14 @@ const [yearFilter, setYearFilter] = useState('');
                       <td className="py-1 px-2 border">{student.category}</td>
                       <td className="py-1 px-2 border text-center">
                         <div className="flex justify-center space-x-1">
-                          <button
+                       <button
+                        onClick={() => handlePromoteClick(student.id)}
+                        className="p-1.5 text-md bg-green-100 text-green-800 rounded hover:bg-green-200"
+                        title="Promote Student"
+                        >
+                        Promote
+                        </button>
+                           <button
                             onClick={() => handleEditClick(student.id)}
                             className="text-blue-500 hover:text-blue-700"
                             title="Edit"
@@ -554,6 +574,20 @@ const [yearFilter, setYearFilter] = useState('');
             message="Are you sure you want to delete this student? This action cannot be undone."
           />
         )}
+
+                {/* // Add this to the end of your component's JSX return, right before the closing tag */}
+{isPromoteModalOpen && selectedStudentId && (
+  <PromoteStudentModal
+    studentId={selectedStudentId}
+    onClose={() => setIsPromoteModalOpen(false)}
+    onSuccess={() => {
+      setIsPromoteModalOpen(false);
+      // Refresh data if needed
+      // fetchStudents();
+    }}
+    modifiedBy={user?.name || 'Admin'}
+  />
+)}
 
 {isPaymentModalOpen && currentStudentId !== null && (
   <StudentPaymentModal

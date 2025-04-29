@@ -263,6 +263,7 @@ model Student {
   studentImage    String?
   category        String
   isDiscontinue   Boolean    @default(false)
+  isLateral       Boolean    @default(false)
   discontinueOn   DateTime?
   discontinueBy   String?
   createdBy       String

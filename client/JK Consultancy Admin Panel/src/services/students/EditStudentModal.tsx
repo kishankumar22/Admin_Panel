@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
@@ -14,6 +15,7 @@ interface EditStudentModalProps {
 }
 
 interface StudentFormData {
+  isLateral: boolean;
   StudentId: number;
   RollNumber: string;
   FName: string;
@@ -66,7 +68,7 @@ interface ExistingDocument {
 
 interface AcademicHistory {
   id: string;
-  courseYear: string; // Added to fix TypeScript error
+  courseYear: string;
   sessionYear: string;
   adminAmount: number;
   feesAmount: number;
@@ -141,12 +143,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [emiDetails, setEmiDetails] = useState<Array<{ emiNumber: number; amount: number; dueDate: string }>>([]);
   const [academicData, setAcademicData] = useState<AcademicHistory[]>([]);
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetail[]>([]);
-  const [loadingAcademic, setLoadingAcademic] = useState(false);
-  const [showSkipYearWarningModal, setShowSkipYearWarningModal] = useState(false);
-  const [showSkipSessionWarningModal, setShowSkipSessionWarningModal] = useState(false);
+  const [loadingAcademic, setLoadingAcademic] = useState(true);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
-  const [showLateralEntryModal, setShowLateralEntryModal] = useState(false);
-  const [warningMessage, setWarningMessage] = useState<string>('');
 
   const [student, setStudent] = useState<StudentFormData>({
     StudentId: 0,
@@ -173,6 +171,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     AdmissionMode: '',
     AdmissionDate: '',
     IsDiscontinue: false,
+    isLateral: false,
     DiscontinueOn: '',
     DiscontinueBy: '',
     FineAmount: 0,
@@ -253,6 +252,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           FineAmount: studentData.FineAmount || 0,
           RefundAmount: studentData.RefundAmount || 0,
           LedgerNumber: studentData.LedgerNumber || '',
+          isLateral: studentData.isLateral || false,
         });
 
         const collegeResponse = await axiosInstance.get('/colleges');
@@ -269,7 +269,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         setExistingDocuments(docs);
 
         const academicResponse = await axiosInstance.get(`/students/${studentId}/academic-details`);
-        setAcademicData(academicResponse.data.data);
+        const fetchedAcademicData = academicResponse.data.data;
+        setAcademicData(fetchedAcademicData);
+
+        // If only one course year exists, load its data automatically without loader
+        if (fetchedAcademicData.length === 1) {
+          const singleCourseYear = fetchedAcademicData[0].courseYear;
+          setStudent((prev) => ({ ...prev, CourseYear: singleCourseYear }));
+          await loadAcademicDetails(singleCourseYear, false);
+        }
 
         try {
           const paymentResponse = await axiosInstance.get('/amountType');
@@ -296,9 +304,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     fetchData();
   }, [studentId, modifiedBy]);
 
-  const loadAcademicDetails = async (courseYear: string) => {
+  const loadAcademicDetails = async (courseYear: string, useLoader: boolean = true) => {
     try {
-      setLoadingAcademic(true);
+      if (useLoader) {
+        setLoadingAcademic(false); // Show loader
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
+      }
+
       const response = await axiosInstance.get(`/students/${studentId}/academic-details`);
       const academicDetail = response.data.data.find(
         (detail: AcademicHistory) => detail.courseYear === courseYear
@@ -335,18 +347,17 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         }));
         setEmiDetails([]);
       }
+
+      setLoadingAcademic(true); // Hide loader or keep data visible
+      if (useLoader) {
+        setStep(3); // Redirect to payment step only when loader is used
+        toast.info(`Loaded data for ${courseYear} year`);
+      }
     } catch (error) {
+      setLoadingAcademic(true);
       toast.error('Failed to load academic details');
-    } finally {
-      setLoadingAcademic(false);
     }
   };
-
-  useEffect(() => {
-    if (student.CourseYear && !loadingAcademic) {
-      loadAcademicDetails(student.CourseYear);
-    }
-  }, [student.CourseYear, loadingAcademic]);
 
   useEffect(() => {
     if (error) {
@@ -355,8 +366,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
   }, [error]);
 
+  // Auto-load data for single course year when navigating to Step 3
+  useEffect(() => {
+    if (step === 3 && academicData.length === 1 && student.CourseYear) {
+      loadAcademicDetails(student.CourseYear, false);
+    }
+  }, [step, academicData, student.CourseYear]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    e.preventDefault(); // Prevent default form submission behavior
+    e.preventDefault();
     const { name, value, type } = e.target;
 
     if (name === 'DOB') {
@@ -382,15 +400,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         );
 
         if (hasPaymentDetails) {
-          setWarningMessage(
-            `This student is a lateral entry student. Payment details exist for ${higherYear} year.`
-          );
-          setShowLateralEntryModal(true);
+          toast.error(`This student is a lateral entry student. Payment details exist for ${higherYear} year.`);
           return;
         } else {
           setStudent((prev) => ({ ...prev, CourseYear: value }));
-          setLoadingAcademic(true);
-          return; // Delay loadAcademicDetails to useEffect
+          loadAcademicDetails(value, academicData.length > 1); // Use loader only if multiple course years
+          return;
         }
       }
 
@@ -403,23 +418,21 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             }
           }
           if (missingYears.length > 0) {
-            setWarningMessage(
+            toast.error(
               `Please update the records for ${missingYears.join(', ')} year(s) before updating to ${courseYearOrder[newIndex]} year.`
             );
-            setShowSkipYearWarningModal(true);
             return;
           }
         } else if (newIndex > currentIndex + 1) {
           const skippedYears = courseYearOrder.slice(currentIndex + 1, newIndex).join(', ');
-          setWarningMessage(`You cannot skip ${skippedYears} year(s). Please enroll in sequential order.`);
-          setShowSkipYearWarningModal(true);
+          toast.error(`You cannot skip ${skippedYears} year(s). Please enroll in sequential order.`);
           return;
         }
       }
 
       setStudent((prev) => ({ ...prev, CourseYear: value }));
-      setLoadingAcademic(true);
-      return; // Delay loadAcademicDetails to useEffect
+      loadAcademicDetails(value, academicData.length > 1); // Use loader only if multiple course years
+      return;
     }
 
     if (name === 'SessionYear') {
@@ -435,10 +448,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         const prevSessionIndex = sessionYears.indexOf(prevYearRecord.sessionYear);
         const selectedSessionIndex = sessionYears.indexOf(value);
         if (selectedSessionIndex <= prevSessionIndex) {
-          setWarningMessage(
+          toast.error(
             `You cannot select session year ${value} as it is earlier than or equal to the previous year (${prevYearRecord.sessionYear}). Please select a valid session year.`
           );
-          setShowSkipSessionWarningModal(true);
           return;
         }
       }
@@ -447,26 +459,22 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         const nextSessionIndex = sessionYears.indexOf(nextYearRecord.sessionYear);
         const selectedSessionIndex = sessionYears.indexOf(value);
         if (selectedSessionIndex >= nextSessionIndex) {
-          setWarningMessage(
+          toast.error(
             `You cannot select session year ${value} as it is later than or equal to the next year (${nextYearRecord.sessionYear}). Please select a valid session year.`
           );
-          setShowSkipSessionWarningModal(true);
           return;
         }
       }
 
       const existingRecord = academicData.find((detail) => detail.sessionYear === value && detail.courseYear === student.CourseYear);
       if (existingRecord) {
-        setWarningMessage(
+        toast.error(
           `This session year ${value} for ${student.CourseYear} year already exists in the database. Please select a different session year.`
         );
-        setShowSkipSessionWarningModal(true);
         return;
       }
 
       setStudent((prev) => ({ ...prev, SessionYear: value }));
-      setLoadingAcademic(true);
-      setStep(3);
       toast.info(`Loaded data for ${student.CourseYear} year, session ${value}`);
       return;
     }
@@ -527,7 +535,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   };
 
   const confirmUpdate = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent page refresh on form submission
+    e.preventDefault();
     setShowUpdateConfirmModal(false);
     setIsSubmitting(true);
     setError('');
@@ -692,6 +700,19 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   type="text"
                   name="FName"
                   value={student.FName}
+                  onChange={handleChange}
+                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700">
+                  Last Name <RequiredAsterisk />
+                </label>
+                <input
+                  type="text"
+                  name="LName"
+                  value={student.LName}
                   onChange={handleChange}
                   className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                   required
@@ -963,10 +984,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     required
                   >
                     <option value="">Select</option>
-                    <option value="1st">1st</option>
-                    <option value="2nd">2nd</option>
-                    <option value="3rd">3rd</option>
-                    <option value="4th">4th</option>
+                    {academicData.map((data) => (
+                      <option key={data.courseYear} value={data.courseYear}>
+                        {data.courseYear}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -991,7 +1013,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
                     required
                   >
-                    <option value="">please Select session year</option>
+                    <option value="">Please Select Session Year</option>
                     {sessionYears.map((year) => (
                       <option key={year} value={year}>
                         {year}
@@ -999,7 +1021,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     ))}
                   </select>
                 </div>
-                <div className="">
+                <div className="p-1">
                   <label className="flex items-center text-xs font-medium text-gray-700">
                     <input
                       type="checkbox"
@@ -1010,9 +1032,20 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     />
                     Is Discontinued?
                   </label>
-                  <div></div>
                 </div>
-                <div></div>
+                <div>
+                  <label className="flex items-center text-xs font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      name="isLateral"
+                      checked={student.isLateral}
+                      onChange={handleChange}
+                      className="mr-1 disabled:cursor-not-allowed"
+                      disabled
+                    />
+                    Is Lateral
+                  </label>
+                </div>
                 {student.IsDiscontinue && (
                   <>
                     <div>
@@ -1046,11 +1079,20 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                     <thead className="bg-gray-100 text-gray-800 uppercase">
                       <tr>
                         {[
-                          'SAID', 'Course Year', 'Session', 'Admin Amount',
-                          'Payment Mode', 'Fees Amount', 'Created On',
-                          'Created By', 'Modified On', 'Modified By'
+                          'SAID',
+                          'Course Year',
+                          'Session',
+                          'Admin Amount',
+                          'Payment Mode',
+                          'Fees Amount',
+                          'Created On',
+                          'Created By',
+                          'Modified On',
+                          'Modified By',
                         ].map((header) => (
-                          <th key={header} className="px-1 py-0.5 text-left font-medium whitespace-nowrap">{header}</th>
+                          <th key={header} className="px-1 py-0.5 text-left font-medium whitespace-nowrap">
+                            {header}
+                          </th>
                         ))}
                       </tr>
                     </thead>
@@ -1088,7 +1130,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
           {step === 3 && (
             <div className="bg-purple-50 p-2 rounded grid grid-cols-1 md:grid-cols-2 gap-1">
-              {loadingAcademic ? (
+              {!loadingAcademic ? (
                 <div className="col-span-2 flex justify-center items-center">
                   <Loader1 size="lg" className="text-blue-500" />
                 </div>
@@ -1358,6 +1400,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             <div className="flex space-x-1">
               {step < 4 ? (
                 <button
+                  type="button"
                   onClick={nextStep}
                   className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
                 >
@@ -1374,66 +1417,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             </div>
           </div>
         </form>
-
-        <Modal
-          show={showSkipYearWarningModal}
-          onClose={() => setShowSkipYearWarningModal(false)}
-          size="md"
-          className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-        >
-          <Modal.Header className="bg-red-500 text-white py-1 text-sm">Course Year Sequence Error</Modal.Header>
-          <Modal.Body className="py-2">
-            <div className="text-xs text-gray-600">{warningMessage}</div>
-          </Modal.Body>
-          <Modal.Footer className="py-1">
-            <button
-              onClick={() => setShowSkipYearWarningModal(false)}
-              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-            >
-              Understood
-            </button>
-          </Modal.Footer>
-        </Modal>
-
-        <Modal
-          show={showSkipSessionWarningModal}
-          onClose={() => setShowSkipSessionWarningModal(false)}
-          size="md"
-          className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-        >
-          <Modal.Header className="bg-red-500 text-white py-1 text-sm">Session Year Sequence Error</Modal.Header>
-          <Modal.Body className="py-2">
-            <div className="text-xs text-gray-600">{warningMessage}</div>
-          </Modal.Body>
-          <Modal.Footer className="py-1">
-            <button
-              onClick={() => setShowSkipSessionWarningModal(false)}
-              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-            >
-              Understood
-            </button>
-          </Modal.Footer>
-        </Modal>
-
-        <Modal
-          show={showLateralEntryModal}
-          onClose={() => setShowLateralEntryModal(false)}
-          size="md"
-          className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-        >
-          <Modal.Header className="bg-red-500 text-white py-1 text-sm">Lateral Entry Warning</Modal.Header>
-          <Modal.Body className="py-2">
-            <div className="text-xs text-gray-600">{warningMessage}</div>
-          </Modal.Body>
-          <Modal.Footer className="py-1">
-            <button
-              onClick={() => setShowLateralEntryModal(false)}
-              className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-            >
-              Understood
-            </button>
-          </Modal.Footer>
-        </Modal>
 
         {isPreviewOpen && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
@@ -1504,7 +1487,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                       <div><span className="font-medium">No of EMIs:</span> {student.NumberOfEMI}</div>
                       {emiDetails.map((emi, index) => (
                         <div key={index}>
-                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: ₹{emi.amount.toLocaleString('en-IN')}, 
+                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: ₹{emi.amount.toLocaleString('en-IN')},
                           Due Date: {emi.dueDate || 'Not set'}
                         </div>
                       ))}

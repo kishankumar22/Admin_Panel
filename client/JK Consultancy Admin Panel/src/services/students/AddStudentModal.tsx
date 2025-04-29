@@ -38,6 +38,7 @@ interface StudentFormData {
   SessionYear: string;
   PaymentMode: string;
   NumberOfEMI: number | null;
+  isLateral:boolean
 }
 
 interface FileData {
@@ -112,6 +113,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
     SessionYear: '',
     PaymentMode: 'One-Time',
     NumberOfEMI: null,
+    isLateral:false
   });
 
   const [documents, setDocuments] = useState<Documents>({
@@ -394,17 +396,30 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
               <div><label className="block text-xs font-medium text-black">Admission Mode <RequiredAsterisk /></label><select name="AdmissionMode" value={student.AdmissionMode} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="direct">Direct</option><option value="entrance">Entrance</option></select></div>
               <div><label className="block text-xs font-medium text-black">Admission Date</label><input type="date" name="AdmissionDate" value={student.AdmissionDate} onChange={handleChange} max={new Date().toISOString().split('T')[0]} className="w-full border p-1 rounded mt-1 text-xs" /></div>
               <div><label className="block text-xs font-medium text-black">Course Year <RequiredAsterisk /></label><select name="CourseYear" value={student.CourseYear} onChange={handleChange} className="w-full border p-1 rounded mt-1 text-xs" required><option value="">Select</option><option value="1st">1st</option><option value="2nd">2nd</option><option value="3rd">3rd</option><option value="4th">4th</option></select></div>
-              <div>
-  <label className="block text-xs font-medium text-black">Session Year <RequiredAsterisk /></label>
-  <input 
-    type="text" 
+              <div><label className="block text-xs font-medium text-black">Session Year <RequiredAsterisk /></label><input type="text" 
     name="SessionYear" 
     value={student.SessionYear} 
     readOnly 
     className="w-full border p-1 rounded mt-1 text-xs bg-gray-100" 
     required 
   />
-</div></div>
+</div>
+{student.CourseYear === "2nd" && (
+  <div className="">
+    <label className="flex items-center text-xs font-medium text-gray-700">
+      <input
+        type="checkbox"
+        name="isLateral"
+        checked={student.isLateral}
+        onChange={handleChange}
+        className="mr-1"
+      />
+      Is Lateral
+    </label>
+  </div>
+)}
+
+</div>
           )}
 
           {step === 3 && (

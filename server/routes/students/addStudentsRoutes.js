@@ -55,7 +55,7 @@ router.post('/students', upload.fields([
       EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
       CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
       AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
-      RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI
+      RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI,isLateral
     } = req.body;
 
     console.log("Request Body:", req.body);
@@ -205,8 +205,10 @@ router.post('/students', upload.fields([
           studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null,
           category: Category,
           isDiscontinue: IsDiscontinue === 'true',
+          isLateral: isLateral === 'true',
           discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
           discontinueBy: DiscontinueBy || null,
+
           createdBy: CreatedBy,
           status: true,
         },
@@ -359,6 +361,7 @@ router.get('/students/:id', async (req, res) => {
       AdmissionMode: student.admissionMode,
       AdmissionDate: student.admissionDate ? student.admissionDate.toISOString().split('T')[0] : '',
       isDiscontinue: student.isDiscontinue,
+      isLateral: student.isLateral,
       DiscontinueOn: student.discontinueOn ? student.discontinueOn.toISOString().split('T')[0] : '',
       DiscontinueBy: student.discontinueBy || '',
       FineAmount: latestAcademicDetails.adminAmount || 0,
@@ -449,251 +452,251 @@ router.get('/students/:id/documents', async (req, res) => {
 
 
 // PUT update student and academic details
-// router.put(
-//   '/students/:id',
-//   upload.fields([
-//     { name: 'StudentImage' },
-//     { name: 'CasteCertificate' },
-//     { name: 'TenthMarks' },
-//     { name: 'TwelfthMarks' },
-//     { name: 'Residential' },
-//     { name: 'Income' },
-//   ]),
-//   async (req, res) => {
-//     try {
-//       const studentId = parseInt(req.params.id);
-//       const {
-//         RollNumber,
-//         FName,
-//         LName,
-//         DOB,
-//         Gender,
-//         MobileNumber,
-//         AlternateNumber,
-//         EmailId,
-//         FatherName,
-//         FatherMobileNumber,
-//         MotherName,
-//         Address,
-//         City,
-//         State,
-//         Pincode,
-//         CourseId,
-//         CourseYear,
-//         Category,
-//         LedgerNumber,
-//         CollegeId,
-//         AdmissionMode,
-//         AdmissionDate,
-//         IsDiscontinue,
-//         DiscontinueOn,
-//         DiscontinueBy,
-//         FineAmount,
-//         RefundAmount,
-//         ModifiedBy,
-//         SessionYear,
-//         PaymentMode,
-//         NumberOfEMI,
-//         emiDetails, // Expecting JSON string of EMI details
-//       } = req.body;
+router.put(
+  '/students/:id',
+  upload.fields([
+    { name: 'StudentImage' },
+    { name: 'CasteCertificate' },
+    { name: 'TenthMarks' },
+    { name: 'TwelfthMarks' },
+    { name: 'Residential' },
+    { name: 'Income' },
+  ]),
+  async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const {
+        RollNumber,
+        FName,
+        LName,
+        DOB,
+        Gender,
+        MobileNumber,
+        AlternateNumber,
+        EmailId,
+        FatherName,
+        FatherMobileNumber,
+        MotherName,
+        Address,
+        City,
+        State,
+        Pincode,
+        CourseId,
+        CourseYear,
+        Category,
+        LedgerNumber,
+        CollegeId,
+        AdmissionMode,
+        AdmissionDate,
+        IsDiscontinue,
+        DiscontinueOn,
+        DiscontinueBy,
+        FineAmount,
+        RefundAmount,
+        ModifiedBy,
+        SessionYear,
+        PaymentMode,
+        NumberOfEMI,
+        emiDetails, // Expecting JSON string of EMI details
+      } = req.body;
 
-//       const existingStudent = await prisma.student.findUnique({
-//         where: { id: studentId },
-//         include: {
-//           academicDetails: true,
-//           documents: true,
-//           emiDetails: true,
-//         },
-//       });
+      const existingStudent = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: {
+          academicDetails: true,
+          documents: true,
+          emiDetails: true,
+        },
+      });
 
-//       if (!existingStudent) {
-//         return res.status(404).json({ success: false, message: 'Student not found' });
-//       }
+      if (!existingStudent) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
 
-//       // Check if academic detail with this CourseYear exists
-//       const existingAcademicDetail = existingStudent.academicDetails.find(
-//         (detail) => detail.courseYear === CourseYear
-//       );
+      // Check if academic detail with this CourseYear exists
+      const existingAcademicDetail = existingStudent.academicDetails.find(
+        (detail) => detail.courseYear === CourseYear
+      );
 
-//       // Upload new documents to Cloudinary
-//       const documentsData = [];
-//       const uploadFile = async (fieldName) => {
-//         if (req.files && req.files[fieldName]?.[0]) {
-//           const oldDoc = existingStudent.documents.find((doc) => doc.documentType === fieldName);
-//           if (oldDoc) {
-//             await deleteFromCloudinary(oldDoc.publicId);
-//             await prisma.documents.delete({ where: { id: oldDoc.id } });
-//           }
+      // Upload new documents to Cloudinary
+      const documentsData = [];
+      const uploadFile = async (fieldName) => {
+        if (req.files && req.files[fieldName]?.[0]) {
+          const oldDoc = existingStudent.documents.find((doc) => doc.documentType === fieldName);
+          if (oldDoc) {
+            await deleteFromCloudinary(oldDoc.publicId);
+            await prisma.documents.delete({ where: { id: oldDoc.id } });
+          }
 
-//           const uploadedFile = await uploadToCloudinary(
-//             req.files[fieldName][0].buffer,
-//             `student_documents/${fieldName}`
-//           );
-//           if (uploadedFile?.public_id && uploadedFile?.url) {
-//             documentsData.push({
-//               documentType: fieldName,
-//               publicId: uploadedFile.public_id,
-//               fileUrl: uploadedFile.url,
-//               fileName: req.files[fieldName][0].originalname,
-//               createdBy: ModifiedBy,
-//             });
-//           }
-//         }
-//       };
+          const uploadedFile = await uploadToCloudinary(
+            req.files[fieldName][0].buffer,
+            `student_documents/${fieldName}`
+          );
+          if (uploadedFile?.public_id && uploadedFile?.url) {
+            documentsData.push({
+              documentType: fieldName,
+              publicId: uploadedFile.public_id,
+              fileUrl: uploadedFile.url,
+              fileName: req.files[fieldName][0].originalname,
+              createdBy: ModifiedBy,
+            });
+          }
+        }
+      };
 
-//       await Promise.all([
-//         uploadFile('StudentImage'),
-//         uploadFile('CasteCertificate'),
-//         uploadFile('TenthMarks'),
-//         uploadFile('TwelfthMarks'),
-//         uploadFile('Residential'),
-//         uploadFile('Income'),
-//       ]);
+      await Promise.all([
+        uploadFile('StudentImage'),
+        uploadFile('CasteCertificate'),
+        uploadFile('TenthMarks'),
+        uploadFile('TwelfthMarks'),
+        uploadFile('Residential'),
+        uploadFile('Income'),
+      ]);
 
-//       // Update student in a transaction
-//       const updatedStudent = await prisma.$transaction(async (prisma) => {
-//         // Update student basic details
-//         const student = await prisma.student.update({
-//           where: { id: studentId },
-//           data: {
-//             rollNumber: RollNumber,
-//             fName: FName,
-//             lName: LName || null,
-//             dob: new Date(DOB),
-//             gender: Gender,
-//             mobileNumber: MobileNumber,
-//             alternateNumber: AlternateNumber || null,
-//             email: EmailId,
-//             fatherName: FatherName,
-//             fatherMobile: FatherMobileNumber || null,
-//             motherName: MotherName,
-//             address: Address,
-//             city: City,
-//             state: State,
-//             pincode: Pincode,
-//             admissionMode: AdmissionMode,
-//             collegeId: parseInt(CollegeId),
-//             courseId: parseInt(CourseId),
-//             admissionDate: new Date(AdmissionDate),
-//             studentImage:
-//               documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl ||
-//               existingStudent.studentImage,
-//             category: Category,
-//             isDiscontinue: IsDiscontinue === 'true',
-//             discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
-//             discontinueBy: DiscontinueBy || null,
-//             modifiedBy: ModifiedBy,
-//             modifiedOn: new Date(),
-//           },
-//         });
+      // Update student in a transaction
+      const updatedStudent = await prisma.$transaction(async (prisma) => {
+        // Update student basic details
+        const student = await prisma.student.update({
+          where: { id: studentId },
+          data: {
+            rollNumber: RollNumber,
+            fName: FName,
+            lName: LName || null,
+            dob: new Date(DOB),
+            gender: Gender,
+            mobileNumber: MobileNumber,
+            alternateNumber: AlternateNumber || null,
+            email: EmailId,
+            fatherName: FatherName,
+            fatherMobile: FatherMobileNumber || null,
+            motherName: MotherName,
+            address: Address,
+            city: City,
+            state: State,
+            pincode: Pincode,
+            admissionMode: AdmissionMode,
+            collegeId: parseInt(CollegeId),
+            courseId: parseInt(CourseId),
+            admissionDate: new Date(AdmissionDate),
+            studentImage:
+              documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl ||
+              existingStudent.studentImage,
+            category: Category,
+            isDiscontinue: IsDiscontinue === 'true',
+            discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
+            discontinueBy: DiscontinueBy || null,
+            modifiedBy: ModifiedBy,
+            modifiedOn: new Date(),
+          },
+        });
 
-//         // Handle academic details
-//         if (!existingAcademicDetail) {
-//           // Create new academic detail
-//           const newAcademicDetail = await prisma.studentAcademicDetails.create({
-//             data: {
-//               studentId: studentId,
-//               sessionYear: SessionYear,
-//               paymentMode: PaymentMode,
-//               adminAmount: parseFloat(FineAmount) || 0.0,
-//               feesAmount: parseFloat(RefundAmount) || 0.0,
-//               numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-//               ledgerNumber: LedgerNumber || null,
-//               courseYear: CourseYear || null,
-//               createdBy: ModifiedBy,
-//               modifiedBy: ModifiedBy,
-//               modifiedOn: new Date(),
-//             },
-//           });
+        // Handle academic details
+        if (!existingAcademicDetail) {
+          // Create new academic detail
+          const newAcademicDetail = await prisma.studentAcademicDetails.create({
+            data: {
+              studentId: studentId,
+              sessionYear: SessionYear,
+              paymentMode: PaymentMode,
+              adminAmount: parseFloat(FineAmount) || 0.0,
+              feesAmount: parseFloat(RefundAmount) || 0.0,
+              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+              ledgerNumber: LedgerNumber || null,
+              courseYear: CourseYear || null,
+              createdBy: ModifiedBy,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            },
+          });
 
-//           // Handle EMI details for new academic record
-//           if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-//             const parsedEmiDetails = JSON.parse(emiDetails || '[]');
-//             if (parsedEmiDetails.length > 0) {
-//               await prisma.eMIDetails.createMany({
-//                 data: parsedEmiDetails.map((emi) => ({
-//                   studentId: studentId,
-//                   studentAcademicId: newAcademicDetail.id,
-//                   emiNumber: parseInt(emi.emiNumber),
-//                   amount: parseFloat(emi.amount),
-//                   dueDate: new Date(emi.dueDate),
-//                   createdBy: ModifiedBy,
-//                   createdOn: new Date(),
-//                   modifiedBy: ModifiedBy,
-//                   modifiedOn: new Date(),
-//                 })),
-//               });
-//             }
-//           }
-//         } else {
-//           // Update existing academic details
-//           await prisma.studentAcademicDetails.update({
-//             where: { id: existingAcademicDetail.id },
-//             data: {
-//               sessionYear: SessionYear,
-//               paymentMode: PaymentMode,
-//               adminAmount: parseFloat(FineAmount) || 0.0,
-//               feesAmount: parseFloat(RefundAmount) || 0.0,
-//               numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-//               ledgerNumber: LedgerNumber || null,
-//               courseYear: CourseYear || null,
-//               modifiedBy: ModifiedBy,
-//               modifiedOn: new Date(),
-//             },
-//           });
+          // Handle EMI details for new academic record
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            if (parsedEmiDetails.length > 0) {
+              await prisma.eMIDetails.createMany({
+                data: parsedEmiDetails.map((emi) => ({
+                  studentId: studentId,
+                  studentAcademicId: newAcademicDetail.id,
+                  emiNumber: parseInt(emi.emiNumber),
+                  amount: parseFloat(emi.amount),
+                  dueDate: new Date(emi.dueDate),
+                  createdBy: ModifiedBy,
+                  createdOn: new Date(),
+                  modifiedBy: ModifiedBy,
+                  modifiedOn: new Date(),
+                })),
+              });
+            }
+          }
+        } else {
+          // Update existing academic details
+          await prisma.studentAcademicDetails.update({
+            where: { id: existingAcademicDetail.id },
+            data: {
+              sessionYear: SessionYear,
+              paymentMode: PaymentMode,
+              adminAmount: parseFloat(FineAmount) || 0.0,
+              feesAmount: parseFloat(RefundAmount) || 0.0,
+              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
+              ledgerNumber: LedgerNumber || null,
+              courseYear: CourseYear || null,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            },
+          });
 
-//           // Handle EMI details
-//           if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-//             const parsedEmiDetails = JSON.parse(emiDetails || '[]');
-//             // Delete existing EMI details
-//             await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
-//             if (parsedEmiDetails.length > 0) {
-//               await prisma.eMIDetails.createMany({
-//                 data: parsedEmiDetails.map((emi) => ({
-//                   studentId: studentId,
-//                   studentAcademicId: existingAcademicDetail.id,
-//                   emiNumber: parseInt(emi.emiNumber),
-//                   amount: parseFloat(emi.amount),
-//                   dueDate: new Date(emi.dueDate),
-//                   createdBy: ModifiedBy,
-//                   createdOn: new Date(),
-//                   modifiedBy: ModifiedBy,
-//                   modifiedOn: new Date(),
-//                 })),
-//               });
-//             }
-//           } else if (PaymentMode === 'One-Time') {
-//             // Delete EMI details if switching to One-Time
-//             await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
-//           }
-//         }
+          // Handle EMI details
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            // Delete existing EMI details
+            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+            if (parsedEmiDetails.length > 0) {
+              await prisma.eMIDetails.createMany({
+                data: parsedEmiDetails.map((emi) => ({
+                  studentId: studentId,
+                  studentAcademicId: existingAcademicDetail.id,
+                  emiNumber: parseInt(emi.emiNumber),
+                  amount: parseFloat(emi.amount),
+                  dueDate: new Date(emi.dueDate),
+                  createdBy: ModifiedBy,
+                  createdOn: new Date(),
+                  modifiedBy: ModifiedBy,
+                  modifiedOn: new Date(),
+                })),
+              });
+            }
+          } else if (PaymentMode === 'One-Time') {
+            // Delete EMI details if switching to One-Time
+            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+          }
+        }
 
-//         // Create new documents
-//         if (documentsData.length > 0) {
-//           await prisma.documents.createMany({
-//             data: documentsData.map((doc) => ({
-//               studentId: student.id,
-//               documentType: doc.documentType,
-//               publicId: doc.publicId,
-//               fileUrl: doc.fileUrl,
-//               fileName: doc.fileName,
-//               createdBy: doc.createdBy,
-//               modifiedBy: ModifiedBy,
-//               modifiedOn: new Date(),
-//             })),
-//           });
-//         }
+        // Create new documents
+        if (documentsData.length > 0) {
+          await prisma.documents.createMany({
+            data: documentsData.map((doc) => ({
+              studentId: student.id,
+              documentType: doc.documentType,
+              publicId: doc.publicId,
+              fileUrl: doc.fileUrl,
+              fileName: doc.fileName,
+              createdBy: doc.createdBy,
+              modifiedBy: ModifiedBy,
+              modifiedOn: new Date(),
+            })),
+          });
+        }
 
-//         return student;
-//       });
+        return student;
+      });
 
-//       res.status(200).json({ success: true, student: updatedStudent });
-//     } catch (error) {
-//       console.error('Error updating student:', error);
-//       res.status(500).json({ success: false, message: error.message });
-//     }
-//   }
-// );
+      res.status(200).json({ success: true, student: updatedStudent });
+    } catch (error) {
+      console.error('Error updating student:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
 // Student Update Route 22-04-2025
 // router.put(
 //   '/students/:id',
@@ -989,319 +992,610 @@ router.get('/students/:id/documents', async (req, res) => {
 //   }
 // );
 // Student Update Route 28-04-2025
-router.put(
-  '/students/:id',
-  upload.fields([
-    { name: 'StudentImage' },
-    { name: 'CasteCertificate' },
-    { name: 'TenthMarks' },
-    { name: 'TwelfthMarks' },
-    { name: 'Residential' },
-    { name: 'Income' },
-  ]),
-  async (req, res) => {
-    try {
-      const studentId = parseInt(req.params.id);
-      const {
-        RollNumber,
-        FName,
-        LName,
-        DOB,
-        Gender,
-        MobileNumber,
-        AlternateNumber,
-        EmailId,
-        FatherName,
-        FatherMobileNumber,
-        MotherName,
-        Address,
-        City,
-        State,
-        Pincode,
-        CourseId,
-        CourseYear,
-        Category,
-        LedgerNumber,
-        CollegeId,
-        AdmissionMode,
-        AdmissionDate,
-        IsDiscontinue,
-        DiscontinueOn,
-        DiscontinueBy,
-        FineAmount,
-        RefundAmount,
-        ModifiedBy,
-        SessionYear,
-        PaymentMode,
-        NumberOfEMI,
-        emiDetails, // Expecting JSON string of EMI details
-      } = req.body;
+// router.put(
+//   '/students/:studentId/academic-details/:academicId/course-year',
+//   async (req, res) => {
+//     try {
+//       const { studentId, academicId } = req.params;
+//       const { courseYear, sessionYear, modifiedBy } = req.body;
 
-      // Validate course year and session year logic
-      if (CourseYear && SessionYear) {
-        // Get all academic details for this student to validate course year progression
-        const existingAcademicDetails = await prisma.studentAcademicDetails.findMany({
-          where: { studentId: studentId },
-          orderBy: { courseYear: 'asc' },
+//       if (!courseYear || !sessionYear || !modifiedBy) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'Course year, session year, and modifiedBy are required',
+//         });
+//       }
+
+//       const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+//       if (!courseYearOrder.includes(courseYear)) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'Invalid course year',
+//         });
+//       }
+
+//       // Check if the academic record exists
+//       const academicDetail = await prisma.studentAcademicDetails.findUnique({
+//         where: { id: parseInt(academicId) },
+//       });
+
+//       if (!academicDetail || academicDetail.studentId !== parseInt(studentId)) {
+//         return res.status(404).json({
+//           success: false,
+//           message: 'Academic record not found or does not belong to the student',
+//         });
+//       }
+
+//       // Check if there are any payments for this academic record
+//       const payments = await prisma.studentPayment.findMany({
+//         where: {
+//           studentId: parseInt(studentId),
+//           sessionYear: academicDetail.sessionYear,
+//           courseYear: academicDetail.courseYear,
+//         },
+//       });
+
+//       if (payments.length > 0) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot update course year for ${academicDetail.courseYear} in session ${academicDetail.sessionYear} because payments exist.`,
+//         });
+//       }
+
+//       // Validate course year sequence
+//       const existingAcademicDetails = await prisma.studentAcademicDetails.findMany({
+//         where: { studentId: parseInt(studentId) },
+//         orderBy: { courseYear: 'asc' },
+//       });
+
+//       const enrolledYears = existingAcademicDetails.map(detail => detail.courseYear);
+//       const currentIndex = courseYearOrder.indexOf(courseYear);
+//       const originalIndex = courseYearOrder.indexOf(academicDetail.courseYear);
+
+//       if (currentIndex > originalIndex + 1) {
+//         const skippedYears = courseYearOrder.slice(originalIndex + 1, currentIndex);
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot skip years. Student must first enroll in ${skippedYears.join(', ')} year(s) before ${courseYear} year.`,
+//         });
+//       }
+
+//       if (currentIndex > 0) {
+//         for (let i = 0; i < currentIndex; i++) {
+//           const yearToCheck = courseYearOrder[i];
+//           if (!enrolledYears.includes(yearToCheck)) {
+//             return res.status(400).json({
+//               success: false,
+//               message: `Cannot skip years. Student must first enroll in ${yearToCheck} year before ${courseYear} year.`,
+//             });
+//           }
+//         }
+//       }
+
+//       // Validate session year
+//       const currentYear = new Date().getFullYear();
+//       const sessionYears = Array.from({ length: 10 }, (_, i) => {
+//         const startYear = currentYear - 5 + i;
+//         return `${startYear}-${startYear + 1}`;
+//       });
+
+//       if (!sessionYears.includes(sessionYear)) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'Invalid session year',
+//         });
+//       }
+
+//       // Check for session year conflicts
+//       const existingSessionDetail = existingAcademicDetails.find(
+//         detail => detail.sessionYear === sessionYear && detail.id !== parseInt(academicId)
+//       );
+
+//       if (existingSessionDetail) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Session year ${sessionYear} is already associated with another academic record.`,
+//         });
+//       }
+
+//       // Update the academic record
+//       const updatedAcademicDetail = await prisma.studentAcademicDetails.update({
+//         where: { id: parseInt(academicId) },
+//         data: {
+//           courseYear,
+//           sessionYear,
+//           modifiedBy,
+//           modifiedOn: new Date(),
+//         },
+//       });
+
+//       res.status(200).json({
+//         success: true,
+//         message: 'Course year updated successfully',
+//         data: updatedAcademicDetail,
+//       });
+//     } catch (error) {
+//       console.error('Error updating course year:', error);
+//       res.status(500).json({
+//         success: false,
+//         message: error.message || 'An error occurred while updating the course year',
+//       });
+//     }
+//   }
+// );
+
+// promotion of students
+// Route to handle student promotion
+// router.post('/students/:studentId/promote', async (req, res) => {
+//   try {
+//     const { studentId } = req.params;
+//     const {
+//       currentAcademicId,
+//       newCourseYear,
+//       newSessionYear,
+//       adminAmount,
+//       feesAmount,
+//       paymentMode,
+//       numberOfEMI,
+//       emiDetails,
+//       ledgerNumber,
+//       modifiedBy
+//     } = req.body;
+
+//     // Input validation
+//     if (!newCourseYear || !newSessionYear) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'New course year and session year are required'
+//       });
+//     }
+
+//     if (adminAmount < 0 || feesAmount < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Admin amount and fees amount cannot be negative'
+//       });
+//     }
+
+//     if (paymentMode === 'EMI' && (!numberOfEMI || numberOfEMI <= 0)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Number of EMIs must be greater than 0 for EMI payment mode'
+//       });
+//     }
+
+//     if (paymentMode === 'EMI' && (!emiDetails || emiDetails.length === 0)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'EMI details are required for EMI payment mode'
+//       });
+//     }
+
+//     // Verify course year validity
+//     const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+//     if (!courseYearOrder.includes(newCourseYear)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid course year'
+//       });
+//     }
+
+//     // Verify session year validity
+//     const currentYear = new Date().getFullYear();
+//     const sessionYears = Array.from({ length: 10 }, (_, i) => {
+//       const startYear = currentYear - 5 + i;
+//       return `${startYear}-${startYear + 1}`;
+//     });
+
+//     if (!sessionYears.includes(newSessionYear)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid session year'
+//       });
+//     }
+
+//     // Verify the student exists
+//     const student = await prisma.student.findUnique({
+//       where: { id: parseInt(studentId) }
+//     });
+
+//     if (!student) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Student not found'
+//       });
+//     }
+
+//     // Get current academic record
+//     const currentAcademic = await prisma.studentAcademicDetails.findUnique({
+//       where: { id: parseInt(currentAcademicId) }
+//     });
+
+//     if (!currentAcademic || currentAcademic.studentId !== parseInt(studentId)) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Current academic record not found or does not belong to the student'
+//       });
+//     }
+
+//     // Check if the student already has an academic record for the new course year
+//     const existingCourseYearRecord = await prisma.studentAcademicDetails.findFirst({
+//       where: {
+//         studentId: parseInt(studentId),
+//         courseYear: newCourseYear
+//       }
+//     });
+
+//     if (existingCourseYearRecord) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Student already has an academic record for ${newCourseYear} year`
+//       });
+//     }
+
+//     // Check if there's a gap in course year sequence
+//     const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
+//     const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
+
+//     if (newCourseYearIndex !== currentCourseYearIndex + 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`
+//       });
+//     }
+
+//     // Check if there's a gap in session year sequence
+//     const currentSessionIndex = sessionYears.indexOf(currentAcademic.sessionYear);
+//     const newSessionIndex = sessionYears.indexOf(newSessionYear);
+
+//     if (newSessionIndex <= currentSessionIndex) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`
+//       });
+//     }
+
+//     if (newSessionIndex !== currentSessionIndex + 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`
+//       });
+//     }
+
+//     // Create new academic record for the student
+//     const newAcademicRecord = await prisma.studentAcademicDetails.create({
+//       data: {
+//         studentId: parseInt(studentId),
+//         courseYear: newCourseYear,
+//         sessionYear: newSessionYear,
+//         adminAmount: adminAmount,
+//         feesAmount: feesAmount,
+//         paymentMode: paymentMode,
+//         numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
+//         emiDetails: paymentMode === 'EMI' ? JSON.stringify(emiDetails) : null,
+//         ledgerNumber: ledgerNumber || null,
+//         createdBy: modifiedBy,
+//         createdOn: new Date()
+//       }
+//     });
+
+//     // Update student's current course year and session year
+//     await prisma.student.update({
+//       where: { id: parseInt(studentId) },
+//       data: {
+//         CourseYear: newCourseYear,
+//         SessionYear: newSessionYear,
+//         ModifiedBy: modifiedBy,
+//         ModifiedOn: new Date()
+//       }
+//     });
+
+//     // Return success response
+//     res.status(200).json({
+//       success: true,
+//       message: `Student successfully promoted to ${newCourseYear} year for session ${newSessionYear}`,
+//       data: newAcademicRecord
+//     });
+//   } catch (error) {
+//     console.error('Error promoting student:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || 'An error occurred while promoting the student'
+//     });
+//   }
+// });
+// Router for handling student promotion
+router.post('/students/:studentId/promote', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const {
+      currentAcademicId,
+      newCourseYear,
+      newSessionYear,
+      adminAmount,
+      feesAmount,
+      paymentMode,
+      numberOfEMI,
+      emiDetails,
+      ledgerNumber,
+      modifiedBy,
+      isDepromote, // New field to determine if this is a demotion operation
+    } = req.body;
+
+    // Input validation
+    if (!newCourseYear || !newSessionYear) {
+      return res.status(400).json({
+        success: false,
+        message: 'New course year and session year are required',
+      });
+    }
+
+    if (adminAmount < 0 || feesAmount < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Admin amount and fees amount cannot be negative',
+      });
+    }
+
+    if (paymentMode === 'EMI' && (!numberOfEMI || numberOfEMI <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Number of EMIs must be greater than 0 for EMI payment mode',
+      });
+    }
+
+    if (paymentMode === 'EMI' && (!emiDetails || !Array.isArray(emiDetails) || emiDetails.length === 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'EMI details are required and must be a non-empty array for EMI payment mode',
+      });
+    }
+
+    // Verify course year validity
+    const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+    if (!courseYearOrder.includes(newCourseYear)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid course year',
+      });
+    }
+
+    // Get current year and validate session years
+    const currentYear = new Date().getFullYear();
+    const sessionYears = Array.from({ length: 10 }, (_, i) => {
+      const startYear = currentYear - 5 + i;
+      return `${startYear}-${startYear + 1}`;
+    });
+
+    // Don't allow future session years beyond current year + 1
+    const maxAllowedSessionYear = `${currentYear}-${currentYear + 1}`;
+    if (parseInt(newSessionYear.split('-')[0]) > currentYear) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot use future session year beyond ${maxAllowedSessionYear}`,
+      });
+    }
+
+    if (!sessionYears.includes(newSessionYear)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid session year',
+      });
+    }
+
+    // Verify the student exists
+    const student = await prisma.student.findUnique({
+      where: { id: parseInt(studentId) },
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found',
+      });
+    }
+
+    // Get current academic record
+    const currentAcademic = await prisma.studentAcademicDetails.findUnique({
+      where: { id: parseInt(currentAcademicId) },
+    });
+
+    if (!currentAcademic || currentAcademic.studentId !== parseInt(studentId)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Current academic record not found or does not belong to the student',
+      });
+    }
+
+    // Get all academic records for this student to check for validity of promotion/demotion
+    const allAcademicRecords = await prisma.studentAcademicDetails.findMany({
+      where: { studentId: parseInt(studentId) },
+      orderBy: [
+        { courseYear: 'asc' },
+        { sessionYear: 'asc' },
+      ],
+    });
+
+    const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
+    const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
+    const currentSessionIndex = sessionYears.indexOf(currentAcademic.sessionYear);
+    const newSessionIndex = sessionYears.indexOf(newSessionYear);
+
+    // Special handling for lateral entry students being depromoted to 1st year
+    if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+      // This is a lateral entry student being depromoted from 2nd to 1st year
+      
+      // Check if the session year is the same
+      if (currentAcademic.sessionYear !== newSessionYear) {
+        return res.status(400).json({
+          success: false,
+          message: 'For depromoting a lateral entry student to 1st year, session year must remain the same',
         });
-
-        // Course year order for validation
-        const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
-
-        // Check if the new course year is lower than the current enrolled years
-        const enrolledYears = existingAcademicDetails.map(detail => detail.courseYear);
-        const currentIndex = courseYearOrder.indexOf(CourseYear);
-        const existingSessionDetail = existingAcademicDetails.find(
-          detail => detail.sessionYear === SessionYear
-        );
-
-        if (currentIndex >= 0 && existingSessionDetail) {
-          const existingIndex = courseYearOrder.indexOf(existingSessionDetail.courseYear);
-          if (currentIndex < existingIndex) {
-            // Check if there are payments for this student in the current session year
-            const payments = await prisma.studentPayment.findMany({
-              where: {
-                studentId: studentId,
-                sessionYear: SessionYear,
-              },
-            });
-
-            if (payments.length > 0) {
-              return res.status(400).json({
-                success: false,
-                message: `Cannot update course year from ${existingSessionDetail.courseYear} to ${CourseYear} for session ${SessionYear} because payments exist.`,
-              });
-            } else {
-              // No payments found, allow update of the existing academic record
-              // No new record creation needed, we'll update below
-            }
-          } else if (currentIndex > existingIndex + 1) {
-            return res.status(400).json({
-              success: false,
-              message: `Cannot skip years. Student must first enroll in ${courseYearOrder[existingIndex + 1]} year before ${CourseYear} year.`,
-            });
-          }
-        } else if (currentIndex > 0 && !existingSessionDetail) {
-          // Check if all previous years exist for a new session
-          for (let i = 0; i < currentIndex; i++) {
-            const yearToCheck = courseYearOrder[i];
-            if (!enrolledYears.includes(yearToCheck)) {
-              return res.status(400).json({
-                success: false,
-                message: `Cannot skip years. Student must first enroll in ${yearToCheck} year before ${CourseYear} year.`,
-              });
-            }
-          }
-        }
       }
 
-      const existingStudent = await prisma.student.findUnique({
-        where: { id: studentId },
-        include: {
-          academicDetails: true,
-          documents: true,
-          emiDetails: true,
+      // Check if there's already a 1st year record
+      const existingFirstYearRecord = allAcademicRecords.find(
+        record => record.courseYear === '1st'
+      );
+
+      if (existingFirstYearRecord) {
+        return res.status(400).json({
+          success: false,
+          message: 'Student already has a record for 1st year. Cannot depromote.',
+        });
+      }
+    } 
+    // Regular depromote case (not for lateral entry)
+    else if (isDepromote) {
+      // Validate that we're not skipping course years when depromoting
+      if (newCourseYearIndex !== currentCourseYearIndex - 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`,
+        });
+      }
+
+      // Check if student is already in 3rd year or higher, can't depromote back to 1st
+      if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`,
+        });
+      }
+
+      // Check if session year is the same for demotion
+      if (currentAcademic.sessionYear !== newSessionYear) {
+        return res.status(400).json({
+          success: false,
+          message: 'For demotion, session year must remain the same',
+        });
+      }
+
+      // Check if there's already a record for the target course year
+      const existingTargetYearRecord = allAcademicRecords.find(
+        record => record.courseYear === newCourseYear
+      );
+
+      if (existingTargetYearRecord) {
+        return res.status(400).json({
+          success: false,
+          message: `Student already has a record for ${newCourseYear} year. Cannot depromote.`,
+        });
+      }
+    } 
+    // Regular promotion case
+    else {
+      // Check if the student already has an academic record for the new course year
+      const existingCourseYearRecord = allAcademicRecords.find(
+        record => record.courseYear === newCourseYear
+      );
+
+      if (existingCourseYearRecord) {
+        return res.status(400).json({
+          success: false,
+          message: `Student already has an academic record for ${newCourseYear} year`,
+        });
+      }
+
+      // Check if there's a gap in course year sequence for promotion
+      if (newCourseYearIndex !== currentCourseYearIndex + 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`,
+        });
+      }
+
+      // Check if session year is same as current (not allowed for promotion)
+      if (currentAcademic.sessionYear === newSessionYear) {
+        return res.status(400).json({
+          success: false,
+          message: `For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`,
+        });
+      }
+
+      // Check if there's a gap in session year sequence
+      if (newSessionIndex <= currentSessionIndex) {
+        return res.status(400).json({
+          success: false,
+          message: `New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`,
+        });
+      }
+
+      if (newSessionIndex !== currentSessionIndex + 1) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`,
+        });
+      }
+    }
+
+    // Create new academic record for the student
+    const academicData = {
+      studentId: parseInt(studentId),
+      courseYear: newCourseYear,
+      sessionYear: newSessionYear,
+      adminAmount: parseFloat(adminAmount),
+      feesAmount: parseFloat(feesAmount),
+      paymentMode,
+      numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
+      ledgerNumber: ledgerNumber || null,
+      createdBy: modifiedBy,
+      createdOn: new Date(),
+      modifiedBy,
+    };
+
+    // Create the new academic record
+    const newAcademicRecord = await prisma.studentAcademicDetails.create({
+      data: academicData,
+    });
+
+    // If payment mode is EMI, create EMI details
+    if (paymentMode === 'EMI' && emiDetails && emiDetails.length > 0) {
+      await Promise.all(
+        emiDetails.map(async (emi) => {
+          await prisma.eMIDetails.create({
+            data: {
+              studentId: parseInt(studentId),
+              studentAcademicId: newAcademicRecord.id,
+              emiNumber: emi.emiNumber,
+              amount: parseFloat(emi.amount),
+              dueDate: new Date(emi.dueDate),
+              createdBy: modifiedBy,
+              createdOn: new Date(),
+              modifiedBy,
+            },
+          });
+        })
+      );
+    }
+
+    // If this is a lateral entry student being depromoted to 1st year, update the isLateral flag
+    if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+      await prisma.student.update({
+        where: { id: parseInt(studentId) },
+        data: {
+          isLateral: false,
+          modifiedBy,
+          modifiedOn: new Date(),
         },
       });
-
-      if (!existingStudent) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
-      }
-
-      // Upload new documents to Cloudinary
-      const documentsData = [];
-      const uploadFile = async (fieldName) => {
-        if (req.files && req.files[fieldName]?.[0]) {
-          const oldDoc = existingStudent.documents.find((doc) => doc.documentType === fieldName);
-          if (oldDoc) {
-            await deleteFromCloudinary(oldDoc.publicId);
-            await prisma.documents.delete({ where: { id: oldDoc.id } });
-          }
-
-          const uploadedFile = await uploadToCloudinary(
-            req.files[fieldName][0].buffer,
-            `student_documents/${fieldName}`
-          );
-          if (uploadedFile?.public_id && uploadedFile?.url) {
-            documentsData.push({
-              documentType: fieldName,
-              publicId: uploadedFile.public_id,
-              fileUrl: uploadedFile.url,
-              fileName: req.files[fieldName][0].originalname,
-              createdBy: ModifiedBy,
-            });
-          }
-        }
-      };
-
-      await Promise.all([
-        uploadFile('StudentImage'),
-        uploadFile('CasteCertificate'),
-        uploadFile('TenthMarks'),
-        uploadFile('TwelfthMarks'),
-        uploadFile('Residential'),
-        uploadFile('Income'),
-      ]);
-
-      // Update student in a transaction
-      const updatedStudent = await prisma.$transaction(async (prisma) => {
-        // Update student basic details
-        const student = await prisma.student.update({
-          where: { id: studentId },
-          data: {
-            rollNumber: RollNumber,
-            fName: FName,
-            lName: LName || null,
-            dob: new Date(DOB),
-            gender: Gender,
-            mobileNumber: MobileNumber,
-            alternateNumber: AlternateNumber || null,
-            email: EmailId,
-            fatherName: FatherName,
-            fatherMobile: FatherMobileNumber || null,
-            motherName: MotherName,
-            address: Address,
-            city: City,
-            state: State,
-            pincode: Pincode,
-            admissionMode: AdmissionMode,
-            collegeId: parseInt(CollegeId),
-            courseId: parseInt(CourseId),
-            admissionDate: AdmissionDate ? new Date(AdmissionDate) : null,
-            studentImage:
-              documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl ||
-              existingStudent.studentImage,
-            category: Category,
-            isDiscontinue: IsDiscontinue === 'true' || IsDiscontinue === true,
-            discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
-            discontinueBy: DiscontinueBy || null,
-            modifiedBy: ModifiedBy,
-            modifiedOn: new Date(),
-          },
-        });
-
-        // Handle academic details
-        const existingAcademicDetail = existingStudent.academicDetails.find(
-          (detail) => detail.sessionYear === SessionYear
-        );
-
-        if (existingAcademicDetail) {
-          // Update existing academic record if session year matches and no payments exist (handled above)
-          await prisma.studentAcademicDetails.update({
-            where: { id: existingAcademicDetail.id },
-            data: {
-              sessionYear: SessionYear,
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            },
-          });
-
-          // Handle EMI details
-          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-            const parsedEmiDetails = typeof emiDetails === 'string' 
-              ? JSON.parse(emiDetails || '[]')
-              : emiDetails;
-
-            // Delete existing EMI details
-            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
-
-            if (parsedEmiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: parsedEmiDetails.map((emi) => ({
-                  studentId: studentId,
-                  studentAcademicId: existingAcademicDetail.id,
-                  emiNumber: parseInt(emi.emiNumber),
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.dueDate),
-                  createdBy: ModifiedBy,
-                  createdOn: new Date(),
-                  modifiedBy: ModifiedBy,
-                  modifiedOn: new Date(),
-                })),
-              });
-            }
-          } else if (PaymentMode === 'One-Time') {
-            // Delete EMI details if switching to One-Time
-            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
-          }
-        } else {
-          // Create new academic detail if no existing record for this session year
-          const newAcademicDetail = await prisma.studentAcademicDetails.create({
-            data: {
-              studentId: studentId,
-              sessionYear: SessionYear,
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
-              createdBy: ModifiedBy,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            },
-          });
-
-          // Handle EMI details for new academic record
-          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-            const parsedEmiDetails = typeof emiDetails === 'string' 
-              ? JSON.parse(emiDetails || '[]')
-              : emiDetails;
-
-            if (parsedEmiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: parsedEmiDetails.map((emi) => ({
-                  studentId: studentId,
-                  studentAcademicId: newAcademicDetail.id,
-                  emiNumber: parseInt(emi.emiNumber),
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.dueDate),
-                  createdBy: ModifiedBy,
-                  createdOn: new Date(),
-                  modifiedBy: ModifiedBy,
-                  modifiedOn: new Date(),
-                })),
-              });
-            }
-          }
-        }
-
-        // Create new documents
-        if (documentsData.length > 0) {
-          await prisma.documents.createMany({
-            data: documentsData.map((doc) => ({
-              studentId: student.id,
-              documentType: doc.documentType,
-              publicId: doc.publicId,
-              fileUrl: doc.fileUrl,
-              fileName: doc.fileName,
-              createdBy: doc.createdBy,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            })),
-          });
-        }
-
-        return student;
-      });
-
-      res.status(200).json({
-        success: true,
-        message: 'Student updated successfully',
-        student: updatedStudent,
-      });
-    } catch (error) {
-      console.error('Error updating student:', error);
-      res.status(500).json({ success: false, message: error.message || 'An error occurred while updating the student' });
     }
+
+    // Return success response
+    const actionType = isDepromote ? 'demoted' : 'promoted';
+    res.status(200).json({
+      success: true,
+      message: `Student successfully ${actionType} to ${newCourseYear} year for session ${newSessionYear}`,
+      data: newAcademicRecord,
+    });
+  } catch (error) {
+    console.error('Error promoting/demoting student:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'An error occurred while promoting/demoting the student',
+    });
   }
-);
+});
 
 // DELETE /students/:id - Delete a student and all related records
 router.delete('/students/:id', async (req, res) => {
