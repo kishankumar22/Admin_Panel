@@ -8,6 +8,7 @@ import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 import StudentPaymentModal from '../students/StudentPaymentModal'; // New modal import
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import PromoteStudentModal from './PromoteStudentModal';
+import { ArrowUpCircle, GraduationCap } from 'lucide-react';
 
 interface EmiDetail {
   id: number;
@@ -415,130 +416,150 @@ const [yearFilter, setYearFilter] = useState('');
   </div>
  </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border rounded-lg text-[14px] text-black">
-            <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 ">
-              <tr>
-                <th className="py-1 px-2 border font-medium">#</th>
-                <th className="py-1 px-2 border font-medium">Name</th>
-                <th className="py-1 px-2 border font-medium">Roll No</th>
-                <th className="py-1 px-2 border font-medium">Email</th>
-                <th className="py-1 px-2 border font-medium">Course</th>
-                <th className="py-1 px-2 border font-medium">College</th>
-                <th className="py-1 px-2 border font-medium">Year</th>
-                <th className="py-1 px-2 border font-medium">Session</th>
-                <th className="py-1 px-2 border font-medium">Mobile</th>
-                <th className="py-1 px-2 border font-medium">Discont.</th>
-                <th className="py-1 px-2 border font-medium">Status</th>
-                <th className="py-1 px-2 border font-medium">Mode</th>
-                <th className="py-1 px-2 border font-medium">Category</th>
-                <th className="py-1 px-2 border font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedStudents.length > 0 ? (
-                paginatedStudents.map((student, index) => {
-                  const latestAcademic = student.academicDetails
-                    .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
+ <div className="overflow-x-auto shadow-md rounded-md">
+  <table className="min-w-full bg-white text-xs sm:text-sm">
+    <thead>
+      <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">#</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Name</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Roll No</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Email</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Course</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">College</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Year</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Session</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Mobile</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Disc.</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Status</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Mode</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Category</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody className="divide-y divide-gray-200">
+      {paginatedStudents.length > 0 ? (
+        paginatedStudents.map((student, index) => {
+          const latestAcademic = student.academicDetails
+            .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
 
-                  return (
-                    <tr key={student.id} className="hover:bg-gray-50">
-                      <td className="py-1 px-2 border text-center">{(currentPage - 1) * entriesPerPage + index + 1}</td>
-                      <td className="py-1 px-2 border">{student.fName} {student.lName || ''}</td>
-                      <td className="py-1 px-2 border text-center">{student.rollNumber}</td>
-                      <td className="py-1 px-2 border">{student.email}</td>
-                      <td className="py-1 px-2 border">{student.course?.courseName || 'N/A'}</td>
-                      <td className="py-1 px-2 border">{student.college?.collegeName || 'N/A'}</td>
-                      <td className="py-1 px-2 border">{latestAcademic.courseYear || 'N/A'}</td>
-                      <td className="py-1 px-2 border">{latestAcademic.sessionYear || 'N/A'}</td>
-                      <td className="py-1 px-2 border">{student.mobileNumber}</td>
-                      <td className="py-1 px-2 border text-center">{student.isDiscontinue ? 'Yes' : 'No'}</td>
-                      <td className="py-1 px-2 border text-center">{student.status ? 'Active' : 'Inactive'}</td>
-                      <td className="py-1 px-2 border">{student.admissionMode}</td>
-                      <td className="py-1 px-2 border">{student.category}</td>
-                      <td className="py-1 px-2 border text-center">
-                        <div className="flex justify-center space-x-1">
-                       <button
-                        onClick={() => handlePromoteClick(student.id)}
-                        className="p-1.5 text-md bg-green-100 text-green-800 rounded hover:bg-green-200"
-                        title="Promote Student"
-                        >
-                        Promote
-                        </button>
-                           <button
-                            onClick={() => handleEditClick(student.id)}
-                            className="text-blue-500 hover:text-blue-700"
-                            title="Edit"
-                          >
-                            <FaEdit />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(student.id)}
-                            className="text-red-500 hover:text-red-700"
-                            title="Delete"
-                          >
-                            <FaTrash />
-                          </button>
-                          {/* <button
-                            onClick={() => handlePaymentClick(student.id)}
-                            className="text-green-500 hover:text-green-700"
-                            title="Payment Details"
-                          >
-                            <FaMoneyBill />
-                          </button> */}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={14} className="py-2 text-center text-[10px] text-black">
-                    No students found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+          // Determine row background class based on index
+          const rowClass = index % 2 === 0 ? "bg-white" : "bg-gray-100";
 
-        <div className="flex flex-col md:flex-row justify-between items-center mt-2 text-[10px]">
-          <div className="flex items-center space-x-2">
-            <span>Entries per page:</span>
-            <select
-              value={entriesPerPage}
-              onChange={(e) => {
-                setEntriesPerPage(parseInt(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="border rounded-md p-2 text-[10px] focus:ring-2 focus:border-blue-500"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-          <div className="flex items-center space-x-2 mt-2 md:mt-0">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-2 py-0.5 bg-gray-300 rounded-md disabled:bg-gray-200"
-            >
-              Previous
-            </button>
-            <span>
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-2 py-0.5 bg-gray-300 rounded-md disabled:bg-gray-200"
-            >
-              Next
-            </button>
-          </div>
-        </div>
+          return (
+            <tr key={student.id} className={`${rowClass} hover:bg-blue-100`}>
+              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{(currentPage - 1) * entriesPerPage + index + 1}</td>
+              <td className="py-1 px-1 sm:px-2 font-medium text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
+              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{student.rollNumber}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[150px]">{student.email}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.course?.courseName || 'N/A'}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.college?.collegeName || 'N/A'}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{latestAcademic.courseYear || 'N/A'}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{latestAcademic.sessionYear || 'N/A'}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{student.mobileNumber}</td>
+              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">
+                <span className={`inline-flex rounded-sm px-1 text-xs ${student.isDiscontinue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {student.isDiscontinue ? 'Yes' : 'No'}
+                </span>
+              </td>
+              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">
+                <span className={`inline-flex rounded-sm px-1 text-xs ${student.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                  {student.status ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[100px]">{student.admissionMode}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{student.category}</td>
+              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">
+                <div className="flex items-center justify-center space-x-1">
+                  <button
+                    onClick={() => handlePromoteClick(student.id)}
+                    className="p-1 bg-green-100 text-green-800 rounded hover:bg-green-200 flex items-center justify-center"
+                    title="Promote Student"
+                  >
+                    <GraduationCap className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleEditClick(student.id)}
+                    className="p-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 flex items-center justify-center"
+                    title="Edit"
+                  >
+                    <FaEdit className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(student.id)}
+                    className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 flex items-center justify-center"
+                    title="Delete"
+                  >
+                    <FaTrash className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          );
+        })
+      ) : (
+        <tr>
+          <td colSpan={14} className="py-3 text-center text-gray-500 bg-gray-50">
+            <div className="flex flex-col items-center justify-center">
+              <p className="text-xs font-medium">No students found</p>
+            </div>
+          </td>
+        </tr>
+      )}
+    </tbody>
+  </table>
+</div>
+
+<div className="flex flex-col md:flex-row justify-between items-center mt-2 text-[10px]">
+  <div className="flex items-center space-x-2">
+    <span className="text-gray-600 font-medium flex items-center">
+      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+      </svg>
+      Entries per page:
+    </span>
+    <select
+      value={entriesPerPage}
+      onChange={(e) => {
+        setEntriesPerPage(parseInt(e.target.value));
+        setCurrentPage(1);
+      }}
+      className="border border-gray-300 rounded px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+    >
+      <option value={10}>10</option>
+      <option value={25}>25</option>
+      <option value={50}>50</option>
+      <option value={100}>100</option>
+    </select>
+  </div>
+  <div className="flex items-center space-x-2 mt-2 md:mt-0">
+    <button
+      onClick={() => handlePageChange(currentPage - 1)}
+      disabled={currentPage === 1}
+      className="px-2 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-[14px] flex items-center"
+    >
+      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
+      </svg>
+      Previous
+    </button>
+    <span className="text-gray-600 font-medium flex items-center">
+      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+      </svg>
+      Page {currentPage} of {totalPages}
+    </span>
+    <button
+      onClick={() => handlePageChange(currentPage + 1)}
+      disabled={currentPage === totalPages}
+      className="px-2 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-[14px] flex items-center"
+    >
+      Next
+      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+      </svg>
+    </button>
+  </div>
+</div>
 
         {isAddModalOpen && (
           <AddStudentModal
