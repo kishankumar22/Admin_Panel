@@ -60,8 +60,6 @@ router.get('/approved-by', async (req, res) => {
   }
 });
 
-
-
 // Get payments by staff member (approvedBy) - Modified to include remaining amount
 router.get('/payments-by-staff/:staffName', async (req, res) => {
   try {

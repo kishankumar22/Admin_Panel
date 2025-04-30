@@ -404,7 +404,7 @@ const clearFilters = () => {
 
       {/* Add Faculty Modal */}
       {addFacultyModel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
           <div className="p-2 w-full max-w-md bg-white rounded-lg shadow-md dark:bg-gray-600 max-h-[80vh] overflow-y-auto">
             <h3 className="text-center bg-slate-300 p-1 rounded-md text-base font-bold text-blue-800 sticky top-0 z-10">
               {editingFaculty ? "Edit Faculty" : "Add Faculty"}

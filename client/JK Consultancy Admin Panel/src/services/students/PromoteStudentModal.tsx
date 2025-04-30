@@ -565,7 +565,7 @@ const PromoteStudentModal: React.FC<PromoteStudentModalProps> = ({
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999 backdrop-blur-sm">
         <div className="bg-white p-6 rounded-lg shadow-lg flex flex-col items-center">
           <Loader1 size="lg" className="text-blue-500" />
           <p className="mt-2">Loading student data...</p>
@@ -575,7 +575,7 @@ const PromoteStudentModal: React.FC<PromoteStudentModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999 backdrop-blur-sm">
       <div className="bg-white p-3 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
         <div className="flex justify-between items-center mb-2 bg-gradient-to-r from-green-500 to-teal-600 text-white p-2 rounded-t-lg">
           <h2 className="text-base font-bold">

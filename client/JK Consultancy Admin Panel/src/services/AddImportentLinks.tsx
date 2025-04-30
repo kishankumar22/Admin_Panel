@@ -331,7 +331,7 @@ const AddImportantLinks: React.FC = () => {
   <div
     id="edit-modal"
     tabIndex={-1}
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+    className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
   >
     <div className="relative p-5 w-full max-w-md bg-white dark:bg-meta-4 rounded-lg shadow-md">
       {/* Modal Header */}
@@ -406,7 +406,7 @@ const AddImportantLinks: React.FC = () => {
   <div
     id="add-modal"
     tabIndex={-1}
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+    className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
   >
     <div className="relative p-5 w-full max-w-md bg-white dark:bg-meta-4 rounded-lg shadow-md">
       {/* Modal Header */}

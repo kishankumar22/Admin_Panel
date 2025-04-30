@@ -8,7 +8,7 @@ import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 import StudentPaymentModal from '../students/StudentPaymentModal'; // New modal import
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import PromoteStudentModal from './PromoteStudentModal';
-import { ArrowUpCircle, GraduationCap } from 'lucide-react';
+
 
 interface EmiDetail {
   id: number;
@@ -42,7 +42,8 @@ interface AcademicDetail {
 }
 
 interface Student {
-  StudentId:number;
+  StudentId:string;
+  
   id: number;
   rollNumber: string;
   fName: string;
@@ -124,6 +125,7 @@ const [yearFilter, setYearFilter] = useState('');
       const response = await axiosInstance.get('/students');
       const formattedStudents: Student[] = response.data.map((student: any) => ({
         id: student.id,
+        stdCollId: student.stdCollId,
         rollNumber: student.rollNumber || '',
         fName: student.fName || '',
         lName: student.lName || null,
@@ -423,20 +425,21 @@ const [yearFilter, setYearFilter] = useState('');
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">#</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Name</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Roll No</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">College ID</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Email</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Course</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">College</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Year</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Session</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Mobile</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Disc.</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Disccontinue</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Status</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Mode</th>
+        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Admission Mode</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Category</th>
         <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Actions</th>
       </tr>
     </thead>
-    <tbody className="divide-y divide-gray-200">
+    <tbody className="divide-y text-black divide-gray-200">
       {paginatedStudents.length > 0 ? (
         paginatedStudents.map((student, index) => {
           const latestAcademic = student.academicDetails
@@ -446,10 +449,11 @@ const [yearFilter, setYearFilter] = useState('');
           const rowClass = index % 2 === 0 ? "bg-white" : "bg-gray-100";
 
           return (
-            <tr key={student.id} className={`${rowClass} hover:bg-blue-100`}>
+            <tr key={student.id} className={`${rowClass} hover:bg-blue-100 `}>
               <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{(currentPage - 1) * entriesPerPage + index + 1}</td>
-              <td className="py-1 px-1 sm:px-2 font-medium text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
+              <td className="py-1 px-1 sm:px-2  text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
               <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{student.rollNumber}</td>
+              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{student?.stdCollId}</td>
               <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[150px]">{student.email}</td>
               <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.course?.courseName || 'N/A'}</td>
               <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.college?.collegeName || 'N/A'}</td>
@@ -470,17 +474,20 @@ const [yearFilter, setYearFilter] = useState('');
               <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{student.category}</td>
               <td className="py-1 px-1 sm:px-2 whitespace-nowrap">
                 <div className="flex items-center justify-center space-x-1">
-                  <button
-                    onClick={() => handlePromoteClick(student.id)}
-                    className="p-1 bg-green-100 text-green-800 rounded hover:bg-green-200 flex items-center justify-center"
-                    title="Promote Student"
-                  >
-                    <GraduationCap className="w-3.5 h-3.5" />
-                  </button>
+                <button
+                  onClick={() => handlePromoteClick(student.id)}
+                  type='button'
+                  title="Promote Student"
+                  className="px-2 py-1 text-sm font-semibold focus:ring-2  text-white bg-green-600 rounded-lg shadow-sm 
+                            hover:bg-green-700 transition duration-200 flex items-center justify-center"
+                >
+                  Promote
+                </button>
                   <button
                     onClick={() => handleEditClick(student.id)}
                     className="p-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 flex items-center justify-center"
                     title="Edit"
+                    type='button'
                   >
                     <FaEdit className="w-3.5 h-3.5" />
                   </button>
@@ -509,10 +516,11 @@ const [yearFilter, setYearFilter] = useState('');
   </table>
 </div>
 
-<div className="flex flex-col md:flex-row justify-between items-center mt-2 text-[10px]">
-  <div className="flex items-center space-x-2">
-    <span className="text-gray-600 font-medium flex items-center">
-      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm">
+  {/* Entries per page */}
+  <div className="flex items-center gap-2">
+    <span className="text-gray-700 font-medium flex items-center">
+      <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
       </svg>
       Entries per page:
@@ -523,7 +531,7 @@ const [yearFilter, setYearFilter] = useState('');
         setEntriesPerPage(parseInt(e.target.value));
         setCurrentPage(1);
       }}
-      className="border border-gray-300 rounded px-2 py-1 text-[10px] focus:outline-none focus:ring-1 focus:ring-blue-500"
+      className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
     >
       <option value={10}>10</option>
       <option value={25}>25</option>
@@ -531,35 +539,40 @@ const [yearFilter, setYearFilter] = useState('');
       <option value={100}>100</option>
     </select>
   </div>
-  <div className="flex items-center space-x-2 mt-2 md:mt-0">
+
+  {/* Pagination controls */}
+  <div className="flex items-center gap-3 mt-3 md:mt-0">
     <button
       onClick={() => handlePageChange(currentPage - 1)}
       disabled={currentPage === 1}
-      className="px-2 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-[14px] flex items-center"
+      className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-sm flex items-center"
     >
-      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path>
       </svg>
       Previous
     </button>
-    <span className="text-gray-600 font-medium flex items-center">
-      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+
+    <span className="text-gray-700 font-medium flex items-center">
+      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
       </svg>
       Page {currentPage} of {totalPages}
     </span>
+
     <button
       onClick={() => handlePageChange(currentPage + 1)}
       disabled={currentPage === totalPages}
-      className="px-2 py-0.5 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-[14px] flex items-center"
+      className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-500 text-sm flex items-center"
     >
       Next
-      <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
       </svg>
     </button>
   </div>
 </div>
+
 
         {isAddModalOpen && (
           <AddStudentModal
@@ -604,7 +617,7 @@ const [yearFilter, setYearFilter] = useState('');
     onSuccess={() => {
       setIsPromoteModalOpen(false);
       // Refresh data if needed
-      // fetchStudents();
+      fetchStudents();
     }}
     modifiedBy={user?.name || 'Admin'}
   />

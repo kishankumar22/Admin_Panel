@@ -305,7 +305,7 @@ const AddGallery: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative p-4 w-full max-w-sm bg-white dark:bg-meta-4 rounded-lg shadow-md">
             {/* Title */}
@@ -374,7 +374,7 @@ const AddGallery: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative p-4 w-full max-w-sm bg-white dark:bg-meta-4 rounded-lg shadow-md">
             {/* Title */}

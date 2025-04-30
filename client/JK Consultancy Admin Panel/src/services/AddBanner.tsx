@@ -326,7 +326,7 @@ const AddBanner: React.FC = () => {
         <div
           id="edit-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-white dark:text-meta-2 dark:bg-gray-700 rounded-lg shadow-lg p-5 overflow-auto">
             {/* Modal Header */}
@@ -395,7 +395,7 @@ const AddBanner: React.FC = () => {
         <div
           id="add-modal"
           tabIndex={-1}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-999 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4"
         >
           <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg bg-white dark:bg-gray-700 dark:text-meta-2 rounded-lg shadow-lg p-5 overflow-auto">
             {/* Modal Header */}

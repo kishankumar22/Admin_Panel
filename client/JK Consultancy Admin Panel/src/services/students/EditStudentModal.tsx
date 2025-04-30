@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
@@ -6,6 +5,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Modal } from 'flowbite-react';
 import { Loader1 } from '../../common/Loader/index';
+import PromoteStudentModal from './PromoteStudentModal';
 
 interface EditStudentModalProps {
   studentId: number;
@@ -194,7 +194,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   });
 
   const [existingDocuments, setExistingDocuments] = useState<Record<string, ExistingDocument>>({});
-
+  const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const handlePromoteClick = (studentId: number) => {
+    setSelectedStudentId(studentId);
+    setIsPromoteModalOpen(true);
+  };
   const currentYear = new Date().getFullYear();
   const sessionYears = Array.from({ length: 10 }, (_, i) => {
     const startYear = currentYear - 5 + i;
@@ -246,7 +251,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           AdmissionDate: studentData.AdmissionDate ? new Date(studentData.AdmissionDate).toISOString().split('T')[0] : '',
           DiscontinueOn: studentData.DiscontinueOn ? new Date(studentData.DiscontinueOn).toISOString().split('T')[0] : '',
           ModifiedBy: modifiedBy,
-          NumberOfEMI: studentData.NumberOfEMI || null,
+          NumberOfEMI: studentData.NumberOfEMI && [2, 3, 4, 5, 6].includes(studentData.NumberOfEMI) ? studentData.NumberOfEMI : null,
           emiDetails: studentData.emiDetails || [],
           PaymentMode: studentData.PaymentMode || 'One-Time',
           FineAmount: studentData.FineAmount || 0,
@@ -272,7 +277,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         const fetchedAcademicData = academicResponse.data.data;
         setAcademicData(fetchedAcademicData);
 
-        // If only one course year exists, load its data automatically without loader
         if (fetchedAcademicData.length === 1) {
           const singleCourseYear = fetchedAcademicData[0].courseYear;
           setStudent((prev) => ({ ...prev, CourseYear: singleCourseYear }));
@@ -307,8 +311,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const loadAcademicDetails = async (courseYear: string, useLoader: boolean = true) => {
     try {
       if (useLoader) {
-        setLoadingAcademic(false); // Show loader
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // 1-second delay
+        setLoadingAcademic(false);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       const response = await axiosInstance.get(`/students/${studentId}/academic-details`);
@@ -317,6 +321,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       );
 
       if (academicDetail) {
+        const validNumberOfEMI = academicDetail.numberOfEMI && [2, 3, 4, 5, 6].includes(academicDetail.numberOfEMI) ? academicDetail.numberOfEMI : null;
         setStudent((prev) => ({
           ...prev,
           SessionYear: academicDetail.sessionYear,
@@ -324,7 +329,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           FineAmount: academicDetail.adminAmount,
           RefundAmount: academicDetail.feesAmount,
           LedgerNumber: academicDetail.ledgerNumber || '',
-          NumberOfEMI: academicDetail.numberOfEMI || null,
+          NumberOfEMI: validNumberOfEMI,
           emiDetails: academicDetail.emiDetails || [],
         }));
         setEmiDetails(
@@ -348,9 +353,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         setEmiDetails([]);
       }
 
-      setLoadingAcademic(true); // Hide loader or keep data visible
+      setLoadingAcademic(true);
       if (useLoader) {
-        setStep(3); // Redirect to payment step only when loader is used
+        setStep(3);
         toast.info(`Loaded data for ${courseYear} year`);
       }
     } catch (error) {
@@ -366,7 +371,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
   }, [error]);
 
-  // Auto-load data for single course year when navigating to Step 3
   useEffect(() => {
     if (step === 3 && academicData.length === 1 && student.CourseYear) {
       loadAcademicDetails(student.CourseYear, false);
@@ -404,7 +408,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           return;
         } else {
           setStudent((prev) => ({ ...prev, CourseYear: value }));
-          loadAcademicDetails(value, academicData.length > 1); // Use loader only if multiple course years
+          loadAcademicDetails(value, academicData.length > 1);
           return;
         }
       }
@@ -431,7 +435,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       }
 
       setStudent((prev) => ({ ...prev, CourseYear: value }));
-      loadAcademicDetails(value, academicData.length > 1); // Use loader only if multiple course years
+      loadAcademicDetails(value, academicData.length > 1);
       return;
     }
 
@@ -485,13 +489,24 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       const numValue = value === '' ? 0 : parseFloat(value);
       setStudent((prev) => ({ ...prev, [name]: numValue }));
     } else if (name === 'PaymentMode') {
+      const newPaymentMode = value;
+      const newNumberOfEMI = newPaymentMode === 'EMI' ? (student.NumberOfEMI && [2, 3, 4, 5, 6].includes(student.NumberOfEMI) ? student.NumberOfEMI : null) : null;
       setStudent((prev) => ({
         ...prev,
-        [name]: value,
-        NumberOfEMI: value === 'EMI' ? (prev.NumberOfEMI || 0) : null,
-        emiDetails: value === 'EMI' ? prev.emiDetails : [],
+        [name]: newPaymentMode,
+        NumberOfEMI: newNumberOfEMI,
+        emiDetails: newPaymentMode === 'EMI' ? prev.emiDetails : [],
       }));
-      if (value !== 'EMI') setEmiDetails([]);
+      if (newPaymentMode !== 'EMI') {
+        setEmiDetails([]);
+      } else if (newNumberOfEMI && newNumberOfEMI > 0) {
+        const newEmiDetails = Array.from({ length: newNumberOfEMI }, (_, i) => ({
+          emiNumber: i + 1,
+          amount: emiDetails[i]?.amount || 0,
+          dueDate: emiDetails[i]?.dueDate || '',
+        }));
+        setEmiDetails(newEmiDetails);
+      }
     } else if (name === 'NumberOfEMI') {
       const newNumEMIs = value === '' ? null : parseInt(value);
       setStudent((prev) => ({ ...prev, [name]: newNumEMIs }));
@@ -600,6 +615,15 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       case 2:
         return !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId && !!student.CourseYear && !!student.SessionYear;
       case 3:
+        if (student.PaymentMode === 'EMI' && student.NumberOfEMI && emiDetails.length > 0) {
+          const totalEmiAmount = emiDetails.reduce((sum, emi) => sum + emi.amount, 0);
+          const totalAmount = student.FineAmount + student.RefundAmount;
+          if (totalEmiAmount > totalAmount) {
+            setError('Total EMI amount cannot be greater than the sum of Admin Amount and Fees Amount.');
+            toast.error('Total EMI amount cannot exceed Admin Amount + Fees Amount. Please adjust the EMI amounts.');
+            return false;
+          }
+        }
         return (
           !!student.PaymentMode &&
           (student.PaymentMode !== 'EMI' ||
@@ -617,7 +641,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setStep(tabNumber);
       setError('');
     } else {
-      setError(`Please fill all required fields in Step ${step} before proceeding.`);
       toast.warning(`Please fill all required fields in current tab before switching`);
     }
   };
@@ -627,7 +650,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       setStep((prev) => Math.min(prev + 1, 4));
       setError('');
     } else {
-      setError(`Please fill all required fields in Step ${step} before proceeding.`);
       toast.warning(`Please fill all required fields before proceeding`);
     }
   };
@@ -655,7 +677,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999">
       <div className="bg-white p-3 rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-lg">
         <div className="flex justify-between items-center mb-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-2 rounded-t-lg">
           <h2 className="text-sm font-bold">
@@ -1073,10 +1095,21 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               </div>
 
               <div className="mt-1">
-                <h2 className="text-xs font-semibold text-gray-800 mb-0.5">Academic History</h2>
+                <div className=' flex justify-between p-1 mb-2 bg-gradient-to-r from-blue-500 to-purple-300 rounded '>
+                <h2 className="text-xl font-semibold text-white mb-0.5">Academic History</h2>
+                <button
+                  onClick={() => handlePromoteClick(student.StudentId)}
+                  title="Promote Student"
+                  className="px-2 py-1 text-sm font-semibold focus:ring-2  text-white bg-green-400 rounded-lg shadow-sm 
+                            hover:bg-green-500 transition duration-200 flex items-center justify-center"
+                            type='button'
+                >
+                  Promote 
+                </button>
+                </div>
                 <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
                   <table className="min-w-full divide-y divide-gray-200 text-xs">
-                    <thead className="bg-gray-100 text-gray-800 uppercase">
+                    <thead className="bg-gray-200 text-gray-800 uppercase">
                       <tr>
                         {[
                           'SAID',
@@ -1391,6 +1424,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           <div className="flex justify-between pt-1">
             {step > 1 && (
               <button
+                type="button"
                 onClick={prevStep}
                 className="px-2 py-0.5 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
               >
@@ -1408,6 +1442,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={handleUpdateConfirm}
                   className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
                 >
@@ -1419,7 +1454,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
         </form>
 
         {isPreviewOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999">
             <div className="bg-white p-3 rounded-lg max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-lg">
               <h2 className="text-lg font-bold mb-1 text-center text-blue-800">Student Details Preview</h2>
               <div className="flex justify-center mb-2">
@@ -1570,6 +1605,19 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               </Modal>
             </div>
           </div>
+        )}
+
+        {isPromoteModalOpen && selectedStudentId && (
+          <PromoteStudentModal
+            studentId={selectedStudentId}
+            onClose={() => setIsPromoteModalOpen(false)}
+            onSuccess={() => {
+              setIsPromoteModalOpen(false);
+              // Refresh data if needed
+              // fetchStudents();
+            }}
+            modifiedBy={'Admin'}
+          />
         )}
       </div>
     </div>
