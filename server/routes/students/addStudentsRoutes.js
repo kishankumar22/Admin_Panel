@@ -3,6 +3,7 @@ const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const bcrypt = require('bcrypt');
+const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -1235,22 +1236,19 @@ router.get('/students/:studentId/academic-details/latest', async (req, res) => {
 });
 
 // Create new payment
+
 router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
   try {
-    // console.log('Request body:', req.body);
-    // console.log('Request file:', req.file);
-
     const {
       studentId,
       studentAcademicId,
       paymentMode,
       transactionNumber,
       amount,
-     
       receivedDate,
       approvedBy,
       amountType,
-      comment,
+  
       courseYear,
       sessionYear,
       email,
@@ -1261,29 +1259,35 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
     const requiredFields = { email, password, amountType, amount, paymentMode, receivedDate };
     const missingFields = Object.keys(requiredFields).filter((key) => !requiredFields[key]);
     if (missingFields.length > 0) {
-      console.log('Missing required fields:', missingFields);
       return res.status(400).json({ success: false, error: `Missing required fields: ${missingFields.join(', ')}` });
     }
 
     // Validate amount
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      console.log('Invalid amount:', amount);
       return res.status(400).json({ success: false, error: 'Amount must be a valid positive number' });
     }
 
     // Validate paymentMode
-    const validPaymentModes = ['cash', 'check', 'bank', 'upi'];
+    const validPaymentModes = ['cash', 'check', 'bank transfer', 'upi'];
     if (!validPaymentModes.includes(paymentMode)) {
-      console.log('Invalid paymentMode:', paymentMode);
-      return res.status(400).json({ success: false, error: 'Payment mode must be one of: cash, check, bank, upi' });
+      return res.status(400).json({ success: false, error: 'Payment mode must be one of: cash, check, bank transfer, upi' });
     }
 
     // Validate receivedDate
     const parsedDate = new Date(receivedDate);
     if (isNaN(parsedDate.getTime())) {
-      console.log('Invalid receivedDate:', receivedDate);
       return res.status(400).json({ success: false, error: 'ReceivedDate must be a valid date' });
+    }
+
+    // Check if transactionNumber is unique (if provided)
+    if (transactionNumber) {
+      const existingPayment = await prisma.studentPayment.findFirst({
+        where: { transactionNumber },
+      });
+      if (existingPayment) {
+        return res.status(400).json({ success: false, error: 'Transaction number already exists' });
+      }
     }
 
     // Authenticate user
@@ -1292,7 +1296,6 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
     });
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      console.log('Invalid credentials for email:', email);
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
@@ -1322,7 +1325,8 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
         amountType,
         courseYear,
         sessionYear,
-        createdBy: user.name || email, // Use name if available, fallback to email
+        createdBy: user.name || email,
+   
         ...receiptData,
       },
     });
@@ -1339,7 +1343,6 @@ router.get('/studentPayment/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    // Validate studentId
     if (!studentId || isNaN(parseInt(studentId))) {
       return res.status(400).json({ success: false, error: 'Invalid student ID' });
     }
@@ -1354,6 +1357,19 @@ router.get('/studentPayment/:studentId', async (req, res) => {
             fName: true,
             lName: true,
             rollNumber: true,
+            email: true,
+            mobileNumber: true,
+            fatherName: true,
+            course: {
+              select: {
+                courseName: true,
+              },
+            },
+            college: {
+              select: {
+                collegeName: true,
+              },
+            },
           },
         },
         studentAcademic: {
@@ -1373,6 +1389,149 @@ router.get('/studentPayment/:studentId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
+
+// Generate and download payment slip
+router.get('/studentPayment/:paymentId/slip', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    if (!paymentId || isNaN(parseInt(paymentId))) {
+      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+    }
+
+    const payment = await prisma.studentPayment.findUnique({
+      where: { id: parseInt(paymentId) },
+      include: {
+        student: {
+          select: {
+            fName: true,
+            lName: true,
+            rollNumber: true,
+            email: true,
+            mobileNumber: true,
+            fatherName: true,
+            course: {
+              select: {
+                courseName: true,
+              },
+            },
+          },
+        },
+        studentAcademic: {
+          select: {
+            sessionYear: true,
+            courseYear: true,
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ size: [400, 600], margin: 30 });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=payment-slip-${paymentId}.pdf`);
+    doc.pipe(res);
+
+    doc.rect(10, 10, doc.page.width - 20, doc.page.height - 20).stroke();
+
+    doc.fontSize(16)
+      .font('Helvetica-Bold')
+      .fillColor('#1E90FF')
+      .text('Payment Slip', { align: 'center' });
+
+    doc.fontSize(10)
+      .font('Helvetica')
+      .fillColor('#333')
+      .text('JK Institute Of Pharmacy', { align: 'center' });
+
+    doc.fontSize(9)
+      .fillColor('#000')
+      .moveDown(0.3)
+      .text(`Payment ID: ${paymentId}`, { align: 'center' });
+
+    doc.moveDown(0.5);
+    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#cccccc');
+    doc.moveDown(0.5);
+
+    // === Student Details ===
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#006400').text('Student Details');
+
+    doc.fontSize(9).font('Helvetica').fillColor('#333');
+
+    const leftX = 40;
+    const rightX = 200;
+    let yPos = doc.y;
+
+    const drawLabelValue = (label, value, offsetY) => {
+      doc.font('Helvetica-Bold').text(`${label}`, leftX, yPos + offsetY);
+      doc.font('Helvetica').text(`${value}`, rightX, yPos + offsetY);
+    };
+
+    drawLabelValue('Name:', `${payment.student.fName} ${payment.student.lName || ''}`, 0);
+    drawLabelValue('Roll Number:', `${payment.student.rollNumber}`, 15);
+    drawLabelValue('Email:', `${payment.student.email}`, 30);
+    drawLabelValue('Mobile Number:', `${payment.student.mobileNumber}`, 45);
+    drawLabelValue('Father\'s Name:', `${payment.student.fatherName || 'N/A'}`, 60);
+    drawLabelValue('Course:', `${payment.student.course.courseName}`, 75);
+    drawLabelValue('Session Year:', `${payment.studentAcademic.sessionYear}`, 90);
+    drawLabelValue('Course Year:', `${payment.studentAcademic.courseYear}`, 105);
+
+    doc.moveDown(8);
+    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#cccccc');
+    doc.moveDown(0.5);
+
+    // === Payment Details ===
+    doc.fontSize(11).font('Helvetica-Bold').fillColor('#006400').text('Payment Details', leftX);
+
+    doc.fontSize(9).font('Helvetica').fillColor('#333');
+
+    yPos = doc.y;
+
+    doc.font('Helvetica-Bold').text('Amount Type:', leftX, yPos);
+    doc.font('Helvetica').text(payment.amountType === 'adminAmount' ? 'Admin Amount' : payment.amountType, leftX + 100, yPos);
+
+    doc.font('Helvetica-Bold').text('Payment Mode:', leftX, yPos + 15);
+    doc.font('Helvetica').text(payment.paymentMode, leftX + 100, yPos + 15);
+
+    doc.font('Helvetica-Bold').text('Transaction Number:', leftX, yPos + 30);
+    doc.font('Helvetica').text(payment.transactionNumber || 'N/A', leftX + 100, yPos + 30);
+
+    doc.font('Helvetica-Bold').text('Amount:', leftX, yPos + 45);
+    doc.font('Helvetica').text(`${payment.amount.toFixed(2)}`, leftX + 100, yPos + 45);
+
+    doc.font('Helvetica-Bold').text('Received Date:', leftX, yPos + 60);
+    doc.font('Helvetica').text(`${new Date(payment.receivedDate).toLocaleDateString('en-GB')}`, leftX + 100, yPos + 60);
+
+    doc.font('Helvetica-Bold').text('Status:', leftX, yPos + 75);
+    doc.fillColor('#008000').font('Helvetica').text('Paid', leftX + 100, yPos + 75);
+
+    // === Paid Stamp ===
+    doc.rotate(-30, { origin: [doc.page.width / 2, 400] })
+      .fontSize(60)
+      .fillColor('rgba(0, 128, 0, 0.2)')
+      .text('PAID', doc.page.width / 2 - 80, 400);
+    doc.rotate(30, { origin: [doc.page.width / 2, 400] });
+
+    // === Footer ===
+    doc.fontSize(8)
+      .fillColor('#666')
+      .text('Generated by JK Institute of Pharmacy', { align: 'center' });
+
+    doc.moveDown(0.3);
+    doc.fontSize(7)
+      .text(`Date: ${new Date().toLocaleDateString('en-GB')}`, { align: 'center' });
+
+    doc.end();
+
+  } catch (error) {
+    console.error('Error generating payment slip:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate payment slip' });
   }
 });
 

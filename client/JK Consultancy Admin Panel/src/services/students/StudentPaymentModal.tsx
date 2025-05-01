@@ -4,14 +4,12 @@ import {
   FaUpload,
   FaMoneyBillWave,
   FaCalendarAlt,
-  FaUserGraduate,
   FaFileInvoiceDollar,
-  FaFileAlt,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../config';
-import { RequiredAsterisk } from '../students/AddStudentModal'; // adjust path as needed
+import { RequiredAsterisk } from '../students/AddStudentModal';
 
 // Interface definitions
 interface StudentPayment {
@@ -39,6 +37,11 @@ interface StudentPayment {
     fName: string;
     lName: string | null;
     rollNumber: string;
+    email: string;
+    mobileNumber: string;
+    fatherName: string | null;
+    course: { courseName: string };
+    college: { collegeName: string };
   };
   studentAcademic: {
     sessionYear: string | null;
@@ -64,7 +67,11 @@ interface Student {
   lName: string | null;
   rollNumber: string;
   fatherName: string | null;
+  email: string;
+  mobileNumber: string;
   academicDetails: StudentAcademic[];
+  course: { courseName: string };
+  college: { collegeName: string };
   emiDetails?: Array<{
     emiNumber: number;
     amount: number;
@@ -81,6 +88,19 @@ interface StudentPaymentModalProps {
   onClose: () => void;
 }
 
+// Define the FormData type
+interface FormData {
+  paymentMode: string;
+  transactionNumber: string;
+  amount: string;
+  refundAmount: string;
+  receivedDate: string;
+  approvedBy: string;
+  amountType: string;
+  comment: string;
+  password: string;
+}
+
 const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   studentId,
   students,
@@ -89,7 +109,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   onClose,
 }) => {
   const { isLoggedIn, user } = useAuth();
-  const [formData, setFormData] = useState({
+
+  // Initialize formData with default values
+  const initialFormData: FormData = {
     paymentMode: '',
     transactionNumber: '',
     amount: '',
@@ -99,7 +121,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     amountType: '',
     comment: '',
     password: '',
-  });
+  };
+
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -111,6 +135,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   useEffect(() => {
     setFormData((prev) => ({ ...prev, approvedBy: user?.name || '' }));
   }, [user]);
+
+  // Auto-dismiss error after 3 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const student = students.find((s) => s.id === studentId);
   if (!student) {
@@ -171,7 +203,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   }, [studentId, isLoggedIn, sessionYearFilter, yearFilter]);
 
-  // Calculate total paid adminAmount and feesAmount for the matching course year and session
+  // Calculate total paid adminAmount and feesAmount
   const totalPaidAdminAmount = payments
     .filter(
       (payment) =>
@@ -190,11 +222,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     )
     .reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
-  // Calculate remaining amounts
-  const remainingAdminAmount =
-    (matchingAcademic?.adminAmount || 0) - totalPaidAdminAmount;
-  const remainingFeesAmount =
-    (matchingAcademic?.feesAmount || 0) - totalPaidFeesAmount;
+  const remainingAdminAmount = (matchingAcademic?.adminAmount || 0) - totalPaidAdminAmount;
+  const remainingFeesAmount = (matchingAcademic?.feesAmount || 0) - totalPaidFeesAmount;
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -211,17 +240,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   };
 
   const resetForm = () => {
-    setFormData({
-      paymentMode: '',
-      transactionNumber: '',
-      amount: '',
-      refundAmount: '',
-      receivedDate: '',
-      approvedBy: user?.name || '',
-      amountType: '',
-      comment: '',
-      password: '',
-    });
+    setFormData(initialFormData);
     setReceiptFile(null);
   };
 
@@ -232,19 +251,15 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       return;
     }
 
-    // Client-side validation
-    type RequiredFieldKeys = 'Amount' | 'Payment Mode' | 'Amount Type' | 'Received Date' | 'Password' | 'Approved By';
-    const requiredFields: Record<RequiredFieldKeys, string> = {
+    const requiredFields: Record<string, string> = {
       Amount: formData.amount,
       'Payment Mode': formData.paymentMode,
       'Amount Type': formData.amountType,
       'Received Date': formData.receivedDate,
-      Password: formData.password,
+       Password: formData.password,
       'Approved By': formData.approvedBy,
     };
-    const missingFields = Object.keys(requiredFields).filter(
-      (key) => !requiredFields[key as RequiredFieldKeys]
-    ) as RequiredFieldKeys[];
+    const missingFields = Object.keys(requiredFields).filter((key) => !requiredFields[key]);
     if (missingFields.length > 0) {
       const errorMessage = `${missingFields.join(', ')} ${missingFields.length > 1 ? 'are' : 'is'} required`;
       setError(errorMessage);
@@ -252,7 +267,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       return;
     }
 
-    // Validate amount
     const parsedAmount = parseFloat(formData.amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Amount must be a valid positive number');
@@ -260,7 +274,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       return;
     }
 
-    // Validate paymentMode
     const validPaymentModes = ['cash', 'check', 'bank transfer', 'upi'];
     if (!validPaymentModes.includes(formData.paymentMode)) {
       setError('Please select a valid payment mode');
@@ -268,7 +281,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       return;
     }
 
-    // Validate receivedDate
     const parsedDate = new Date(formData.receivedDate);
     if (isNaN(parsedDate.getTime())) {
       setError('Received Date must be a valid date');
@@ -345,8 +357,42 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   };
 
+  // Download payment slip
+  const handleDownloadSlip = async (paymentId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token missing');
+      }
+
+      const response = await axiosInstance.get(`/studentPayment/${paymentId}/slip`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `payment-slip-${paymentId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success(' download payment slip sucessfully', {
+        position: 'top-center', autoClose: 5000, hideProgressBar: true, closeOnClick: true, pauseOnHover: true, draggable: true
+      });
+      
+
+    } catch (err) {
+      console.error('Error downloading slip:', err);
+      toast.error('Failed to download payment slip', { autoClose: 3000 });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm z-999">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50  z-50">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-md border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-2 rounded-t-lg flex justify-between items-center">
@@ -363,9 +409,13 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
         </div>
 
         <div className="p-3">
-          {error && <div className="text-red-500 text-xs mb-2">{error}</div>}
+          {error && (
+            <div className="text-red-500 text-xs mb-2 bg-red-100 p-2 rounded animate-fade-out">
+              {error}
+            </div>
+          )}
           {!matchingAcademic && (
-            <div className="text-red-500 text-xs mb-2">
+            <div className="text-red-500 text-xs mb-2 bg-red-100 p-2 rounded">
               No academic details found for session {sessionYearFilter} and year {yearFilter}
             </div>
           )}
@@ -407,7 +457,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             {/* Payment Information Section */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
-                <h3 className="font-bold text-gray-700 flex items-center text-">
+                <h3 className="font-bold text-gray-700 flex items-center text-sm">
                   <FaMoneyBillWave className="mr-1 text-green-600 text-2xl" />
                   Payment Information
                 </h3>
@@ -498,7 +548,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <label className="block text-xs font-medium text-gray-700">
-                      Recieved By <RequiredAsterisk />
+                      Received By <RequiredAsterisk />
                     </label>
                     <input
                       type="text"
@@ -515,7 +565,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     </label>
                     <input
                       type="password"
-                      placeholder="enter password to verify"
+                      placeholder="Enter password to verify"
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
@@ -545,51 +595,51 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                 </div>
 
                 <div className="mt-2">
-      <div className="border-l-4  border-blue-600 rounded-md p-2  bg-blue-100">
-        <p className="text-lg font-bold text-blue-800 mb-0.5">Academic Details</p>
-        <div className="grid grid-cols-3 gap-0.5 text-sm">
-          <div>
-            <div>
-              <span className="text-gray-600">Admin Amount:</span>
-              <span className="ml-0.5 font-bold">
-                ₹{matchingAcademic?.adminAmount || '0'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Remaining Admin Amount:</span>
-              <span className="ml-0.5 font-bold text-red-600">
-                ₹ {remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
-              </span>
-            </div>
-          </div>
-          <div>
-            <div>
-              <span className="text-gray-600">Fees Amount:</span>
-              <span className="ml-0.5 font-bold">
-                ₹{matchingAcademic?.feesAmount || '0'}
-              </span>
-            </div>
-            <div>
-              <span className="text-gray-600">Remaining Fees Amount:</span>
-              <span className="ml-0.5 font-bold text-red-600">
-                ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
-              </span>
-            </div>
-          </div>
-          <div>
-            <span className="text-gray-600">EMI Amount:</span>
-            <span className="ml-0.5 font-bold">
-              ₹{matchingAcademic?.emiAmount || '0'}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+                  <div className="border-l-4 border-blue-600 rounded-md p-2 bg-blue-100">
+                    <p className="text-lg font-bold text-blue-800 mb-0.5">Academic Details</p>
+                    <div className="grid grid-cols-3 gap-0.5 text-sm">
+                      <div>
+                        <div>
+                          <span className="text-gray-600">Admin Amount:</span>
+                          <span className="ml-0.5 font-bold">
+                            ₹{matchingAcademic?.adminAmount || '0'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Remaining Admin Amount:</span>
+                          <span className="ml-0.5 font-bold text-red-600">
+                            ₹{remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <div>
+                          <span className="text-gray-600">Fees Amount:</span>
+                          <span className="ml-0.5 font-bold">
+                            ₹{matchingAcademic?.feesAmount || '0'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Remaining Fees Amount:</span>
+                          <span className="ml-0.5 font-bold text-red-600">
+                            ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">EMI Amount:</span>
+                        <span className="ml-0.5 font-bold">
+                          ₹{matchingAcademic?.emiAmount || '0'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* EMI Details Section */}
-            {matchingAcademic?.paymentMode === 'EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
+            {matchingAcademic?.paymentMode ==='EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
                   <h3 className="font-semibold text-gray-700 text-xs">EMI Details</h3>
@@ -599,28 +649,16 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th
-                            scope="col"
-                            className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
+                          <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             EMI No
                           </th>
-                          <th
-                            scope="col"
-                            className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
+                          <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Amount
                           </th>
-                          <th
-                            scope="col"
-                            className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
+                          <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Due Date
                           </th>
-                          <th
-                            scope="col"
-                            className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                          >
+                          <th className="px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Status
                           </th>
                         </tr>
@@ -678,14 +716,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                 {loadingPayments ? (
                   <div className="text-black text-xs text-center">Loading payments...</div>
                 ) : paymentError ? (
-                  <div className="text-white text-xs text-center hidden">{paymentError}</div>
+                  <div className="text-white text-xs text-center">{paymentError}</div>
                 ) : payments.length === 0 ? (
                   <div className="text-black text-xs text-center">No payment history available</div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="">
-                        <tr className='bg-gray-300 rounded'>
+                        <tr className="bg-gray-300 rounded">
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Amount
                           </th>
@@ -699,7 +737,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             Received
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Recieved by
+                            Received by
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Amount Type
@@ -711,7 +749,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             Created on
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
-                            Receipt
+                            Action
                           </th>
                         </tr>
                       </thead>
@@ -764,19 +802,13 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               })}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
-                              {payment.receiptUrl ? (
-                                <a
-                                  href={payment.receiptUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center text-blue-600 hover:underline"
-                                >
-                                  <FaFileAlt className="mr-1 text-xs" />
-                                  View
-                                </a>
-                              ) : (
-                                'N/A'
-                              )}
+                              <button
+                                onClick={() => handleDownloadSlip(payment.id)}
+                                className="flex items-center text-blue-600 hover:text-blue-800"
+                              >
+                                <FaFileInvoiceDollar className="mr-1 text-xs" />
+                                Download Slip
+                              </button>
                             </td>
                           </tr>
                         ))}
