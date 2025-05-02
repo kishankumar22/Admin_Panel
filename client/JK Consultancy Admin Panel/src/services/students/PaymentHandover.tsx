@@ -488,7 +488,6 @@ const PaymentHandover: React.FC = () => {
         userId: user?.user_id,
         password: password
       });
-      
       if (!verifyRes.data.success) {
         setPasswordError('Invalid credentials');
         setIsSubmitting(false);
@@ -677,7 +676,7 @@ const PaymentHandover: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Payment Handover" />
-<div className="flex flex-col bg-gray-50">
+        <div className="flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-200 px-3 py-1.5 rounded-t-lg shadow-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             {/* Left side with search */}
@@ -727,8 +726,9 @@ const PaymentHandover: React.FC = () => {
           )}
 
           {showAddForm && (
+            
             <div className="bg-white rounded-lg shadow mb-3 p-2">
-              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg-blue-100 p-2 rounded">New Cash Handover</h2>
+              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg-blue-100 p-2 rounded">New Cash Handover </h2>
               <form onSubmit={handleInitiateSubmit} className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>

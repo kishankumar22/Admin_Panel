@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaSearch, FaTimes } from 'react-icons/fa'; // Added FaMoneyBill for payment icon
+import { FaEdit, FaTrash, FaSearch, FaTimes, FaSpinner } from 'react-icons/fa'; // Added FaMoneyBill for payment icon
 import AddStudentModal from '../students/AddStudentModal';
 import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
@@ -99,6 +99,8 @@ const StudentManagement: React.FC = () => {
     // In your StudentList component's state declarations, add:
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [showLoading, setShowLoading] = useState(true);
+
   const handlePromoteClick = (studentId: number) => {
     setSelectedStudentId(studentId);
     setIsPromoteModalOpen(true);
@@ -183,7 +185,15 @@ const [yearFilter, setYearFilter] = useState('');
       setError(err.response?.data?.message || 'Failed to fetch students');
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false);
+          setTimeout(() => {
+        setLoading(false);
+      }, 300); //
+        // Keep loading screen for at least 2 seconds
+    const minLoadingTime = setTimeout(() => {
+      setShowLoading(false);
+    },300);
+    
+    return () => clearTimeout(minLoadingTime);
     }
   };
 
@@ -283,8 +293,16 @@ const [yearFilter, setYearFilter] = useState('');
       setCurrentPage(page);
     }
   };
-
-  if (loading) return <div className="text-[10px] text-black p-2">Loading...</div>;
+  if (loading || showLoading) {
+    return (
+      <div className="flex justify-center   -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+      <div className="flex flex-col items-center ">
+        <FaSpinner className="animate-spin text-4xl text-purple-600" />
+        <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+      </div>
+    </div>
+    );
+  }
   if (error) return <div className="text-[10px] text-red-500 p-2">{error}</div>;
 
   return (
@@ -418,74 +436,73 @@ const [yearFilter, setYearFilter] = useState('');
   </div>
  </div>
 
- <div className="overflow-x-auto shadow-md rounded-md">
+ <div className="overflow-x-auto rounded-lg shadow-lg">
   <table className="min-w-full bg-white text-xs sm:text-sm">
     <thead>
-      <tr className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white">
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">#</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Name</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Roll No</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">College ID</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Email</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Course</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">College</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Year</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Session</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Mobile</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Disccontinue</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Status</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Admission Mode</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-left">Category</th>
-        <th className="py-1.5 px-1 sm:px-2 font-medium text-center">Actions</th>
+      <tr className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+        <th className="py-2 px-2 font-medium text-center">#</th>
+        <th className="py-2 px-2 font-medium text-left">Name</th>
+        <th className="py-2 px-2 font-medium text-center">Roll No</th>
+        <th className="py-2 px-2 font-medium text-center">College ID</th>
+        <th className="py-2 px-2 font-medium text-left">Email</th>
+        <th className="py-2 px-2 font-medium text-left">Course</th>
+        <th className="py-2 px-2 font-medium text-left">College</th>
+        <th className="py-2 px-2 font-medium text-center">Year</th>
+        <th className="py-2 px-2 font-medium text-center">Session</th>
+        <th className="py-2 px-2 font-medium text-center">Mobile</th>
+        <th className="py-2 px-2 font-medium text-center">Disccontinue</th>
+        <th className="py-2 px-2 font-medium text-center">Status</th>
+        <th className="py-2 px-2 font-medium text-left">Admission</th>
+        <th className="py-2 px-2 font-medium text-center">Category</th>
+        <th className="py-2 px-2 font-medium text-center">Actions</th>
       </tr>
     </thead>
-    <tbody className="divide-y text-black divide-gray-200">
+    <tbody className="divide-y divide-gray-200">
       {paginatedStudents.length > 0 ? (
         paginatedStudents.map((student, index) => {
           const latestAcademic = student.academicDetails
             .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
 
           // Determine row background class based on index
-          const rowClass = index % 2 === 0 ? "bg-white" : "bg-gray-100";
+          const rowClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
           return (
-            <tr key={student.id} className={`${rowClass} hover:bg-blue-100 `}>
-              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{(currentPage - 1) * entriesPerPage + index + 1}</td>
-              <td className="py-1 px-1 sm:px-2  text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
-              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{student.rollNumber}</td>
-              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">{student?.stdCollId}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[150px]">{student.email}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.course?.courseName || 'N/A'}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[120px]">{student.college?.collegeName || 'N/A'}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{latestAcademic.courseYear || 'N/A'}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{latestAcademic.sessionYear || 'N/A'}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{student.mobileNumber}</td>
-              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">
-                <span className={`inline-flex rounded-sm px-1 text-xs ${student.isDiscontinue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+            <tr key={student.id} className={`${rowClass} hover:bg-blue-50 transition duration-150`}>
+              <td className="py-2 px-2 text-center font-medium text-gray-700">{(currentPage - 1) * entriesPerPage + index + 1}</td>
+              <td className="py-2 px-2 font-medium text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
+              <td className="py-2 px-2 text-center text-gray-700">{student.rollNumber}</td>
+              <td className="py-2 px-2 text-center text-gray-700">{student?.stdCollId}</td>
+              <td className="py-2 px-2 whitespace-nowrap truncate max-w-[150px] text-blue-600">{student.email}</td>
+              <td className="py-2 px-2 font-medium whitespace-nowrap truncate max-w-[120px]">{student.course?.courseName || 'N/A'}</td>
+              <td className="py-2 px-2 whitespace-nowrap truncate max-w-[120px]">{student.college?.collegeName || 'N/A'}</td>
+              <td className="py-2 px-2 text-center">{latestAcademic.courseYear || 'N/A'}</td>
+              <td className="py-2 px-2 text-center">{latestAcademic.sessionYear || 'N/A'}</td>
+              <td className="py-2 px-2 text-center">{student.mobileNumber}</td>
+              <td className="py-2 px-2 text-center">
+                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${student.isDiscontinue ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                   {student.isDiscontinue ? 'Yes' : 'No'}
                 </span>
               </td>
-              <td className="py-1 px-1 sm:px-2 text-center whitespace-nowrap">
-                <span className={`inline-flex rounded-sm px-1 text-xs ${student.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+              <td className="py-2 px-2 text-center">
+                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${student.status ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
                   {student.status ? 'Active' : 'Inactive'}
                 </span>
               </td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap truncate max-w-[100px]">{student.admissionMode}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">{student.category}</td>
-              <td className="py-1 px-1 sm:px-2 whitespace-nowrap">
-                <div className="flex items-center justify-center space-x-1">
-                <button
-                  onClick={() => handlePromoteClick(student.id)}
-                  type='button'
-                  title="Promote Student"
-                  className="px-2 py-1 text-sm font-semibold focus:ring-2  text-white bg-green-600 rounded-lg shadow-sm 
-                            hover:bg-green-700 transition duration-200 flex items-center justify-center"
-                >
-                  Promote
-                </button>
+              <td className="py-2 px-2 whitespace-nowrap truncate max-w-[100px]">{student.admissionMode}</td>
+              <td className="py-2 px-2 text-center font-medium">{student.category}</td>
+              <td className="py-2 px-2">
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => handlePromoteClick(student.id)}
+                    type='button'
+                    title="Promote Student"
+                    className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition duration-150 flex items-center justify-center"
+                  >
+                    Promote
+                  </button>
                   <button
                     onClick={() => handleEditClick(student.id)}
-                    className="p-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 flex items-center justify-center"
+                    className="p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition duration-150 flex items-center justify-center"
                     title="Edit"
                     type='button'
                   >
@@ -493,7 +510,7 @@ const [yearFilter, setYearFilter] = useState('');
                   </button>
                   <button
                     onClick={() => handleDeleteClick(student.id)}
-                    className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 flex items-center justify-center"
+                    className="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150 flex items-center justify-center"
                     title="Delete"
                   >
                     <FaTrash className="w-3.5 h-3.5" />
@@ -505,9 +522,9 @@ const [yearFilter, setYearFilter] = useState('');
         })
       ) : (
         <tr>
-          <td colSpan={14} className="py-3 text-center text-gray-500 bg-gray-50">
+          <td colSpan={15} className="py-4 text-center text-gray-500 bg-gray-50">
             <div className="flex flex-col items-center justify-center">
-              <p className="text-xs font-medium">No students found</p>
+              <p className="text-sm font-medium">No students found</p>
             </div>
           </td>
         </tr>
@@ -515,7 +532,6 @@ const [yearFilter, setYearFilter] = useState('');
     </tbody>
   </table>
 </div>
-
 <div className="flex flex-col md:flex-row justify-between items-center mt-4 text-sm">
   {/* Entries per page */}
   <div className="flex items-center gap-2">

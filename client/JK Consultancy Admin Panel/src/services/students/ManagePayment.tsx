@@ -13,7 +13,8 @@ import {
   FaExchangeAlt,
   FaMoneyCheck,
   FaUsers,
-  FaFileExcel, // Import FaFileExcel for the export button
+  FaFileExcel,
+  FaSpinner, // Import FaFileExcel for the export button
 } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import StudentPaymentModal from './StudentPaymentModal';
@@ -120,6 +121,8 @@ const ManagePayment: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(true);
+
   const [error, setError] = useState('');
   const [payments, setPayments] = useState<StudentPayment[]>([]);
 
@@ -272,7 +275,15 @@ const ManagePayment: React.FC = () => {
       setError(err.response?.data?.message || 'Failed to fetch data');
       console.error('Fetch error:', err);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 300); //
+        // Keep loading screen for at least 2 seconds
+    const minLoadingTime = setTimeout(() => {
+      setShowLoading(false);
+    },300);
+    
+    return () => clearTimeout(minLoadingTime);
     }
   };
 
@@ -599,7 +610,16 @@ const ManagePayment: React.FC = () => {
     
   };
 
-  if (loading) return <div className="text-xs text-black p-1">Loading...</div>;
+  if (loading || showLoading) {
+    return (
+      <div className="flex justify-center   -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+      <div className="flex flex-col items-center ">
+        <FaSpinner className="animate-spin text-4xl text-purple-600" />
+        <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+      </div>
+    </div>
+    );
+  }
   if (error) return <div className="text-xs text-red-500 p-1">{error}</div>;
 
   return (

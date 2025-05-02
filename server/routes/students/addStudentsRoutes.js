@@ -469,7 +469,6 @@ router.get('/students/:id/documents', async (req, res) => {
   }
 });
 
-
 // PUT update student f and academic details
 router.put(
   '/students/:id',
@@ -611,7 +610,7 @@ router.put(
 
         // Handle academic details
         if (!existingAcademicDetail) {
-          // Create new academic detail
+          // Create new academic detail (shouldn't happen in update context, but keep for safety)
           const newAcademicDetail = await prisma.studentAcademicDetails.create({
             data: {
               studentId: studentId,
@@ -648,17 +647,15 @@ router.put(
             }
           }
         } else {
-          // Update existing academic details
+          // Update existing academic details, preserving courseYear and sessionYear
           await prisma.studentAcademicDetails.update({
             where: { id: existingAcademicDetail.id },
             data: {
-              sessionYear: SessionYear,
               paymentMode: PaymentMode,
               adminAmount: parseFloat(FineAmount) || 0.0,
               feesAmount: parseFloat(RefundAmount) || 0.0,
               numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
               ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
               modifiedBy: ModifiedBy,
               modifiedOn: new Date(),
             },

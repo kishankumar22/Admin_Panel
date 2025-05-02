@@ -3,9 +3,10 @@ import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { Modal } from 'flowbite-react';
+import { useAuth } from '../../context/AuthContext';
 import { Loader1 } from '../../common/Loader/index';
 import PromoteStudentModal from './PromoteStudentModal';
+import { Modal } from 'flowbite-react';
 
 interface EditStudentModalProps {
   studentId: number;
@@ -145,6 +146,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetail[]>([]);
   const [loadingAcademic, setLoadingAcademic] = useState(true);
   const [showUpdateConfirmModal, setShowUpdateConfirmModal] = useState(false);
+  const { user } = useAuth();
+  const [originalStudentData, setOriginalStudentData] = useState<StudentFormData | null>(null);
 
   const [student, setStudent] = useState<StudentFormData>({
     StudentId: 0,
@@ -245,6 +248,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       try {
         const studentResponse = await axiosInstance.get(`/students/${studentId}`);
         const studentData = studentResponse.data;
+        setOriginalStudentData(studentData);
         setStudent({
           ...studentData,
           DOB: studentData.DOB ? new Date(studentData.DOB).toISOString().split('T')[0] : '',
@@ -484,7 +488,18 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
 
     if (type === 'checkbox') {
-      setStudent((prev) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+      if (name === 'IsDiscontinue') {
+        const isChecked = (e.target as HTMLInputElement).checked;
+        const currentDate = new Date().toISOString().split('T')[0];
+        setStudent((prev) => ({
+          ...prev,
+          IsDiscontinue: isChecked,
+          DiscontinueOn: isChecked ? currentDate : '',
+          DiscontinueBy: isChecked ? modifiedBy : '',
+        }));
+      } else {
+        setStudent((prev) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
+      }
     } else if (type === 'number') {
       const numValue = value === '' ? 0 : parseFloat(value);
       setStudent((prev) => ({ ...prev, [name]: numValue }));
@@ -675,6 +690,11 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   };
 
   const RequiredAsterisk = () => <span className="text-red-500">*</span>;
+
+  const hasChanged = (field: keyof StudentFormData) => {
+    if (!originalStudentData) return false;
+    return student[field] !== originalStudentData[field];
+  };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999">
@@ -1050,7 +1070,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                       name="IsDiscontinue"
                       checked={student.IsDiscontinue}
                       onChange={handleChange}
-                      className="mr-1"
+                      className="mr-1 focus:ring-2 focus:ring-blue-300"
                     />
                     Is Discontinued?
                   </label>
@@ -1077,7 +1097,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         name="DiscontinueOn"
                         value={student.DiscontinueOn}
                         onChange={handleChange}
-                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
+                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                        disabled
                       />
                     </div>
                     <div>
@@ -1087,7 +1108,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                         name="DiscontinueBy"
                         value={student.DiscontinueBy}
                         onChange={handleChange}
-                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
+                        className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 disabled:bg-gray-200 disabled:cursor-not-allowed"
+                        disabled
                       />
                     </div>
                   </>
@@ -1475,137 +1497,391 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2 text-xs">
                 <div className="space-y-0.5">
                   <h3 className="font-bold text-blue-600 border-b pb-0.5">Personal Details</h3>
-                  <div><span className="font-medium">Name:</span> {student.FName} {student.LName}</div>
-                  <div><span className="font-medium">Roll Number:</span> {student.RollNumber}</div>
-                  <div><span className="font-medium">DOB:</span> {student.DOB}</div>
-                  <div><span className="font-medium">Gender:</span> {student.Gender}</div>
-                  <div><span className="font-medium">Mobile:</span> {student.MobileNumber}</div>
-                  <div><span className="font-medium">Email:</span> {student.EmailId}</div>
-                  <div><span className="font-medium">Father's Name:</span> {student.FatherName}</div>
-                  <div><span className="font-medium">Mother's Name:</span> {student.MotherName}</div>
-                  <div><span className="font-medium">Category:</span> {student.Category}</div>
-                  <div><span className="font-medium">Address:</span> {student.Address}</div>
-                  <div><span className="font-medium">City:</span> {student.City}</div>
-                  <div><span className="font-medium">State:</span> {student.State}</div>
-                  <div><span className="font-medium">Pincode:</span> {student.Pincode}</div>
+                  <div>
+                    <span className="font-medium text-gray-600">Name:</span>{' '}
+                    <span className={hasChanged('FName') || hasChanged('LName') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.FName} {student.LName}
+                    </span>
+                    {hasChanged('FName') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.FName})</span>
+                    )}
+                    {hasChanged('LName') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.LName})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Roll Number:</span>{' '}
+                    <span className={hasChanged('RollNumber') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.RollNumber}
+                    </span>
+                    {hasChanged('RollNumber') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.RollNumber})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">DOB:</span>{' '}
+                    <span className={hasChanged('DOB') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.DOB}
+                    </span>
+                    {hasChanged('DOB') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DOB})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Gender:</span>{' '}
+                    <span className={hasChanged('Gender') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.Gender}
+                    </span>
+                    {hasChanged('Gender') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Gender})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Mobile:</span>{' '}
+                    <span className={hasChanged('MobileNumber') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.MobileNumber}
+                    </span>
+                    {hasChanged('MobileNumber') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.MobileNumber})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Email:</span>{' '}
+                    <span className={hasChanged('EmailId') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.EmailId}
+                    </span>
+                    {hasChanged('EmailId') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.EmailId})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Father's Name:</span>{' '}
+                    <span className={hasChanged('FatherName') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.FatherName}
+                    </span>
+                    {hasChanged('FatherName') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.FatherName})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Mother's Name:</span>{' '}
+                    <span className={hasChanged('MotherName') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.MotherName}
+                    </span>
+                    {hasChanged('MotherName') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.MotherName})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Category:</span>{' '}
+                    <span className={hasChanged('Category') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.Category}
+                    </span>
+                    {hasChanged('Category') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Category})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Address:</span>{' '}
+                    <span className={hasChanged('Address') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.Address}
+                    </span>
+                    {hasChanged('Address') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Address})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">City:</span>{' '}
+                    <span className={hasChanged('City') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.City}
+                    </span>
+                    {hasChanged('City') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.City})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">State:</span>{' '}
+                    <span className={hasChanged('State') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.State}
+                    </span>
+                    {hasChanged('State') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.State})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Pincode:</span>{' '}
+                    <span className={hasChanged('Pincode') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.Pincode}
+                    </span>
+                    {hasChanged('Pincode') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Pincode})</span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-0.5">
                   <h3 className="font-bold text-blue-600 border-b pb-0.5">Academic Details</h3>
                   <div>
-                    <span className="font-medium">College:</span>{' '}
-                    {colleges.find((c) => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}
+                    <span className="font-medium text-gray-600">College:</span>{' '}
+                    <span className={hasChanged('CollegeId') ? 'text-blue-600' : 'text-gray-600'}>
+                      {colleges.find((c) => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}
+                    </span>
+                    {hasChanged('CollegeId') && (
+                      <span className="text-gray-400 ml-1">
+                        (Original: {colleges.find((c) => c.id === parseInt(originalStudentData?.CollegeId || ''))?.collegeName || 'N/A'})
+                      </span>
+                    )}
                   </div>
                   <div>
-                    <span className="font-medium">Course:</span>{' '}
-                    {courses.find((c) => c.id === parseInt(student.CourseId))?.courseName || 'N/A'}
+                    <span className="font-medium text-gray-600">Course:</span>{' '}
+                    <span className={hasChanged('CourseId') ? 'text-blue-600' : 'text-gray-600'}>
+                      {courses.find((c) => c.id === parseInt(student.CourseId))?.courseName || 'N/A'}
+                    </span>
+                    {hasChanged('CourseId') && (
+                      <span className="text-gray-400 ml-1">
+                        (Original: {courses.find((c) => c.id === parseInt(originalStudentData?.CourseId || ''))?.courseName || 'N/A'})
+                      </span>
+                    )}
                   </div>
-                  <div><span className="font-medium">Course Year:</span> {student.CourseYear}</div>
-                  <div><span className="font-medium">Admission Mode:</span> {student.AdmissionMode}</div>
-                  <div><span className="font-medium">Admission Date:</span> {student.AdmissionDate}</div>
-                  <div><span className="font-medium">Session Year:</span> {student.SessionYear}</div>
-                  <div><span className="font-medium">Is Discontinued:</span> {student.IsDiscontinue ? 'Yes' : 'No'}</div>
+                  <div>
+                    <span className="font-medium text-gray-600">Course Year:</span>{' '}
+                    <span className={hasChanged('CourseYear') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.CourseYear}
+                    </span>
+                    {hasChanged('CourseYear') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.CourseYear})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Admission Mode:</span>{' '}
+                    <span className={hasChanged('AdmissionMode') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.AdmissionMode}
+                    </span>
+                    {hasChanged('AdmissionMode') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.AdmissionMode})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Admission Date:</span>{' '}
+                    <span className={hasChanged('AdmissionDate') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.AdmissionDate}
+                    </span>
+                    {hasChanged('AdmissionDate') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.AdmissionDate})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Session Year:</span>{' '}
+                    <span className={hasChanged('SessionYear') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.SessionYear}
+                    </span>
+                    {hasChanged('SessionYear') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.SessionYear})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium text-gray-600">Is Discontinued:</span>{' '}
+                    <span className={hasChanged('IsDiscontinue') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.IsDiscontinue ? 'Yes' : 'No'}
+                    </span>
+                    {hasChanged('IsDiscontinue') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.IsDiscontinue ? 'Yes' : 'No'})</span>
+                    )}
+                  </div>
                   {student.IsDiscontinue && (
                     <>
-                      <div><span className="font-medium">Discontinue Date:</span> {student.DiscontinueOn}</div>
-                      <div><span className="font-medium">Discontinued By:</span> {student.DiscontinueBy}</div>
+                      <div>
+                        <span className="font-medium text-gray-600">Discontinue Date:</span>{' '}
+                        <span className={hasChanged('DiscontinueOn') ? 'text-blue-600' : 'text-gray-600'}>
+                          {student.DiscontinueOn}
+                        </span>
+                        {hasChanged('DiscontinueOn') && (
+                          <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DiscontinueOn})</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-600">Discontinued By:</span>{' '}
+                        <span className={hasChanged('DiscontinueBy') ? 'text-blue-600' : 'text-gray-600'}>
+                          {student.DiscontinueBy}
+                        </span>
+                        {hasChanged('DiscontinueBy') && (
+                          <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DiscontinueBy})</span>
+                        )}
+                      </div>
                     </>
                   )}
-                </div>
-                <div className="space-y-0.5">
-                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Payment Details</h3>
-                  <div><span className="font-medium">Payment Mode:</span> {student.PaymentMode}</div>
-                  <div><span className="font-medium">Admin Amount:</span> ₹{student.FineAmount.toLocaleString('en-IN')}</div>
-                  <div><span className="font-medium">Fees Amount:</span> ₹{student.RefundAmount.toLocaleString('en-IN')}</div>
-                  <div><span className="font-medium">Ledger Number:</span> {student.LedgerNumber || '-'}</div>
-                  {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
-                    <>
-                      <div><span className="font-medium">No of EMIs:</span> {student.NumberOfEMI}</div>
-                      {emiDetails.map((emi, index) => (
-                        <div key={index}>
-                          <span className="font-medium">EMI {emi.emiNumber}:</span> Amount: ₹{emi.amount.toLocaleString('en-IN')},
-                          Due Date: {emi.dueDate || 'Not set'}
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-                <div className="space-y-0.5">
-                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Document Details</h3>
-                  <div>
-                    <span className="font-medium">Student Photo:</span>{' '}
-                    {documents.StudentImage.file ? 'New Uploaded' : existingDocuments.StudentImage ? 'Existing' : 'Not Uploaded'}
-                  </div>
-                  <div>
-                    <span className="font-medium">10th Marksheet:</span>{' '}
-                    {documents.TenthMarks.file ? 'New Uploaded' : existingDocuments.TenthMarks ? 'Existing' : 'Not Uploaded'}
-                  </div>
-                  <div>
-                    <span className="font-medium">12th Marksheet:</span>{' '}
-                    {documents.TwelfthMarks.file ? 'New Uploaded' : existingDocuments.TwelfthMarks ? 'Existing' : 'Not Uploaded'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Caste Certificate:</span>{' '}
-                    {documents.CasteCertificate.file ? 'New Uploaded' : existingDocuments.CasteCertificate ? 'Existing' : 'Not Uploaded'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Income Certificate:</span>{' '}
-                    {documents.Income.file ? 'New Uploaded' : existingDocuments.Income ? 'Existing' : 'Not Uploaded'}
-                  </div>
-                  <div>
-                    <span className="font-medium">Residential Proof:</span>{' '}
-                    {documents.Residential.file ? 'New Uploaded' : existingDocuments.Residential ? 'Existing' : 'Not Uploaded'}
-                  </div>
                 </div>
               </div>
-              <div className="flex justify-end space-x-1">
+              <div className="space-y-0.5 mb-2 text-xs">
+                <h3 className="font-bold text-blue-600 border-b pb-0.5">Payment Details</h3>
+                <div>
+                  <span className="font-medium text-gray-600">Admin Amount:</span>{' '}
+                  <span className={hasChanged('FineAmount') ? 'text-blue-600' : 'text-gray-600'}>
+                    ₹{student.FineAmount.toLocaleString('en-IN')}
+                  </span>
+                  {hasChanged('FineAmount') && (
+                    <span className="text-gray-400 ml-1">(Original: ₹{originalStudentData?.FineAmount.toLocaleString('en-IN')})</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Fees Amount:</span>{' '}
+                  <span className={hasChanged('RefundAmount') ? 'text-blue-600' : 'text-gray-600'}>
+                    ₹{student.RefundAmount.toLocaleString('en-IN')}
+                  </span>
+                  {hasChanged('RefundAmount') && (
+                    <span className="text-gray-400 ml-1">(Original: ₹{originalStudentData?.RefundAmount.toLocaleString('en-IN')})</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Payment Mode:</span>{' '}
+                  <span className={hasChanged('PaymentMode') ? 'text-blue-600' : 'text-gray-600'}>
+                    {student.PaymentMode}
+                  </span>
+                  {hasChanged('PaymentMode') && (
+                    <span className="text-gray-400 ml-1">(Original: {originalStudentData?.PaymentMode})</span>
+                  )}
+                </div>
+                {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
+                  <div>
+                    <span className="font-medium text-gray-600">No of EMIs:</span>{' '}
+                    <span className={hasChanged('NumberOfEMI') ? 'text-blue-600' : 'text-gray-600'}>
+                      {student.NumberOfEMI}
+                    </span>
+                    {hasChanged('NumberOfEMI') && (
+                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.NumberOfEMI || 'N/A'})</span>
+                    )}
+                    <div className="mt-0.5">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">EMI</th>
+                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Amount</th>
+                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Due Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {emiDetails.map((emi, index) => (
+                            <tr key={index}>
+                              <td className="px-1 py-0.5 text-blue-600">EMI {emi.emiNumber}</td>
+                              <td className="px-1 py-0.5 text-blue-600">₹{emi.amount.toLocaleString('en-IN')}</td>
+                              <td className="px-1 py-0.5 text-blue-600">{emi.dueDate}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-0.5 mb-2 text-xs">
+                <h3 className="font-bold text-blue-600 border-b pb-0.5">Documents</h3>
+                <div>
+                  <span className="font-medium text-gray-600">Student Photo:</span>{' '}
+                  <span className={documents.StudentImage.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.StudentImage.file || existingDocuments.StudentImage ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.StudentImage.file && existingDocuments.StudentImage && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">10th Marksheet:</span>{' '}
+                  <span className={documents.TenthMarks.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.TenthMarks.file || existingDocuments.TenthMarks ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.TenthMarks.file && existingDocuments.TenthMarks && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">12th Marksheet:</span>{' '}
+                  <span className={documents.TwelfthMarks.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.TwelfthMarks.file || existingDocuments.TwelfthMarks ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.TwelfthMarks.file && existingDocuments.TwelfthMarks && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Caste Certificate:</span>{' '}
+                  <span className={documents.CasteCertificate.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.CasteCertificate.file || existingDocuments.CasteCertificate ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.CasteCertificate.file && existingDocuments.CasteCertificate && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Income Certificate:</span>{' '}
+                  <span className={documents.Income.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.Income.file || existingDocuments.Income ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.Income.file && existingDocuments.Income && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-medium text-gray-600">Residential Proof:</span>{' '}
+                  <span className={documents.Residential.file ? 'text-blue-600' : 'text-gray-600'}>
+                    {documents.Residential.file || existingDocuments.Residential ? 'Uploaded' : 'Not Uploaded'}
+                  </span>
+                  {documents.Residential.file && existingDocuments.Residential && (
+                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-between">
                 <button
                   onClick={() => setIsPreviewOpen(false)}
                   className="px-2 py-0.5 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
                 >
-                  Back
+                  Back to Edit
                 </button>
                 <button
-                  onClick={() => setShowUpdateConfirmModal(true)}
+                  onClick={(e) => {
+                    confirmUpdate(e);
+                    setIsPreviewOpen(false);
+                  }}
                   className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                  disabled={isSubmitting}
                 >
-                  Confirm Update
+                  {isSubmitting ? 'Updating...' : 'Confirm Update'}
                 </button>
               </div>
-
-              <Modal
-                show={showUpdateConfirmModal}
-                onClose={() => setShowUpdateConfirmModal(false)}
-                size="md"
-                className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
-              >
-                <Modal.Header className="bg-green-500 text-white py-1 text-sm">Confirm Update</Modal.Header>
-                <Modal.Body className="py-2">
-                  <p className="text-xs text-gray-600">Are you sure you want to update this student's data?</p>
-                </Modal.Body>
-                <Modal.Footer className="py-1">
-                  <button
-                    onClick={() => setShowUpdateConfirmModal(false)}
-                    className="px-2 py-0.5 bg-gray-300 text-gray-800 text-xs rounded hover:bg-gray-400"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmUpdate}
-                    className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader1 size="sm" className="inline-block mr-0.5" />
-                        Updating...
-                      </>
-                    ) : 'Confirm'}
-                  </button>
-                </Modal.Footer>
-              </Modal>
             </div>
           </div>
         )}
+
+        <Modal
+          show={showUpdateConfirmModal}
+          onClose={() => setShowUpdateConfirmModal(false)}
+          size="md"
+          className="fixed inset-0 pt-50 flex items-center justify-center bg-black bg-opacity-50 z-999 backdrop-blur-sm"
+        >
+          <Modal.Header className="bg-green-500 text-white py-1 text-sm">Confirm Update</Modal.Header>
+          <Modal.Body className="py-2">
+            <p className="text-sm text-gray-600">Are you sure you want to update this student's data?</p>
+          </Modal.Body>
+          <Modal.Footer className="py-1">
+            <button
+              onClick={() => setShowUpdateConfirmModal(false)}
+              className="px-2 py-0.5 bg-gray-300 text-gray-800 text-sm rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmUpdate}
+              className="px-2 py-0.5 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader1 size="sm" className="inline-block mr-0.5" />
+                  Updating...
+                </>
+              ) : 'Confirm'}
+            </button>
+          </Modal.Footer>
+        </Modal>
 
         {isPromoteModalOpen && selectedStudentId && (
           <PromoteStudentModal
@@ -1613,10 +1889,9 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             onClose={() => setIsPromoteModalOpen(false)}
             onSuccess={() => {
               setIsPromoteModalOpen(false);
-              // Refresh data if needed
-              // fetchStudents();
+              onSuccess();
             }}
-            modifiedBy={'Admin'}
+            modifiedBy={user?.name || 'Admin'}
           />
         )}
       </div>
