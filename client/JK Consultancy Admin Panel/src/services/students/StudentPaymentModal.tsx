@@ -455,188 +455,234 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           {/* Main Form Content */}
           <div className="space-y-3">
             {/* Payment Information Section */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
-                <h3 className="font-bold text-gray-700 flex items-center text-sm">
-                  <FaMoneyBillWave className="mr-1 text-green-600 text-2xl" />
-                  Payment Information
-                </h3>
-              </div>
-              <div className="p-2 bg-green-50">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Amount Type <RequiredAsterisk />
-                    </label>
-                    <select
-                      name="amountType"
-                      value={formData.amountType}
-                      onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    >
-                      <option value="" disabled>
-                        Select Amount Type
-                      </option>
-                      <option value="adminAmount">Admin Fees</option>
-                      <option value="feesAmount">Fees Amount</option>
-                      <option value="fineAmount">Fine Amount</option>
-                      <option value="refundAmount">Refund Amount</option>
-                    </select>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Payment Mode <RequiredAsterisk />
-                    </label>
-                    <select
-                      name="paymentMode"
-                      value={formData.paymentMode}
-                      onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    >
-                      <option value="" disabled>
-                        Select Payment Mode
-                      </option>
-                      <option value="cash">Cash</option>
-                      <option value="check">Check</option>
-                      <option value="bank transfer">Bank Transfer</option>
-                      <option value="upi">UPI</option>
-                    </select>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Check/Transaction/Receipt #
-                    </label>
-                    <input
-                      type="text"
-                      name="transactionNumber"
-                      value={formData.transactionNumber}
-                      onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Amount <RequiredAsterisk />
-                    </label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        name="amount"
-                        value={formData.amount}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Received Date <RequiredAsterisk />
-                    </label>
-                    <div className="relative">
-                      <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-                      <input
-                        type="date"
-                        name="receivedDate"
-                        value={formData.receivedDate}
-                        onChange={handleInputChange}
-                        className="w-full border border-gray-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Received By <RequiredAsterisk />
-                    </label>
-                    <input
-                      type="text"
-                      name="approvedBy"
-                      value={formData.approvedBy}
-                      onChange={handleInputChange}
-                      disabled
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 bg-gray-100 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Password <RequiredAsterisk />
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="Enter password to verify"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="block text-xs font-medium text-gray-700">
-                      Upload Student Payment File
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        className="hidden"
-                        id="student-file"
-                        onChange={handleFileChange}
-                      />
-                      <label
-                        htmlFor="student-file"
-                        className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-                      >
-                        <FaUpload className="mr-1 text-gray-500 text-base" />
-                        <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+  <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
+    <h3 className="font-bold text-gray-700 flex items-center text-sm">
+      <FaMoneyBillWave className="mr-1 text-green-600 text-2xl" />
+      Payment Information
+    </h3>
+  </div>
+  <div className="p-2 bg-green-50">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Amount Type <RequiredAsterisk />
+        </label>
+        <select
+          name="amountType"
+          value={formData.amountType}
+          onChange={handleInputChange}
+          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+        >
+          <option value="" disabled>
+            Select Amount Type
+          </option>
+          <option value="adminAmount">Admin Fees</option>
+          <option value="feesAmount">Fees Amount</option>
+          <option value="fineAmount">Fine Amount</option>
+          <option value="refundAmount">Refund Amount</option>
+        </select>
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Payment Mode <RequiredAsterisk />
+        </label>
+        <select
+          name="paymentMode"
+          value={formData.paymentMode}
+          onChange={handleInputChange}
+          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+        >
+          <option value="" disabled>
+            Select Payment Mode
+          </option>
+          <option value="cash">Cash</option>
+          <option value="check">Check</option>
+          <option value="bank transfer">Bank Transfer</option>
+          <option value="upi">UPI</option>
+        </select>
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Check/Transaction/Receipt #
+        </label>
+        <input
+          type="text"
+          name="transactionNumber"
+          value={formData.transactionNumber}
+          onChange={handleInputChange}
+          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+        />
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Amount <RequiredAsterisk />
+        </label>
+        <div className="relative">
+          <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
+            ₹
+          </span>
+          <input
+            type="number"
+            name="amount"
+            value={formData.amount}
+            onChange={handleInputChange}
+            className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+          />
+        </div>
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Received Date <RequiredAsterisk />
+        </label>
+        <div className="relative">
+          <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+          <input
+            type="date"
+            name="receivedDate"
+            value={formData.receivedDate}
+            onChange={handleInputChange}
+            className="w-full border border-gray-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+          />
+        </div>
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Received By <RequiredAsterisk />
+        </label>
+        <input
+          type="text"
+          name="approvedBy"
+          value={formData.approvedBy}
+          onChange={handleInputChange}
+          disabled
+          className="w-full border border-gray-300 rounded-md px-2 py-1 bg-gray-100 text-xs"
+        />
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Password <RequiredAsterisk />
+        </label>
+        <input
+          type="password"
+          placeholder="Enter password to verify"
+          name="password"
+          value={formData.password}
+          onChange={handleInputChange}
+          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+        />
+      </div>
+      <div className="space-y-0.5">
+        <label className="block text-xs font-medium text-gray-700">
+          Upload Student Payment File
+        </label>
+        <div className="relative">
+          <input
+            type="file"
+            className="hidden"
+            id="student-file"
+            onChange={handleFileChange}
+          />
+          <label
+            htmlFor="student-file"
+            className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+          >
+            <FaUpload className="mr-1 text-gray-500 text-base" />
+            <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
+          </label>
+        </div>
+      </div>
+      <div className="flex gap-2">
+  <button
+    onClick={onClose}
+    className="flex-1 px-2  bg-red-400 text-black rounded-md hover:bg-red-500 transition duration-200 font-bold text-xs"
+  >
+    Cancel
+  </button>
+  <button
+    onClick={handleSubmit}
+    disabled={!matchingAcademic || isSubmitting}
+    className={`flex-1 px-3 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
+      matchingAcademic && !isSubmitting
+        ? 'bg-blue-600 text-white hover:bg-blue-700'
+        : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+    }`}
+  >
+    {isSubmitting ? (
+      <>
+        <svg
+          className="animate-spin h-4 w-4 mr-2 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        Saving...
+      </>
+    ) : (
+      'Save Payment'
+    )}
+  </button>
+</div>
 
-                <div className="mt-2">
-                  <div className="border-l-4 border-blue-600 rounded-md p-2 bg-blue-100">
-                    <p className="text-lg font-bold text-blue-800 mb-0.5">Academic Details</p>
-                    <div className="grid grid-cols-3 gap-0.5 text-sm">
-                      <div>
-                        <div>
-                          <span className="text-gray-600">Admin Amount:</span>
-                          <span className="ml-0.5 font-bold">
-                            ₹{matchingAcademic?.adminAmount || '0'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Remaining Admin Amount:</span>
-                          <span className="ml-0.5 font-bold text-red-600">
-                            ₹{remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <div>
-                          <span className="text-gray-600">Fees Amount:</span>
-                          <span className="ml-0.5 font-bold">
-                            ₹{matchingAcademic?.feesAmount || '0'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Remaining Fees Amount:</span>
-                          <span className="ml-0.5 font-bold text-red-600">
-                            ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">EMI Amount:</span>
-                        <span className="ml-0.5 font-bold">
-                          ₹{matchingAcademic?.emiAmount || '0'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+    </div>
+    {/* Action Buttons */}
+    
+    {/* Academic Details */}
+    <div className="mt-2">
+      <div className="border-l-4 border-blue-600 rounded-md p-2 bg-blue-100">
+        <p className="text-md font-bold text-blue-800 mb-1">Academic Details</p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+          <div className="space-y-0.5">
+            <div className="flex justify-between">
+              <span className="text-black font-bold">Admin Amount:</span>
+              <span className="font-bold">₹{matchingAcademic?.adminAmount || '0'}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Remaining Admin Amount:</span>
+              <span className="font-bold text-red-600">
+                ₹{remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Paid Admin Amount:</span>
+              <span className="font-bold text-green-600">₹{totalPaidAdminAmount}</span>
+            </div>
+          </div>
+          <div className="space-y-0.5">
+            <div className="flex justify-between">
+              <span className="text-black  font-bold">Fees Amount:</span>
+              <span className="font-bold">₹{matchingAcademic?.feesAmount || '0'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Remaining Fees Amount:</span>
+              <span className="font-bold text-red-600">
+                ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Paid Fees Amount:</span>
+              <span className="font-bold text-green-600">₹{totalPaidFeesAmount}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
             {/* EMI Details Section */}
             {matchingAcademic?.paymentMode ==='EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
@@ -820,52 +866,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-2 mt-3">
-            <button
-              onClick={onClose}
-              className="px-2 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 font-medium text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!matchingAcademic || isSubmitting}
-              className={`px-2 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
-                matchingAcademic && !isSubmitting
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-400 text-gray-700 cursor-not-allowed'
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 mr-2 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                'Save Payment'
-              )}
-            </button>
-          </div>
+         
+
         </div>
       </div>
     </div>

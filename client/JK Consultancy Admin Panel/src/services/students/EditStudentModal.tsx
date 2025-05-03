@@ -645,7 +645,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             (student.NumberOfEMI !== null && student.NumberOfEMI > 0 && emiDetails.every((emi) => emi.amount > 0 && emi.dueDate)))
         );
       case 4:
-        return Object.values(documents).some((doc) => doc.file !== null) || Object.values(existingDocuments).length > 0;
+        // return Object.values(documents).some((doc) => doc.file !== null) || Object.values(existingDocuments).length > 0;
       default:
         return true;
     }

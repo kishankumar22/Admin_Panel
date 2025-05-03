@@ -38,6 +38,7 @@ router.get('/approved-by', async (req, res) => {
     const approvedByList = await prisma.studentPayment.findMany({
       select: {
         approvedBy: true,
+        receivedDate:true
       },
       distinct: ['approvedBy'],
       where: {
@@ -48,7 +49,7 @@ router.get('/approved-by', async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      data: approvedByList.filter(item => item.approvedBy).map(item => ({ approvedBy: item.approvedBy })),
+      data: approvedByList.filter(item => item.approvedBy).map(item => ({ approvedBy: item.approvedBy ,receivedDate:item.receivedDate})),
     });
   } catch (error) {
     console.error('Error fetching approvedBy list:', error);

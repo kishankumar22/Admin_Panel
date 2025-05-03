@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
-import { Search, Check, X, ArrowLeftRight, Calendar, DollarSign, User, Users, Plus, Eye, Lock, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Check, X, ArrowLeftRight, Calendar, DollarSign, User, Users, Plus, Eye, Lock, EyeOff, ChevronLeft, ChevronRight, FileSearch } from 'lucide-react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import { RequiredAsterisk } from './AddStudentModal';
+import * as XLSX from 'xlsx'; // Import xlsx library for Excel export
+import { FaSpinner } from 'react-icons/fa';
 
-// Pagination component that can be reused
+// Pagination component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -20,18 +22,14 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className={`relative inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium ${
-            currentPage === 1 ? 'text-gray-300' : 'text-gray-700 hover:bg-gray-50'
-          }`}
+          className={`relative inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium ${currentPage === 1 ? 'text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
         >
           Previous
         </button>
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className={`relative ml-3 inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium ${
-            currentPage === totalPages ? 'text-gray-300' : 'text-gray-700 hover:bg-gray-50'
-          }`}
+          className={`relative ml-3 inline-flex items-center rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium ${currentPage === totalPages ? 'text-gray-300' : 'text-gray-700 hover:bg-gray-50'}`}
         >
           Next
         </button>
@@ -48,9 +46,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             <button
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-1 py-0.5 text-xs font-medium ${
-                currentPage === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
-              }`}
+              className={`relative inline-flex items-center rounded-l-md border border-gray-300 bg-white px-1 py-0.5 text-xs font-medium ${currentPage === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
             >
               <span className="sr-only">Previous</span>
               <ChevronLeft className="h-3 w-3" aria-hidden="true" />
@@ -58,16 +54,15 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
               const pageNumber = i + 1;
               const isCurrentPage = pageNumber === currentPage;
-              
+
               return (
                 <button
                   key={pageNumber}
                   onClick={() => onPageChange(pageNumber)}
-                  className={`relative inline-flex items-center border px-2 py-0.5 text-xs font-medium ${
-                    isCurrentPage
+                  className={`relative inline-flex items-center border px-2 py-0.5 text-xs font-medium ${isCurrentPage
                       ? 'z-10 border-blue-500 bg-blue-50 text-blue-600'
                       : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {pageNumber}
                 </button>
@@ -81,11 +76,10 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             {totalPages > 5 && (
               <button
                 onClick={() => onPageChange(totalPages)}
-                className={`relative inline-flex items-center border border-gray-300 px-2 py-0.5 text-xs font-medium ${
-                  currentPage === totalPages
+                className={`relative inline-flex items-center border border-gray-300 px-2 py-0.5 text-xs font-medium ${currentPage === totalPages
                     ? 'z-10 border-blue-500 bg-blue-50 text-blue-600'
                     : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {totalPages}
               </button>
@@ -93,9 +87,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             <button
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-1 py-0.5 text-xs font-medium ${
-                currentPage === totalPages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'
-              }`}
+              className={`relative inline-flex items-center rounded-r-md border border-gray-300 bg-white px-1 py-0.5 text-xs font-medium ${currentPage === totalPages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
             >
               <span className="sr-only">Next</span>
               <ChevronRight className="h-3 w-3" aria-hidden="true" />
@@ -107,7 +99,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
   );
 };
 
-// Reusable modal component (Made compact)
+// Modal component
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -118,7 +110,7 @@ interface ModalProps {
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-999 flex items-center justify-center p-2">
       <div className="bg-white rounded-lg max-w-md w-full max-h-[85vh] overflow-auto">
@@ -197,6 +189,7 @@ interface CashHandover {
 
 interface ApprovedBy {
   approvedBy: string;
+  receivedDate: Date;
 }
 
 interface PaymentWithHandover extends Payment {
@@ -210,67 +203,66 @@ const PaymentHandover: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [approvedByList, setApprovedByList] = useState<ApprovedBy[]>([]);
-
-  const [payments, setPayments] = useState<Payment[]>([]); // Payments filtered by approvedBy
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
   const { user } = useAuth();
-  
-  // Selected payments with handover amounts
-  const [selectedPayments, setSelectedPayments] = useState<PaymentWithHandover[]>([]);
 
-  // Form state
+ const [showLoading, setShowLoading] = useState(true);
+
+  const [selectedPayments, setSelectedPayments] = useState<PaymentWithHandover[]>([]);
   const [formData, setFormData] = useState({
     receivedBy: '',
     handedOverTo: '',
     handoverDate: new Date().toISOString().slice(0, 10),
     remarks: '',
   });
-
-  // Password verification modal state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
-
-  // Pagination states
   const [handoverCurrentPage, setHandoverCurrentPage] = useState(1);
   const [paymentsCurrentPage, setPaymentsCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [selectedReceivedBy, setSelectedReceivedBy] = useState('');
+  const [selectedHandedOverTo, setSelectedHandedOverTo] = useState('');
 
-  // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch unique approvedBy values
         const approvedByRes = await axiosInstance.get('/approved-by');
         if (approvedByRes.data.success) {
           setApprovedByList(approvedByRes.data.data);
         } else {
           throw new Error('Failed to fetch approvedBy list');
         }
-
-        // Fetch cash handovers
         const handoversRes = await axiosInstance.get('/payment-handovers');
         if (handoversRes.data.success) {
           setCashHandovers(handoversRes.data.data);
         } else {
-          throw new Error('Failed to fetch cash handovers');
+          throw new Error('Failed to fetch payment handovers');
         }
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError('Failed to load data. Please try again later.');
-      } finally {
-        setLoading(false);
+      } 
+        finally {
+          setTimeout(() => {
+            setLoading(false);
+          }, 300); 
+            // Keep loading screen for at least 2 seconds
+        const minLoadingTime = setTimeout(() => {
+          setShowLoading(false);
+        },300);
+        
+        return () => clearTimeout(minLoadingTime);
       }
     };
-
     fetchData();
   }, []);
 
-  // Set default handover to current user's name when the form is shown
   useEffect(() => {
     if (showAddForm && user?.name) {
       setFormData(prev => ({
@@ -280,7 +272,6 @@ const PaymentHandover: React.FC = () => {
     }
   }, [showAddForm, user?.name]);
 
-  // Reset form data
   const resetForm = () => {
     setFormData({
       receivedBy: '',
@@ -290,9 +281,9 @@ const PaymentHandover: React.FC = () => {
     });
     setSelectedPayments([]);
     setPayments([]);
+    setSearchTerm('');
   };
 
-  // Fetch payments when receivedBy changes
   useEffect(() => {
     const fetchPayments = async () => {
       if (formData.receivedBy) {
@@ -301,7 +292,6 @@ const PaymentHandover: React.FC = () => {
           const paymentsRes = await axiosInstance.get(`/payments-by-staff/${encodeURIComponent(formData.receivedBy)}`);
           if (paymentsRes.data.success) {
             setPayments(paymentsRes.data.data);
-            // Reset payments pagination when new data is loaded
             setPaymentsCurrentPage(1);
           } else {
             throw new Error('Failed to fetch payments');
@@ -317,63 +307,85 @@ const PaymentHandover: React.FC = () => {
         setPayments([]);
       }
     };
-
     fetchPayments();
   }, [formData.receivedBy]);
 
-  // Filter payments (those with remaining amount)
   const filteredPayments = payments.filter(payment => payment.remainingAmount && payment.remainingAmount > 0);
-
-  // Calculate total of selected payments' handover amounts
   const selectedTotal = selectedPayments.reduce((sum, payment) => sum + payment.handoverAmount, 0);
 
-  // Filter handovers based on search term
   const filteredHandovers = cashHandovers.filter(handover => {
+    let matchesFilter = true;
+    if (selectedReceivedBy) {
+      matchesFilter = handover.receivedBy === selectedReceivedBy;
+    }
+    if (selectedHandedOverTo) {
+      matchesFilter = matchesFilter && handover.handedOverTo === selectedHandedOverTo;
+    }
     const matchesSearch =
       (handover.student?.fName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (handover.receivedBy?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (handover.handedOverTo?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-
-    return matchesSearch;
+    return matchesFilter && matchesSearch;
   });
 
-  // Paginate handovers and payments
   const paginatedHandovers = filteredHandovers.slice(
     (handoverCurrentPage - 1) * itemsPerPage,
     handoverCurrentPage * itemsPerPage
   );
 
-  // Format date for display
   const formatDate = (date: string | undefined) => {
     return date ? new Date(date).toLocaleDateString('en-US') : '-';
   };
 
-  // Handle form input changes
+  // Function to export filtered handovers to Excel
+  const exportToExcel = () => {
+    if (filteredHandovers.length === 0) {
+      toast.warning('No data to export');
+      return;
+    }
+
+    const dataToExport = filteredHandovers.map((handover, index) => ({
+      'ID': handover.id,
+      'Student': `${handover.student?.fName} ${handover.student?.lName || ''} (ID: ${handover.studentId})`,
+      'Amount': `₹${handover.amount?.toLocaleString('en-US') || 0}`,
+      'Payment ID': handover.paymentId,
+      'Received By': handover.receivedBy,
+      'Received Date': formatDate(handover.payment?.receivedDate),
+      'Handed Over To': handover.handedOverTo,
+      'Hand Over Date': formatDate(handover.handoverDate),
+      'Status': handover.verified ? 'Verified' : 'Unverified',
+      'Receipt URL': handover.payment?.receiptUrl || '-',
+    }));
+
+    // Create a worksheet from the data
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Payment Handovers');
+
+    // Generate Excel file and trigger download
+    XLSX.writeFile(workbook, 'Payment_Handover_List.xlsx');
+  };
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value,
     }));
-
-    // Reset selected payments when receivedBy changes
     if (name === 'receivedBy') {
       setSelectedPayments([]);
     }
   };
 
-  // Handle password input change
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
     setPasswordError('');
   };
 
-  // Handle payment selection and set initial handover amount to full remaining amount
   const handlePaymentSelect = (payment: Payment) => {
     if (selectedPayments.some(p => p.id === payment.id)) {
       setSelectedPayments(selectedPayments.filter(p => p.id !== payment.id));
     } else {
-      // When adding a payment, set the handover amount to the full remaining amount by default
       const remainingAmount = payment.remainingAmount || 0;
       setSelectedPayments([
         ...selectedPayments,
@@ -386,44 +398,32 @@ const PaymentHandover: React.FC = () => {
     }
   };
 
-  // Handle handover amount change for a payment
   const handleHandoverAmountChange = (paymentId: number, amount: string) => {
     const numericAmount = parseFloat(amount);
-    
-    // Find the payment
     const payment = payments.find(p => p.id === paymentId);
     if (!payment) return;
-    
-    // Check if payment mode is "bank transfer" or "cheque" - parse the paymentMode to remove transaction number
-    const paymentModeBase = payment.paymentMode.toLowerCase().split(' ')[0]; // e.g., "cheque (123456)" -> "cheque"
+    const paymentModeBase = payment.paymentMode.toLowerCase().split(' ')[0];
     const isReadOnly = ['bank', 'cheque'].includes(paymentModeBase);
     if (isReadOnly) {
       return;
     }
-    
     const remainingAmount = payment.remainingAmount || 0;
-    
-    // Validate the amount
     if (isNaN(numericAmount) || numericAmount <= 0 || numericAmount > remainingAmount) {
-      // Don't update if invalid
       return;
     }
-    
-    // Update the selected payment with the new handover amount
     setSelectedPayments(prevSelected =>
       prevSelected.map(p =>
         p.id === paymentId
-          ? { 
-              ...p, 
-              handoverAmount: numericAmount,
-              isPartial: numericAmount < remainingAmount
-            }
+          ? {
+            ...p,
+            handoverAmount: numericAmount,
+            isPartial: numericAmount < remainingAmount
+          }
           : p
       )
     );
   };
 
-  // Group payments by student for display
   const paymentsByStudent: Record<number, { student: Student; payments: Payment[] }> = {};
   filteredPayments.forEach(payment => {
     if (!paymentsByStudent[payment.studentId]) {
@@ -435,55 +435,44 @@ const PaymentHandover: React.FC = () => {
     paymentsByStudent[payment.studentId].payments.push(payment);
   });
 
-  // Paginate payments by student
   const paginatedPaymentsByStudent: typeof paymentsByStudent = {};
   const studentIds = Object.keys(paymentsByStudent).map(Number);
   const paginatedStudentIds = studentIds.slice(
     (paymentsCurrentPage - 1) * itemsPerPage,
     paymentsCurrentPage * itemsPerPage
   );
-  
+
   paginatedStudentIds.forEach(studentId => {
     paginatedPaymentsByStudent[studentId] = paymentsByStudent[studentId];
   });
 
-  // Handle initiating form submission - shows password modal
   const handleInitiateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (selectedPayments.length === 0) {
-      // setError('Please select at least one payment to handover');
       return;
     }
     setShowPasswordModal(true);
   };
 
-  // Handle cancel of form
   const handleCancelForm = () => {
     setShowAddForm(false);
     resetForm();
   };
 
-  // Handle cancel of password modal
   const handleCancelPassword = () => {
     setShowPasswordModal(false);
     setPassword('');
     setPasswordError('');
   };
 
-  // Handle actual form submission after password verification
   const handleSubmitWithPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!password) {
       setPasswordError('Password is required');
       return;
     }
-
     setIsSubmitting(true);
-    
     try {
-      // Verify password
       const verifyRes = await axiosInstance.post('/verify-password', {
         userId: user?.user_id,
         password: password
@@ -493,8 +482,6 @@ const PaymentHandover: React.FC = () => {
         setIsSubmitting(false);
         return;
       }
-      
-      // Password verified, proceed with handover creation
       const res = await axiosInstance.post('/payment-handovers', {
         paymentData: selectedPayments.map(p => ({
           id: p.id,
@@ -504,19 +491,15 @@ const PaymentHandover: React.FC = () => {
         handoverDate: formData.handoverDate,
         remarks: formData.remarks,
         createdBy: user?.name || 'System',
-        verified: true, // Auto-verify since password was checked
+        verified: true,
         verifiedBy: user?.name || 'System',
         verifiedOn: new Date().toISOString()
       });
-
       if (res.data.success) {
-        // Refresh handovers list
         const handoversRes = await axiosInstance.get('/payment-handovers');
         if (handoversRes.data.success) {
           setCashHandovers(handoversRes.data.data);
         }
-
-        // Reset form and close modals
         resetForm();
         setShowAddForm(false);
         setShowPasswordModal(false);
@@ -534,11 +517,9 @@ const PaymentHandover: React.FC = () => {
     }
   };
 
-  // Calculate number of pages
   const handoverTotalPages = Math.ceil(filteredHandovers.length / itemsPerPage);
   const paymentsTotalPages = Math.ceil(Object.keys(paymentsByStudent).length / itemsPerPage);
 
-  // ReceiptModal component (Updated with larger size and Cancel button)
   const ReceiptViewerModal = () => {
     const modalFooter = (
       <div className="flex justify-end space-x-2">
@@ -551,7 +532,6 @@ const PaymentHandover: React.FC = () => {
         </button>
       </div>
     );
-
     return (
       <Modal
         isOpen={!!viewReceiptUrl}
@@ -560,16 +540,16 @@ const PaymentHandover: React.FC = () => {
         footer={modalFooter}
       >
         {viewReceiptUrl?.endsWith('.pdf') ? (
-          <iframe 
-            src={viewReceiptUrl} 
-            className="w-full" 
-            style={{ height: '70vh' }} 
+          <iframe
+            src={viewReceiptUrl}
+            className="w-full"
+            style={{ height: '70vh' }}
             title="Receipt PDF"
           />
         ) : (
-          <img 
-            src={viewReceiptUrl || ''} 
-            alt="Receipt" 
+          <img
+            src={viewReceiptUrl || ''}
+            alt="Receipt"
             className="max-w-full mx-auto h-auto"
             style={{ maxHeight: '70vh' }}
           />
@@ -578,26 +558,20 @@ const PaymentHandover: React.FC = () => {
     );
   };
 
-  // Password verification modal (Made compact)
   const PasswordVerificationModal = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [localPasswordError, setLocalPasswordError] = useState('');
-    
-    // Effect to handle error message timeout
+
     useEffect(() => {
       if (passwordError) {
         setLocalPasswordError(passwordError);
-        
-        // Set timeout to clear error after 3 seconds
         const timer = setTimeout(() => {
           setLocalPasswordError('');
         }, 3000);
-        
-        // Clean up timeout on unmount or when error changes
         return () => clearTimeout(timer);
       }
     }, [passwordError]);
-    
+
     const modalFooter = (
       <div className="flex justify-end space-x-1">
         <button
@@ -618,12 +592,12 @@ const PaymentHandover: React.FC = () => {
         </button>
       </div>
     );
-    
+
     return (
       <Modal
         isOpen={showPasswordModal}
         onClose={handleCancelPassword}
-        title="Verify Cash Handover"
+        title="Verify Payment Handover"
         footer={modalFooter}
       >
         <div className="mb-2">
@@ -633,7 +607,6 @@ const PaymentHandover: React.FC = () => {
               Verify with your password.
             </p>
           </div>
-          
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Password <RequiredAsterisk />
           </label>
@@ -671,15 +644,23 @@ const PaymentHandover: React.FC = () => {
       </Modal>
     );
   };
+  if (loading || showLoading) {
+    return (
+      <div className="flex justify-center   -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+      <div className="flex flex-col items-center ">
+        <FaSpinner className="animate-spin text-4xl text-purple-600" />
+        <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+      </div>
+    </div>
+    );
+  }
 
-  
   return (
     <>
       <Breadcrumb pageName="Payment Handover" />
-        <div className="flex flex-col bg-gray-50">
+      <div className="flex flex-col bg-gray-50">
         <header className="bg-white border-b border-gray-200 px-3 py-1.5 rounded-t-lg shadow-sm">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            {/* Left side with search */}
             <div className="relative w-full sm:w-56 order-2 sm:order-1">
               <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -690,45 +671,40 @@ const PaymentHandover: React.FC = () => {
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
-            
-            {/* Right side with action buttons */}
             <div className="flex items-center space-x-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
-  <button
-    className={`inline-flex items-center px-2 py-1 ${
-      showAddForm ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
-    } text-white rounded text-xs font-medium transition-colors duration-150`}
-    onClick={() => {
-      if (showAddForm) {
-        handleCancelForm();
-      } else {
-        setShowAddForm(true);
-      }
-    }}
-  >
-    {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-    {showAddForm ? 'Cancel' : 'New Handover'}
-  </button>
-
-  <button className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150">
-    <ArrowLeftRight className="w-3 h-3 mr-1" />
-    View Reports
-  </button>
-</div>
-
+              <button
+                className={`inline-flex items-center px-2 py-1 ${showAddForm ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded text-xs font-medium transition-colors duration-150`}
+                onClick={() => {
+                  if (showAddForm) {
+                    handleCancelForm();
+                  } else {
+                    setShowAddForm(true);
+                  }
+                }}
+              >
+                {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                {showAddForm ? 'Cancel' : 'New Handover'}
+              </button>
+            
+              <button
+                onClick={exportToExcel}
+                className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150"
+              >
+                <ArrowLeftRight className="w-3 h-3 mr-1" />
+                Export to Excel
+              </button>
+            </div>
           </div>
         </header>
-
         <main className="pt-2">
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-3 text-xs">
               {error}
             </div>
           )}
-
           {showAddForm && (
-            
             <div className="bg-white rounded-lg shadow mb-3 p-2">
-              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg-blue-100 p-2 rounded">New Cash Handover </h2>
+              <h2 className="text-sm font-semibold text-blue-600 mb-2 bg-blue-100 p-2 rounded">New Payment Handover</h2>
               <form onSubmit={handleInitiateSubmit} className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -741,14 +717,15 @@ const PaymentHandover: React.FC = () => {
                       className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
                     >
                       <option value="">Select Staff</option>
-                      {approvedByList.map((item, index) => (
-                        <option key={index} value={item.approvedBy}>
-                          {item.approvedBy}
-                        </option>
-                      ))}
+                      {approvedByList
+                        .filter(item => item.approvedBy !== formData.handedOverTo)
+                        .map((item, index) => (
+                          <option key={index} value={item.approvedBy}>
+                            {item.approvedBy}
+                          </option>
+                        ))}
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Handed Over To <RequiredAsterisk /></label>
                     <input
@@ -761,7 +738,6 @@ const PaymentHandover: React.FC = () => {
                       className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs bg-gray-100"
                     />
                   </div>
-
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">Handover Date</label>
                     <input
@@ -774,7 +750,6 @@ const PaymentHandover: React.FC = () => {
                     />
                   </div>
                 </div>
-
                 {formData.receivedBy && (
                   <div className="mt-3">
                     <h3 className="rounded-t bg-gradient-to-r from-blue-200 via-blue-300 to-blue-400 text-black p-1.5 mb-2">Select Payments to Handover</h3>
@@ -821,9 +796,9 @@ const PaymentHandover: React.FC = () => {
                               payments.map((payment) => {
                                 const isSelected = selectedPayments.some(p => p.id === payment.id);
                                 const selectedPayment = selectedPayments.find(p => p.id === payment.id);
-                                const paymentModeBase = payment.paymentMode.toLowerCase().split(' ')[0]; // e.g., "cheque (123456)" -> "cheque"
+                                const paymentModeBase = payment.paymentMode.toLowerCase().split(' ')[0];
                                 const isReadOnly = ['bank', 'cheque'].includes(paymentModeBase);
-                                
+
                                 return (
                                   <tr
                                     key={payment.id}
@@ -873,7 +848,7 @@ const PaymentHandover: React.FC = () => {
                                     <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500">{student.course?.courseName || '-'}</td>
                                     <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500">
                                       {payment.receiptUrl && (
-                                        <button 
+                                        <button
                                           onClick={() => setViewReceiptUrl(payment.receiptUrl ?? null)}
                                           className="text-blue-600 hover:text-blue-800"
                                           title="View Receipt"
@@ -888,8 +863,6 @@ const PaymentHandover: React.FC = () => {
                             )}
                           </tbody>
                         </table>
-                        
-                        {/* Pagination for payments */}
                         {paymentsTotalPages > 1 && (
                           <Pagination
                             currentPage={paymentsCurrentPage}
@@ -899,7 +872,6 @@ const PaymentHandover: React.FC = () => {
                         )}
                       </div>
                     )}
-
                     {selectedPayments.length > 0 && (
                       <div className="mt-2 bg-blue-50 p-2 rounded-md">
                         <h4 className="text-sm font-bold text-green-800 mb-1">Summary of Selected Payments</h4>
@@ -922,10 +894,8 @@ const PaymentHandover: React.FC = () => {
                             Note: You have selected partial amounts for one or more payments.
                           </div>
                         )}
-                       
                       </div>
                     )}
-
                     <div className="mt-2">
                       <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
                       <textarea
@@ -936,7 +906,6 @@ const PaymentHandover: React.FC = () => {
                         rows={2}
                       ></textarea>
                     </div>
-
                     <div className="flex justify-end space-x-2 mt-3">
                       <button
                         type="button"
@@ -960,139 +929,186 @@ const PaymentHandover: React.FC = () => {
               </form>
             </div>
           )}
-
           <div className="bg-white rounded-lg shadow overflow-hidden mb-3">
             <div className="overflow-x-auto">
               {loading ? (
-                <div className="flex justify-center items-center h-32">
+                <div className="flex justify-center items-center min-h-[200px]">
                   <p className="text-gray-500 text-xs">Loading...</p>
-                </div>
-              ) : filteredHandovers.length === 0 ? (
-                <div className="flex justify-center items-center h-32">
-                  <p className="text-gray-500 text-xs">No records found</p>
                 </div>
               ) : (
                 <>
-<div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white rounded-md px-4 py-2 flex items-center justify-between shadow-sm mb-2">
-  {/* Left: Title */}
-  <h1 className="text-lg font-semibold text-white">Cash Handover List</h1>
+                  {/* Header Section */}
+                  <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white rounded-md px-4 py-2 flex items-center justify-between shadow-sm mb-2">
+                    <h1 className="text-lg font-semibold text-white">Payment Handover List</h1>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-white">Handed Over To:</label>
+                        <select
+                          value={selectedHandedOverTo}
+                          onChange={(e) => {
+                            setSelectedHandedOverTo(e.target.value);
+                            setHandoverCurrentPage(1);
+                          }}
+                          className="border border-gray-300 rounded-md px-2 py-1 text-xs text-black"
+                        >
+                          <option value="">All</option>
+                          {[...new Set(approvedByList.map(item => item.approvedBy))].map((name, index) => (
+                            <option key={index} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-medium text-white">Received By:</label>
+                        <select
+                          value={selectedReceivedBy}
+                          onChange={(e) => {
+                            setSelectedReceivedBy(e.target.value);
+                            setHandoverCurrentPage(1);
+                          }}
+                          className="border border-gray-300 rounded-md px-2 py-1 text-xs text-black"
+                        >
+                          <option value="">All</option>
+                          {[...new Set(approvedByList.map(item => item.approvedBy))].map((name, index) => (
+                            <option key={index} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-white rounded-full p-1.5 flex items-center justify-center">
+                          <DollarSign className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] text-black font-medium leading-none">Total Handover Amount</p>
+                          <p className="text-sm font-bold text-white leading-tight">
+                            ₹{filteredHandovers.reduce((sum, h) => sum + h.amount, 0).toLocaleString('en-US')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-  {/* Right: Total Amount */}
-  <div className="flex items-center gap-2">
-    <div className="bg-white rounded-full p-1.5 flex items-center justify-center">
-      <DollarSign className="h-4 w-4 text-blue-600" />
-    </div>
-    <div className="text-right ">
-      <p className="text-[11px] text-black font-medium leading-none">Total Handover Amount</p>
-      <p className="text-sm font-bold text-white leading-tight">
-        ₹{cashHandovers.reduce((sum, h) => sum + h.amount, 0).toLocaleString('en-US')}
-      </p>
-    </div>
-  </div>
-</div>
+                  {/* Conditional Content */}
+                  {filteredHandovers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <div className="mb-3">
+                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">No handover records found</p>
+                      <p className="text-xs text-gray-400 text-center px-4">
+                        Try adjusting your filters or check back later
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Table Section */}
+                      <table className="min-w-full divide-y divide-gray-200 text-xs">
+                        <thead className="bg-gray-300">
+                          <tr>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received Date</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handed Over To</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hand Over Date</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {paginatedHandovers.map(handover => (
+                            <tr key={handover.id} className="hover:bg-gray-100">
+                              <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">{handover.id}</td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-5 w-5 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <User className="h-3 w-3 text-blue-600" />
+                                  </div>
+                                  <div className="ml-2">
+                                    <div className="text-xs font-medium text-gray-900">{`${handover.student?.fName} ${handover.student?.lName || ''}`}</div>
+                                    <div className="text-xs text-gray-500">ID: {handover.studentId}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="text-xs font-medium text-gray-900">₹{handover.amount?.toLocaleString('en-US') || 0}</div>
+                                <div className="text-xs text-gray-500">Payment #{handover.paymentId}</div>
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0 h-4 w-4 bg-green-100 rounded-full flex items-center justify-center">
+                                    <Users className="h-2 w-2 text-green-600" />
+                                  </div>
+                                  <div className="ml-1 text-xs text-gray-900">{handover.receivedBy}</div>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <Calendar className="h-2.5 w-2.5 text-gray-400 mr-1" />
+                                  <span className="text-xs text-gray-500">{formatDate(handover.payment?.receivedDate)}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500">{handover.handedOverTo}</td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <div className="flex items-center">
+                                  <Calendar className="h-2.5 w-2.5 text-gray-400 mr-1" />
+                                  <span className="text-xs text-gray-500">{formatDate(handover.handoverDate)}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                {handover.verified ? (
+                                  <span className="px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-green-100 text-green-800">
+                                    <Check className="h-4 w-4 mr-0.5" />
+                                    Verified
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    <X className="h-4 w-4 mr-0.5" />
+                                    Unverified
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                {handover.payment?.receiptUrl && (
+                                  <button
+                                    onClick={() => setViewReceiptUrl(handover.payment?.receiptUrl ?? null)}
+                                    className="text-blue-600 hover:text-blue-900"
+                                    title="View Receipt"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
-                <table title='Handover List ' className="min-w-full divide-y divide-gray-200 text-xs">
-                  <thead className="bg-gray-300">
-                    <tr>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handed Over To</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedHandovers.map(handover => (
-                      <tr key={handover.id} className="hover:bg-gray-100">
-                        <td className="px-2 py-1 whitespace-nowrap text-xs font-medium text-gray-900">{handover.id}</td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-5 w-5 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="h-3 w-3 text-blue-600" />
-                            </div>
-                            <div className="ml-2">
-                              <div className="text-xs font-medium text-gray-900">{`${handover.student?.fName} ${handover.student?.lName || ''}`}</div>
-                              <div className="text-xs text-gray-500">ID: {handover.studentId}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          <div className="text-xs font-medium text-gray-900">₹{handover.amount?.toLocaleString('en-US') || 0}</div>
-                          <div className="text-xs text-gray-500">Payment #{handover.paymentId}</div>
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-4 w-4 bg-green-100 rounded-full flex items-center justify-center">
-                              <Users className="h-2 w-2 text-green-600" />
-                            </div>
-                            <div className="ml-1 text-xs text-gray-900">{handover.receivedBy}</div>
-                          </div>
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap text-xs text-gray-500">{handover.handedOverTo}</td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <Calendar className="h-2.5 w-2.5 text-gray-400 mr-1" />
-                            <span className="text-xs text-gray-500">{formatDate(handover.handoverDate)}</span>
-                          </div>
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {handover.verified ? (
-                            <span className="px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-green-100 text-green-800">
-                              <Check className="h-4 w-4 mr-0.5" />
-                              Verified
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 inline-flex text-xs leading-4 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                              <X className="h-4 w-4 mr-0.5" />
-                              Unverified
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2 py-1 whitespace-nowrap">
-                          {handover.payment?.receiptUrl && (
-                            <button
-                              onClick={() => setViewReceiptUrl(handover.payment?.receiptUrl ?? null)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="View Receipt"
-                            >
-                              <Eye className="h-3 w-3" />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {/* Pagination for handovers */}
-                {handoverTotalPages > 1 && (
-                  <Pagination
-                    currentPage={handoverCurrentPage}
-                    totalPages={handoverTotalPages}
-                    onPageChange={setHandoverCurrentPage}
-                  />
-                )}
+                      {/* Pagination */}
+                      {handoverTotalPages > 1 && (
+                        <Pagination
+                          currentPage={handoverCurrentPage}
+                          totalPages={handoverTotalPages}
+                          onPageChange={setHandoverCurrentPage}
+                        />
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </div>
           </div>
-       
         </main>
       </div>
-
-      {/* Receipt Viewer Modal */}
       <ReceiptViewerModal />
-      
-      {/* Password Verification Modal */}
       <PasswordVerificationModal />
     </>
   );
 };
 
 export default PaymentHandover;
-
-// Export the reusable components as well
 export { Pagination, Modal };

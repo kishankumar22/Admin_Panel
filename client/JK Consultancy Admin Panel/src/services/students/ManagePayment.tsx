@@ -514,7 +514,7 @@ const ManagePayment: React.FC = () => {
   // Function to export filtered students to Excel
   const handleExportToExcel = () => {
     if (paginatedStudents.length === 0) {
-      alert('No data to export');
+    toast.warning('No data to export');
       return;
     }
 
@@ -605,7 +605,7 @@ const ManagePayment: React.FC = () => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     toast.success('Downloaded Excel sheet ', {
-      position: 'top-center', autoClose: 5000, hideProgressBar: true, closeOnClick: true, pauseOnHover: true, draggable: true
+      position: 'top-center', autoClose: 3000, 
     });
     
   };

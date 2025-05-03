@@ -259,7 +259,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           }
                         >
                           <FaHandHoldingUsd className="w-4 h-4" />
-                          Cash Handover
+                          Payment Handover
                         </NavLink>
                       </li>
 

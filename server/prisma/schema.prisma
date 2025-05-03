@@ -153,8 +153,6 @@ model Permission {
   @@unique([roleId, pageId]) // Ensure each role has unique permissions per page
 }
 
-
-
 model College {
   id             Int       @id @default(autoincrement())
   collegeName    String

@@ -7,7 +7,7 @@ const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-
+const path = require('path');
 // Configure Multer for in-memory storage
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -1393,10 +1393,13 @@ router.get('/studentPayment/:studentId', async (req, res) => {
 router.get('/studentPayment/:paymentId/slip', async (req, res) => {
   try {
     const { paymentId } = req.params;
-    if (!paymentId || isNaN(parseInt(paymentId))) {
-      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+
+    // Validate paymentId
+    if (!paymentId || isNaN(parseInt(paymentId)) || parseInt(paymentId) <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid or missing payment ID' });
     }
 
+    // Fetch payment details
     const payment = await prisma.studentPayment.findUnique({
       where: { id: parseInt(paymentId) },
       include: {
@@ -1425,113 +1428,146 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
     });
 
     if (!payment) {
-      return res.status(404).json({ success: false, error: 'Payment not found' });
+      return res.status(404).json({ success: false, error: 'Payment record not found' });
     }
 
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ size: [400, 600], margin: 30 });
 
+    // Set response headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=payment-slip-${paymentId}.pdf`);
+
+    // Handle errors in the PDF stream
+    doc.on('error', (err) => {
+      console.error('PDF stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Failed to generate payment slip' });
+      }
+    });
+
+    // Pipe the PDF to the response
     doc.pipe(res);
 
-    doc.rect(10, 10, doc.page.width - 20, doc.page.height - 20).stroke();
+    // Outer border
+    doc.rect(10, 10, doc.page.width - 20, doc.page.height - 20).stroke('#1E90FF');
 
-    doc.fontSize(16)
-      .font('Helvetica-Bold')
-      .fillColor('#1E90FF')
-      .text('Payment Slip', { align: 'center' });
+    // Add PAID stamp as a background watermark (added early so it's behind text)
+    doc.save();
+    doc.rotate(-30, { origin: [doc.page.width / 2, 450] });
+    doc.fontSize(60)
+       .fillColor('rgba(0, 128, 0, 0.3)')
+       .text('PAID', doc.page.width / 2 - 90, 450, { width: 180, align: 'center' });
+    doc.restore();
 
-    doc.fontSize(10)
-      .font('Helvetica')
-      .fillColor('#333')
-      .text('JK Institute Of Pharmacy', { align: 'center' });
+    // Logo Position
+    const logoRadius = 30;
+    const logoX = doc.page.width / 2;
+    const logoY = 60;
+    const logoPath = path.join(process.cwd(), 'public/images/logo.jpg');
 
-    doc.fontSize(9)
-      .fillColor('#000')
-      .moveDown(0.3)
-      .text(`Payment ID: ${paymentId}`, { align: 'center' });
+    try {
+      doc.image(logoPath, logoX - logoRadius, logoY - logoRadius, { width: logoRadius * 2 });
+    } catch (err) {
+      console.warn('Failed to load logo, using placeholder:', err.message);
+      doc.circle(logoX, logoY, logoRadius)
+         .fillOpacity(0.1)
+         .fill('#1E90FF')
+         .stroke('#1E90FF');
+      doc.fontSize(10)
+         .font('Helvetica')
+         .fillColor('#1E90FF')
+         .fillOpacity(1)
+         .text('LOGO', logoX - 15, logoY - 5, { align: 'center' });
+    }
 
-    doc.moveDown(0.5);
-    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#cccccc');
+    // Institute Name
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
+       .fillColor('#333333')
+       .text('JK Institute Of Pharmacy', doc.page.width / 2 - 80, logoY + logoRadius + 10, { align: 'center', width: 160 });
+
+    doc.moveDown(1);
+    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#CCCCCC');
     doc.moveDown(0.5);
 
     // === Student Details ===
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#006400').text('Student Details');
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('#006400')
+       .text('Student Details', 40);
 
-    doc.fontSize(9).font('Helvetica').fillColor('#333');
+    doc.fontSize(9)
+       .font('Helvetica')
+       .fillColor('#333333');
 
     const leftX = 40;
     const rightX = 200;
-    let yPos = doc.y;
+    let yPos = doc.y + 10;
 
     const drawLabelValue = (label, value, offsetY) => {
-      doc.font('Helvetica-Bold').text(`${label}`, leftX, yPos + offsetY);
-      doc.font('Helvetica').text(`${value}`, rightX, yPos + offsetY);
+      const safeValue = value || 'N/A';
+      doc.font('Helvetica-Bold').text(`${label}`, leftX, yPos + offsetY, { width: 150 });
+      doc.font('Helvetica').text(`${safeValue}`, rightX, yPos + offsetY, { width: 150 });
     };
 
     drawLabelValue('Name:', `${payment.student.fName} ${payment.student.lName || ''}`, 0);
-    drawLabelValue('Roll Number:', `${payment.student.rollNumber}`, 15);
-    drawLabelValue('Email:', `${payment.student.email}`, 30);
-    drawLabelValue('Mobile Number:', `${payment.student.mobileNumber}`, 45);
-    drawLabelValue('Father\'s Name:', `${payment.student.fatherName || 'N/A'}`, 60);
-    drawLabelValue('Course:', `${payment.student.course.courseName}`, 75);
-    drawLabelValue('Session Year:', `${payment.studentAcademic.sessionYear}`, 90);
-    drawLabelValue('Course Year:', `${payment.studentAcademic.courseYear}`, 105);
+    drawLabelValue('Roll Number:', payment.student.rollNumber, 15);
+    drawLabelValue('Email:', payment.student.email, 30);
+    drawLabelValue('Mobile Number:', payment.student.mobileNumber, 45);
+    drawLabelValue('Father\'s Name:', payment.student.fatherName, 60);
+    drawLabelValue('Course:', payment.student.course.courseName, 75);
+    drawLabelValue('Session Year:', payment.studentAcademic.sessionYear, 90);
+    drawLabelValue('Course Year:', payment.studentAcademic.courseYear, 105);
 
-    doc.moveDown(8);
-    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#cccccc');
-    doc.moveDown(0.5);
+    // Modified: Moved payment details section up - reduced spacing
+    doc.moveDown(1);
+    doc.moveTo(30, doc.y).lineTo(doc.page.width - 30, doc.y).stroke('#CCCCCC');
+    doc.moveDown(0.3);
 
     // === Payment Details ===
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#006400').text('Payment Details', leftX);
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('#006400')
+       .text('Payment Details', leftX);
 
-    doc.fontSize(9).font('Helvetica').fillColor('#333');
+    doc.fontSize(9)
+       .font('Helvetica')
+       .fillColor('#333333');
 
-    yPos = doc.y;
+    yPos = doc.y + 10;
 
-    doc.font('Helvetica-Bold').text('Amount Type:', leftX, yPos);
-    doc.font('Helvetica').text(payment.amountType === 'adminAmount' ? 'Admin Amount' : payment.amountType, leftX + 100, yPos);
-
-    doc.font('Helvetica-Bold').text('Payment Mode:', leftX, yPos + 15);
-    doc.font('Helvetica').text(payment.paymentMode, leftX + 100, yPos + 15);
-
-    doc.font('Helvetica-Bold').text('Transaction Number:', leftX, yPos + 30);
-    doc.font('Helvetica').text(payment.transactionNumber || 'N/A', leftX + 100, yPos + 30);
-
-    doc.font('Helvetica-Bold').text('Amount:', leftX, yPos + 45);
-    doc.font('Helvetica').text(`${payment.amount.toFixed(2)}`, leftX + 100, yPos + 45);
-
-    doc.font('Helvetica-Bold').text('Received Date:', leftX, yPos + 60);
-    doc.font('Helvetica').text(`${new Date(payment.receivedDate).toLocaleDateString('en-GB')}`, leftX + 100, yPos + 60);
-
-    doc.font('Helvetica-Bold').text('Status:', leftX, yPos + 75);
-    doc.fillColor('#008000').font('Helvetica').text('Paid', leftX + 100, yPos + 75);
-
-    // === Paid Stamp ===
-    doc.rotate(-30, { origin: [doc.page.width / 2, 400] })
-      .fontSize(60)
-      .fillColor('rgba(0, 128, 0, 0.2)')
-      .text('PAID', doc.page.width / 2 - 80, 400);
-    doc.rotate(30, { origin: [doc.page.width / 2, 400] });
+    drawLabelValue('Amount Type:', payment.amountType === 'adminAmount' ? 'Admin Amount' : payment.amountType, 0);
+    drawLabelValue('Payment Mode:', payment.paymentMode, 15);
+    drawLabelValue('Transaction Number:', payment.transactionNumber, 30);
+    drawLabelValue('Amount:', `${payment.amount.toFixed(2)}`, 45);
+    drawLabelValue('Received Date:', `${new Date(payment.receivedDate).toLocaleDateString('en-GB')}`, 60);
+    
+    // Status with green color
+    doc.font('Helvetica-Bold').text('Status:', leftX, yPos + 75, { width: 150 });
+    doc.font('Helvetica').fillColor('#008000')
+       .text('PAID', rightX, yPos + 75, { width: 150 });
 
     // === Footer ===
+    doc.moveTo(30, doc.page.height - 70).lineTo(doc.page.width - 30, doc.page.height - 70).stroke('#CCCCCC');
     doc.fontSize(8)
-      .fillColor('#666')
-      .text('Generated by JK Institute of Pharmacy', { align: 'center' });
+       .font('Helvetica-Oblique')
+       .fillColor('#666666')
+       .text('Generated by JK Institute of Pharmacy', doc.page.width / 2 - 80, doc.page.height - 60, { align: 'center', width: 160 });
 
-    doc.moveDown(0.3);
     doc.fontSize(7)
-      .text(`Date: ${new Date().toLocaleDateString('en-GB')}`, { align: 'center' });
+       .text(`Date: ${new Date().toLocaleDateString('en-GB')}`, doc.page.width / 2 - 80, doc.page.height - 45, { align: 'center', width: 160 });
 
+    // End the PDF document
     doc.end();
 
   } catch (error) {
     console.error('Error generating payment slip:', error);
-    res.status(500).json({ success: false, error: 'Failed to generate payment slip' });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Internal server error while generating payment slip' });
+    }
   }
 });
-
 // routes/studentPayment.js
 router.get('/amountType', async (req, res) => {
   try {
