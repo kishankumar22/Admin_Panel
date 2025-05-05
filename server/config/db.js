@@ -3,7 +3,7 @@ const sql = require('mssql');
 // Database configuration
 const dbConfig = {
   user: 'kishankk',
-  password: 'kishank',
+  password: 'KishanKumar',
   server: 'localhost',
   database: 'jkconsultancyadmindb',
   options: {

@@ -360,8 +360,8 @@ const clearFilters = () => {
                 <p><b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}</p>
               </div>
 
-              <div className="flex justify-between items-center mt-1">
-                <div className="flex gap-1">
+              <div className=" mt-2">
+                <div className=" flex justify-evenly">
                   <button
                     className={`flex items-center  px-2 py-1 text-xs focus:ring-4 focus:ring-green-300 text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? "opacity-50 cursor-not-allowed" : ""}`}
                     onClick={() => handleEditFaculty(faculty)}

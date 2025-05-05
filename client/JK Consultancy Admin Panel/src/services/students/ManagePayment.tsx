@@ -14,11 +14,11 @@ import {
   FaMoneyCheck,
   FaUsers,
   FaFileExcel,
-  FaSpinner, // Import FaFileExcel for the export button
+  FaSpinner,
 } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import StudentPaymentModal from './StudentPaymentModal';
-import * as XLSX from 'xlsx'; // Import SheetJS
+import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 
 interface EmiDetail {
@@ -36,7 +36,7 @@ interface EmiDetail {
 
 interface AcademicDetail {
   id: number;
-  emiAmount: number; // required
+  emiAmount: number;
   studentId: number;
   sessionYear: string;
   paymentMode: string;
@@ -120,6 +120,8 @@ const ManagePayment: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
+  const [selectedSessionYear, setSelectedSessionYear] = useState<string | null>(null);
+  const [selectedCourseYear, setSelectedCourseYear] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLoading, setShowLoading] = useState(true);
 
@@ -277,13 +279,11 @@ const ManagePayment: React.FC = () => {
     } finally {
       setTimeout(() => {
         setLoading(false);
-      }, 300); //
-        // Keep loading screen for at least 2 seconds
-    const minLoadingTime = setTimeout(() => {
-      setShowLoading(false);
-    },300);
-    
-    return () => clearTimeout(minLoadingTime);
+      }, 300);
+      const minLoadingTime = setTimeout(() => {
+        setShowLoading(false);
+      }, 300);
+      return () => clearTimeout(minLoadingTime);
     }
   };
 
@@ -340,8 +340,8 @@ const ManagePayment: React.FC = () => {
 
   const openPaymentModal = (studentId: number, sessionYear: string, courseYear: string) => {
     setCurrentStudentId(studentId);
-    setSessionYearFilter(sessionYear);
-    setYearFilter(courseYear);
+    setSelectedSessionYear(sessionYear);
+    setSelectedCourseYear(courseYear);
     setIsPaymentModalOpen(true);
   };
 
@@ -466,10 +466,9 @@ const ManagePayment: React.FC = () => {
     })
     .filter((student): student is Student => student !== null)
     .filter((student) => {
-      // Enhanced search to prioritize Roll Number
       const matchesSearch =
         searchQuery === '' ||
-        student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) || // Roll Number first
+        student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         [
           student.fName,
           student.lName,
@@ -511,10 +510,9 @@ const ManagePayment: React.FC = () => {
     }
   };
 
-  // Function to export filtered students to Excel
   const handleExportToExcel = () => {
     if (paginatedStudents.length === 0) {
-    toast.warning('No data to export');
+      toast.warning('No data to export');
       return;
     }
 
@@ -562,34 +560,34 @@ const ManagePayment: React.FC = () => {
 
     const worksheet = XLSX.utils.json_to_sheet(excelData);
     worksheet['!cols'] = [
-      { wch: 8 }, // S.No
-      { wch: 15 }, // College ID
-      { wch: 20 }, // Name
-      { wch: 12 }, // Roll No
-      { wch: 12 }, // Course Year
-      { wch: 15 }, // Session Year
-      { wch: 15 }, // Admin Amount
-      { wch: 15 }, // Pending Fees
-      { wch: 15 }, // Paid Fees
-      { wch: 20 }, // Course
-      { wch: 20 }, // College
-      { wch: 15 }, // Mobile
-      { wch: 12 }, // Status
-      { wch: 15 }, // Discontinued By
-      { wch: 12 }, // Category
-      { wch: 12 }, // Gender
-      { wch: 25 }, // Address
-      { wch: 12 }, // Pin Code
-      { wch: 15 }, // DOB
-      { wch: 15 }, // Admission Date
-      { wch: 15 }, // Is Discontinued
-      { wch: 15 }, // Payment Mode
-      { wch: 15 }, // Ledger No
-      { wch: 12 }, // Total EMIs
-      { wch: 12 }, // 1st EMI
-      { wch: 12 }, // 2nd EMI
-      { wch: 15 }, // 1st EMI Date
-      { wch: 15 }, // 2nd EMI Date
+      { wch: 8 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 25 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 },
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -604,20 +602,20 @@ const ManagePayment: React.FC = () => {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-    toast.success('Downloaded Excel sheet ', {
-      position: 'top-center', autoClose: 3000, 
+    toast.success('Downloaded Excel sheet', {
+      position: 'top-center',
+      autoClose: 3000,
     });
-    
   };
 
   if (loading || showLoading) {
     return (
-      <div className="flex justify-center   -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
-      <div className="flex flex-col items-center ">
-        <FaSpinner className="animate-spin text-4xl text-purple-600" />
-        <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+      <div className="flex justify-center -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+        <div className="flex flex-col items-center">
+          <FaSpinner className="animate-spin text-4xl text-purple-600" />
+          <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+        </div>
       </div>
-    </div>
     );
   }
   if (error) return <div className="text-xs text-red-500 p-1">{error}</div>;
@@ -626,10 +624,8 @@ const ManagePayment: React.FC = () => {
     <>
       <Breadcrumb pageName="Payment Management" />
 
-      {/* Enhanced Filter Section */}
       <div className="p-1 mt-3 mb-2 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-sm border border-gray-100">
         <div className="flex flex-wrap gap-1 mb-1 text-black">
-          {/* Status */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaCheckCircle className="mr-1 text-gray-600 text-[12px]" /> Status
@@ -647,7 +643,6 @@ const ManagePayment: React.FC = () => {
               ))}
             </select>
           </div>
-          {/* College */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaUniversity className="mr-1 text-gray-600 text-[10px]" /> College
@@ -665,7 +660,6 @@ const ManagePayment: React.FC = () => {
               ))}
             </select>
           </div>
-          {/* Course */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
@@ -683,7 +677,6 @@ const ManagePayment: React.FC = () => {
               ))}
             </select>
           </div>
-          {/* Session Year */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Session Year
@@ -701,7 +694,6 @@ const ManagePayment: React.FC = () => {
               ))}
             </select>
           </div>
-          {/* Course Year */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Year
@@ -719,7 +711,6 @@ const ManagePayment: React.FC = () => {
               ))}
             </select>
           </div>
-          {/* Fees Filter */}
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaMoneyBill className="mr-1 text-gray-600 text-[10px]" /> Fees
@@ -734,7 +725,6 @@ const ManagePayment: React.FC = () => {
               <option value="Full Payment">Full Payment</option>
             </select>
           </div>
-          {/* Amount Type Filter */}
           <div className="flex-1 min-w-[110px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
               <FaCoins className="mr-1 text-gray-600 text-[10px]" /> Amount Type
@@ -753,7 +743,6 @@ const ManagePayment: React.FC = () => {
             </select>
           </div>
           <div className="flex gap-1 min-w-[300px]">
-            {/* Search */}
             <div className="flex-1 min-w-[150px]">
               <label className="text-xs font-semibold text-black flex items-center mb-0.5">
                 <FaSearch className="mr-1 text-gray-600 text-[10px]" /> Search
@@ -769,7 +758,6 @@ const ManagePayment: React.FC = () => {
                 <FaSearch className="absolute left-1.5 top-1.5 text-gray-400 text-[9px]" />
               </div>
             </div>
-            {/* Buttons and Search */}
             <div className="flex gap-1 self-end mb-0.5">
               <button
                 onClick={clearFilters}
@@ -788,7 +776,6 @@ const ManagePayment: React.FC = () => {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1 sm:gap-1.5 mb-1.5">
-        {/* Admin Amount Card */}
         <div className="bg-gradient-to-br from-white to-blue-50 rounded-lg shadow-sm border border-blue-100 p-1.5 transition-all duration-200 hover:shadow-md">
           <div className="flex justify-between items-center mb-1">
             <div className="flex items-center">
@@ -823,7 +810,6 @@ const ManagePayment: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Fees Amount Card */}
         <div className="bg-gradient-to-br from-white to-green-50 rounded-lg shadow-sm border border-green-100 p-1.5 transition-all duration-200 hover:shadow-md">
           <div className="flex justify-between items-center mb-1">
             <div className="flex items-center">
@@ -858,7 +844,6 @@ const ManagePayment: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Total Students Card with Fine & Refund */}
         <div className="bg-gradient-to-br from-white to-pink-100 p-1.5 rounded-lg shadow-sm border border-gray-100 transition-all duration-200 hover:shadow-md">
           <div className="flex justify-between items-center mb-1">
             <p className="text-md font-semibold text-gray-700 flex items-center">
@@ -927,10 +912,9 @@ const ManagePayment: React.FC = () => {
           </div>
         </div>
       </div>
-      {/* Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div className="relative overflow-x-auto max-h-[70vh] flex justify-between items-center p-1">
-          <div></div> {/* Placeholder for alignment */}
+          <div></div>
           <button
             onClick={handleExportToExcel}
             className="flex items-center text-green-600 hover:text-green-800 text-xs px-2 py-1 bg-white border border-green-300 rounded hover:bg-green-50 transition-all duration-150"
@@ -1160,7 +1144,6 @@ const ManagePayment: React.FC = () => {
         </div>
       </div>
 
-      {/* Pagination */}
       <div className="flex flex-col md:flex-row justify-between items-center mt-2 p-2 bg-white rounded shadow-md border border-gray-200">
         <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
           <span className="text-xs">Show:</span>
@@ -1215,16 +1198,17 @@ const ManagePayment: React.FC = () => {
         </div>
       </div>
 
-      {/* Student Payment Modal */}
-      {isPaymentModalOpen && currentStudentId !== null && (
+      {isPaymentModalOpen && currentStudentId !== null && selectedSessionYear && selectedCourseYear && (
         <StudentPaymentModal
           studentId={currentStudentId}
           students={students}
-          sessionYearFilter={sessionYearFilter}
-          yearFilter={yearFilter}
+          sessionYearFilter={selectedSessionYear}
+          yearFilter={selectedCourseYear}
           onClose={() => {
             setIsPaymentModalOpen(false);
             setCurrentStudentId(null);
+            setSelectedSessionYear(null);
+            setSelectedCourseYear(null);
             fetchStudents();
           }}
         />
