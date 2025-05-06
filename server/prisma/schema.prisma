@@ -323,3 +323,17 @@ model PaymentHandover {
   payment             StudentPayment @relation(fields: [paymentId], references: [id])
   student             Student @relation(fields: [studentId], references: [id], onUpdate: NoAction, onDelete: NoAction)
 }
+
+//  pop up  registration 
+
+model CourseEnquiry {
+  id           Int       @id @default(autoincrement())
+  fullName     String
+  mobileNumber String
+  email        String
+  course       String
+  isContacted  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  modifiedAt   DateTime?
+  modifiedby   String?
+}

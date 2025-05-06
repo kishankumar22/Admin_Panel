@@ -14,6 +14,7 @@ import { MdCreateNewFolder, MdOutlineAssignmentTurnedIn, MdOutlineManageHistory 
 import { FaHandHoldingUsd, FaMoneyBill, FaUserPlus } from "react-icons/fa";
 import { PiStudent } from "react-icons/pi";
 import { IoIosPersonAdd } from "react-icons/io";
+import { ClipboardList } from 'lucide-react';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -260,6 +261,20 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         >
                           <FaHandHoldingUsd className="w-4 h-4" />
                           Payment Handover
+                        </NavLink>
+                      </li>
+
+                      <li>
+                        <NavLink
+                          to="/CourseQueries"
+                          className={({ isActive }) =>
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'
+                            }`
+                          }
+                        >
+                            <ClipboardList className="w-4 h-4 mr-2" />
+
+                          Course Queries
                         </NavLink>
                       </li>
 

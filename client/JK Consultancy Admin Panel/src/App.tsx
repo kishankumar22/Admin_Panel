@@ -24,11 +24,10 @@ import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
 import AssignRolePage from './pages/Configuration/AssignRolePage';
 import CreatePage from './pages/Configuration/CreatePage';
-// import AddStudent from './services/students/AddStudent';
 import StudentManagement from './services/students/StudentManagement';
 import ManagePayment from './services/students/ManagePayment';
-import CashHandover from './services/students/PaymentHandover';
 import PaymentHandover from './services/students/PaymentHandover';
+import CourseEnquiry from './services/students/CourseEnquiry';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -163,6 +162,15 @@ const App: React.FC = () => {
       ),
     },
     {
+      path: '/CourseQueries',
+      element: (
+        <>
+          <PageTitle title="Course Queries" />
+          <CourseEnquiry />
+        </>
+      ),
+    },
+    {
       path: '/assign-page-to-role',
       element: (
         <>
@@ -195,6 +203,7 @@ const App: React.FC = () => {
     '/student',
     '/managePayment',
     '/paymenthandover',
+    '/CourseEnquiry',
     '/assign-page-to-role',
   ];
 

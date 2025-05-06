@@ -1621,4 +1621,79 @@ router.get('/amountType', async (req, res) => {
   }
 });
 
+
+// registration pup  message
+
+// POST route to handle registration form submission
+router.post('/register', async (req, res) => {
+  const { fullName, mobileNumber, email, course } = req.body;
+
+  try {
+    const newRegistration = await prisma.CourseEnquiry.create({
+      data: {
+        fullName,
+        mobileNumber,
+        email,
+        course,
+        isContacted: false,
+        modifiedAt: null,  // Explicitly set to null on creation
+        modifiedby: null,  // Explicitly set to null on creation
+      },
+    });
+    console.log('Student registration successful:', newRegistration);
+    res.status(201).json({ message: 'Registration successful', data: newRegistration });
+  } catch (error) {
+    console.error('Error registering student:', error);
+    res.status(500).json({ message: 'Error registering student' });
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
+router.get('/getCourseEnquiry', async (req, res) => {
+  try {
+    const enquiries = await prisma.CourseEnquiry.findMany({
+      orderBy: {
+        createdAt: 'desc' // Optional: most recent first
+      }
+    });
+    res.status(200).json({ message: 'Fetched enquiries successfully', data: enquiries });
+  } catch (error) {
+    console.error('Error fetching course enquiries:', error);
+    res.status(500).json({ message: 'Error fetching course enquiries' });
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
+// Update the enquiry status (e.g., mark as contacted)
+router.post('/updateEnquiryStatus', async (req, res) => {
+  const { id, isContacted, modifiedAt, modifiedby } = req.body;
+  
+  try {
+    const updatedEnquiry = await prisma.CourseEnquiry.update({
+      where: { id: Number(id) },
+      data: {
+        isContacted,
+        modifiedAt,
+        modifiedby
+      }
+    });
+    
+    res.status(200).json({ 
+      message: 'Enquiry status updated successfully', 
+      data: updatedEnquiry 
+    });
+  } catch (error) {
+    console.error('Error updating enquiry status:', error);
+    res.status(500).json({ message: 'Error updating enquiry status' });
+  } finally {
+    await prisma.$disconnect();
+  }
+});
+
+
+
+
+
 module.exports = router;
