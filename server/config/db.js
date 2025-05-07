@@ -3,9 +3,9 @@ const sql = require('mssql');
 // Database configuration
 const dbConfig = {
   user: 'kishankk',
-  password: 'KishanKumar',
+  password: 'Kishan',
   server: 'localhost',
-  database: 'jkconsultancyadmindb',
+  database: 'JKIOP',
   options: {
     trustServerCertificate: true,
     enableArithAbort: true,

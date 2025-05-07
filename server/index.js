@@ -29,7 +29,7 @@ const PORT = process.env.PORT || 3002;
 // Middleware to parse JSON requests
 app.use(express.json());    
 app.use(cors({
-    origin: 'http://localhost:5173', // Explicitly allow frontend origin
+    origin: ['http://localhost:5173','http://localhost:5174'], // Explicitly allow frontend origin
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: false, // Set to true if cookies are needed
@@ -46,7 +46,7 @@ app.use(bodyParser.json()); // Make sure to parse JSON bodies
 
 
 // Use the login route
-app.use('/api', loginRoutes); // Correctly set up thce route for login
+app.use('/api', loginRoutes); // Correctly set up thce routee for login
 // Routes
 app.use('/form', formRoutes);
 
@@ -55,7 +55,7 @@ app.use('/form', formRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.send('Welcome to Kishan Kumar  from local server ');
+    res.send('Welcome to Kishan Kumar  from IIS server ');
 });
 
 // Use the notification router for all routes under `/notifications`
