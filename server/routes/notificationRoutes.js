@@ -1,24 +1,28 @@
 const express = require('express');
 const multer = require('multer');
-const cloudinary = require('../config/cloudinaryConfig'); // Cloudinary setup
-const { PrismaClient } = require('@prisma/client');
+const cloudinary = require('../config/cloudinaryConfig');
+const { sql, executeQuery } = require('../config/db'); // Your mssql wrapper
 
-const prisma = new PrismaClient();
 const router = express.Router();
-
-// Multer setup to handle file uploads
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * POST /notifications/add-notification
- * Adds a new notification (either URL or File)
- */
+// 1. GET All Notifications
+router.get('/all-notification', async (req, res) => {
+  try {
+    const result = await executeQuery('SELECT * FROM Notification ORDER BY created_on DESC');
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Fetch Error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// 2. POST Add Notification
 router.post('/add-notification', upload.single('file'), async (req, res) => {
   try {
     const { notification_message, user_id, created_by, url } = req.body;
     const file = req.file;
 
-    // Ensure only one of URL or file is provided
     if ((url && file) || (!url && !file)) {
       return res.status(400).json({
         success: false,
@@ -29,7 +33,6 @@ router.post('/add-notification', upload.single('file'), async (req, res) => {
     let notification_url = null;
     let public_id = null;
 
-    // If the user provided a file, upload it to Cloudinary
     if (file) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -44,79 +47,48 @@ router.post('/add-notification', upload.single('file'), async (req, res) => {
 
       notification_url = uploadResult.secure_url;
       public_id = uploadResult.public_id;
-    }
-
-    // If the user provided a URL, use it directly
-    if (url) {
+    } else if (url) {
       notification_url = url;
     }
 
-    // Save the notification in the database
-    const notification = await prisma.notification.create({
-      data: {
-        notification_message,
-        notification_url,
-        public_id, // Save Cloudinary public ID for file deletions
-        userId: parseInt(user_id),
-        created_by,
-      },
+    const query = `
+      INSERT INTO Notification (notification_message, notification_url, public_id, userId, created_by, created_on)
+      VALUES (@message, @url, @publicId, @userId, @createdBy, GETDATE())
+    `;
+
+    await executeQuery(query, {
+      message: { type: sql.NVarChar, value: notification_message },
+      url: { type: sql.NVarChar, value: notification_url },
+      publicId: { type: sql.NVarChar, value: public_id },
+      userId: { type: sql.Int, value: parseInt(user_id) },
+      createdBy: { type: sql.NVarChar, value: created_by },
     });
 
-    res.status(201).json({
-      success: true,
-      data: notification,
-    });
-  } catch (error) {
-    console.error('Error adding notification:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An error occurred while adding the notification.',
-    });
+    res.status(201).json({ success: true, message: 'Notification added successfully!' });
+  } catch (err) {
+    console.error('Add Error:', err);
+    res.status(500).json({ success: false, message: 'Error adding notification' });
   }
 });
 
-/**
- * GET /notifications/all-notification
- * Fetch all notifications
- */
-router.get('/all-notification', async (req, res) => {
-  try {
-    // console.log('📢 Fetching notifications...');
-    
-    const notifications = await prisma.notification.findMany({
-      orderBy: { created_on: 'desc' },
-    });
-
-    // console.log('✅ Notifications fetched:', notifications);
-
-    res.status(200).json(notifications);
-  } catch (error) {
-    console.error('❌ Error fetching notifications:', error);
-    res.status(500).json({ success: false, message: 'Server error', error });
-  }
-});
-
-
-/**
- * PUT /notifications/edit/:id
- * Edit an existing notification
- */
+// 3. PUT Edit Notification
 router.put('/edit/:id', upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     const { notification_message, url, modify_by } = req.body;
     const file = req.file;
 
-    let notification_url = null;
-    let public_id = null;
+    const existing = await executeQuery(
+      `SELECT * FROM Notification WHERE notification_id = @id`,
+      { id: { type: sql.Int, value: id } }
+    );
 
-    const existingNotification = await prisma.notification.findUnique({
-      where: { notification_id: parseInt(id) },
-    });
-
-    if (!existingNotification) {
-      return res.status(404).json({ message: 'Notification not found' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
+
+    let notification_url = url || existing.recordset[0].notification_url;
+    let public_id = existing.recordset[0].public_id;
 
     if (file) {
       const uploadResult = await new Promise((resolve, reject) => {
@@ -133,71 +105,65 @@ router.put('/edit/:id', upload.single('file'), async (req, res) => {
       notification_url = uploadResult.secure_url;
       public_id = uploadResult.public_id;
 
-      if (existingNotification.public_id) {
-        await cloudinary.uploader.destroy(existingNotification.public_id);
+      if (existing.recordset[0].public_id) {
+        await cloudinary.uploader.destroy(existing.recordset[0].public_id);
       }
     }
 
-    if (url) {
-      notification_url = url;
-    }
+    const query = `
+      UPDATE Notification
+      SET notification_message = @message,
+          notification_url = @url,
+          public_id = @publicId,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      WHERE notification_id = @id
+    `;
 
-    const updatedNotification = await prisma.notification.update({
-      where: { notification_id: parseInt(id) },
-      data: {
-        notification_message,
-        notification_url: notification_url || existingNotification.notification_url,
-        public_id: public_id || existingNotification.public_id,
-        modify_by,
-        modify_on: new Date(),
-      },
+    await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      message: { type: sql.NVarChar, value: notification_message },
+      url: { type: sql.NVarChar, value: notification_url },
+      publicId: { type: sql.NVarChar, value: public_id },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ success: true, data: updatedNotification });
-  } catch (error) {
-    console.error('Error editing notification:', error);
-    res.status(500).json({ success: false, message: 'An error occurred while editing the notification.' });
+    res.status(200).json({ success: true, message: 'Notification updated' });
+  } catch (err) {
+    console.error('Edit Error:', err);
+    res.status(500).json({ success: false, message: 'Error editing notification' });
   }
 });
 
-
-/**
- * DELETE /notifications/delete/:id
- * Delete a notification
- */
+// 4. DELETE Notification
 router.delete('/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Fetch the existing notification
-    const notification = await prisma.notification.findUnique({
-      where: { notification_id: parseInt(id) },
-    });
+    const result = await executeQuery(
+      `SELECT * FROM Notification WHERE notification_id = @id`,
+      { id: { type: sql.Int, value: id } }
+    );
 
-    if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
     }
 
-    // Delete the file from Cloudinary if it exists
-    if (notification.public_id) {
-      await cloudinary.uploader.destroy(notification.public_id);
+    const public_id = result.recordset[0].public_id;
+
+    if (public_id) {
+      await cloudinary.uploader.destroy(public_id);
     }
 
-    // Delete the notification from the database
-    await prisma.notification.delete({
-      where: { notification_id: parseInt(id) },
-    });
+    await executeQuery(
+      `DELETE FROM Notification WHERE notification_id = @id`,
+      { id: { type: sql.Int, value: id } }
+    );
 
-    res.status(200).json({
-      success: true,
-      message: 'Notification deleted successfully!',
-    });
-  } catch (error) {
-    console.error('Error deleting notification:', error);
-    res.status(500).json({
-      success: false,
-      message: 'An error occurred while deleting the notification.',
-    });
+    res.status(200).json({ success: true, message: 'Notification deleted' });
+  } catch (err) {
+    console.error('Delete Error:', err);
+    res.status(500).json({ success: false, message: 'Error deleting notification' });
   }
 });
 

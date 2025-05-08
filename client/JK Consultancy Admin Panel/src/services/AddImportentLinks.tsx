@@ -129,7 +129,7 @@ const AddImportantLinks: React.FC = () => {
       return;
     }
     setIsUploading(true);
-    await uploadLink(linkName, linksUrl, created_by, logo, logoPosition, true); // Set isVisible to true
+    await uploadLink(linkName, linksUrl, created_by, logo, logoPosition); // Set isVisible to true
     resetForm();
     setIsUploading(false);
     setAddLinkModel(false);
@@ -201,9 +201,9 @@ const AddImportantLinks: React.FC = () => {
   };
 
   // Toggle visibility of a link
-  const handleToggleVisibility = async (id: number, currentVisibility: boolean) => {
+  const handleToggleVisibility = async (id: number) => {
     const modifyBy = user?.name || 'admin'; // Default to 'admin' if user?.name is undefined
-    await toggleVisibility(id, modifyBy, !currentVisibility); // Invert the current visibility
+    await toggleVisibility(id, modifyBy); // Invert the current visibility
   };
 
   // Open delete confirmation modal
@@ -306,7 +306,7 @@ const AddImportantLinks: React.FC = () => {
                         <input
                             type="checkbox"
                             checked={link.IsVisible}
-                            onChange={canRead ? () => handleToggleVisibility(link.id, link.IsVisible) : () => toast.error('Access Denied: You do not have permission to update links.')}
+                            onChange={canRead ? () => handleToggleVisibility(link.id,) : () => toast.error('Access Denied: You do not have permission to update links.')}
                             className="sr-only peer"
                             disabled={!canRead}
                         />

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axiosInstance from '../config';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
-import { FaEdit, FaKey } from 'react-icons/fa';
-import { MdDelete } from 'react-icons/md';
+import { FaEdit, FaKey, FaEye, FaEyeSlash, FaUserPlus, FaFilter, FaSearch, FaTimes } from 'react-icons/fa';
+import { MdDelete, MdEmail, MdSmartphone, MdPerson } from 'react-icons/md';
+import { HiOutlineUserCircle } from 'react-icons/hi';
 
 interface User {
   user_id: number;
@@ -35,10 +36,24 @@ const AddUser: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // For Add User modal
-  const [showOldPassword, setShowOldPassword] = useState(false); // For Change Password modal
-  const [showNewPassword, setShowNewPassword] = useState(false); // For Change Password modal
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false); // For Change Password modal
+  const [showPassword, setShowPassword] = useState(false); 
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [userConfirmPassword, setUserConfirmPassword] = useState('');
+  const [showUserConfirmPassword, setShowUserConfirmPassword] = useState(false);
+  const [passwordsMatch, setPasswordsMatch] = useState(true);
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedMobile, setSelectedMobile] = useState('');
+
+  useEffect(() => {
+    // Check if passwords match whenever either password changes
+    if (user.password || userConfirmPassword) {
+      setPasswordsMatch(user.password === userConfirmPassword);
+    } else {
+      setPasswordsMatch(true); // If both are empty, consider them matching
+    }
+  }, [ userConfirmPassword]);
 
   const handleOpenDeleteModal = (userId: number) => {
     setUserIdToDelete(userId);
@@ -145,17 +160,38 @@ const AddUser: React.FC = () => {
     setUser((prevUser) => ({ ...prevUser, [name]: value }));
   };
 
+  const resetModalForm = () => {
+    setUser({
+      name: '',
+      email: '',
+      mobileNo: '',
+      password: '',
+      roleId: '',
+      created_by: createdBy,
+    });
+    setUserConfirmPassword('');
+    setPasswordsMatch(true);
+    setShowPassword(false);
+    setShowUserConfirmPassword(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    if (!passwordsMatch) {
+      toast.error('Password and confirm password do not match');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
       const payload = { ...user, created_by: createdBy };
-    await axiosInstance.post('/users', payload, {
+      await axiosInstance.post('/users', payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       toast.success('User added successfully!');
-      setUser({ name: '', email: '', mobileNo: '', password: '', roleId: '', created_by: createdBy });
+      resetModalForm();
       setIsModalOpen(false);
       fetchUsers();
     } catch (err) {
@@ -184,7 +220,7 @@ const AddUser: React.FC = () => {
     setIsSubmitting(true);
     try {
       const payload = { ...editingUser, modify_by: loggedInUser?.name || 'admin' };
-       await axiosInstance.put(`/users/${editingUser.user_id}`, payload, {
+      await axiosInstance.put(`/users/${editingUser.user_id}`, payload, {
         headers: { 'Content-Type': 'application/json' },
       });
       toast.success('User updated successfully!');
@@ -212,11 +248,6 @@ const AddUser: React.FC = () => {
     setIsChangePassModalOpen(true);
   };
 
-  const [selectedRole, setSelectedRole] = useState('');
-  // const [selectedEmail, setSelectedEmail] = useState('');
-  const [selectedMobile, setSelectedMobile] = useState('');
-  // const [searchQuery, setSearchQuery] = useState('');
-  
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -230,163 +261,223 @@ const AddUser: React.FC = () => {
     return matchesSearch && matchesRole && matchesEmail && matchesMobile;
   });
   
-  // ✅ Function to Clear All Filters
+  // Function to Clear All Filters
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedRole('');
     setSelectedEmail('');
     setSelectedMobile('');
   };
+
+  // Function to get role color
+  const getRoleColor = (roleName: string) => {
+    switch(roleName?.toLowerCase()) {
+      case 'administrator':
+        return 'bg-purple-600 text-white';
+      case 'admin':
+        return 'bg-blue-600 text-white';
+      case 'registered':
+        return 'bg-green-500 text-white';
+      default:
+        return 'bg-gray-500 text-white';
+    }
+  };
+
   return (
-    <div className="p-4">
-    {/* Search & Filter Section */}
-{/* Search & Filter Section */}
-<div className="flex flex-wrap justify-between items-center gap-2 p-2 mb-3 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
-  
-  {/* Search Input */}
-  <input
-    type="search"
-    className="p-1 bg-gray-100 border rounded-md text-sm w-full sm:w-48 focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
-    placeholder="Search Name, Email, Mobile..."
-    value={searchQuery}
-    onChange={(e) => setSearchQuery(e.target.value)}
-  />
+    <div className="bg-gray-50 text-black">
+      {/* Admin Panel Header */}
+      <div className="bg-indigo-700 text-white p-3 rounded-lg shadow-lg flex items-center justify-between">
+        <h1 className="text-xl font-bold flex items-center">
+          <MdPerson className="mr-2" size={20} /> User Management
+        </h1>
+        <div className="text-xs bg-indigo-800 px-2 py-1 rounded">
+          Total Users: {users.length}
+        </div>
+      </div>
 
-  {/* Role Filter */}
-  <select
-    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
-    value={selectedRole}
-    onChange={(e) => setSelectedRole(e.target.value)}
-  >
-    <option value="">All Roles</option>
-    {roles.map((role) => (
-      <option key={role.role_id} value={role.role_id}>{role.name}</option>
-    ))}
-  </select>
+      {/* Search & Filter Section */}
+      <div className="flex flex-wrap gap-2 my-3 p-2 bg-white rounded-lg shadow border border-gray-100">
+        {/* Search Input */}
+        <div className="relative flex-grow">
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+          <input
+            type="search"
+            className="p-2 pl-8 bg-white border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="Search name, email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
 
-  {/* Email Filter */}
-  <select
-    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
-    value={selectedEmail}
-    onChange={(e) => setSelectedEmail(e.target.value)}
-  >
-    <option value="">All Emails</option>
-    {Array.from(new Set(users.map(u => u.email))).map(email => (
-      <option key={email} value={email}>{email}</option>
-    ))}
-  </select>
+        {/* Role Filter */}
+        <div className="relative w-32">
+          <select
+            className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+          >
+            <option value="">All Roles</option>
+            {roles.map((role) => (
+              <option key={role.role_id} value={role.role_id}>{role.name}</option>
+            ))}
+          </select>
+          <FaFilter className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+        </div>
 
-  {/* Mobile Filter */}
-  <select
-    className="p-1 border rounded-md text-sm w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
-    value={selectedMobile}
-    onChange={(e) => setSelectedMobile(e.target.value)}
-  >
-    <option value="">All Mobile Numbers</option>
-    {Array.from(new Set(users.map(u => u.mobileNo))).map(mobile => (
-      <option key={mobile} value={mobile}>{mobile}</option>
-    ))}
-  </select>
+        {/* Email Filter */}
+        <div className="relative w-44">
+          <select
+            className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
+            value={selectedEmail}
+            onChange={(e) => setSelectedEmail(e.target.value)}
+          >
+            <option value="">All Emails</option>
+            {Array.from(new Set(users.map(u => u.email))).map(email => (
+              <option key={email} value={email}>{email}</option>
+            ))}
+          </select>
+        </div>
 
-  {/* Clear Filters Button */}
-  <button
-  className="px-3 py-1 text-white bg-red-500 hover:bg-red-600 rounded-md transition duration-200 w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-red-700"
-  onClick={clearFilters}
->
-  Clear Filters
-</button>
+        {/* Mobile Filter */}
+        <div className="relative w-44">
+          <select
+            className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
+            value={selectedMobile}
+            onChange={(e) => setSelectedMobile(e.target.value)}
+          >
+            <option value="">All Mobile Numbers</option>
+            {Array.from(new Set(users.map(u => u.mobileNo))).map(mobile => (
+              <option key={mobile} value={mobile}>{mobile}</option>
+            ))}
+          </select>
+        </div>
 
-  {/* Add User Button */}
-  {loggedInUser ?.roleId !== Number('3') && (
-    <button
-      onClick={() => setIsModalOpen(true)}
-      className="bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors duration-200 w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-500"
-    >
-      Add User
-    </button>
-  )}
-</div>
+        {/* Clear Filters Button */}
+        <button
+          className="p-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded flex items-center"
+          onClick={clearFilters}
+        >
+          <FaTimes size={12} className="mr-1" /> Clear Filters
+        </button>
 
-{/* User List Table */}
-<div className="mt-4 overflow-x-auto">
-  <h2 className="text-lg font-bold mb-2">User List</h2>
+        {/* Add User Button */}
+        {loggedInUser?.roleId !== Number('3') && (
+          <button
+            onClick={() => {
+              resetModalForm();
+              setIsModalOpen(true);
+            }}
+            className="p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center"
+          >
+            <FaUserPlus size={12} className="mr-1" /> Add User
+          </button>
+        )}
+      </div>
+
+      {/* User List Table */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-md overflow-hidden">
+        <div className="flex items-center px-4 py-2 border-b border-gray-100">
+          <HiOutlineUserCircle className="mr-2 text-gray-500" size={18} />
+          <h2 className="text-sm font-semibold text-gray-700">User List</h2>
+          <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+            {filteredUsers.length} users
+          </span>
+        </div>
+        
+        <div className="overflow-x-auto rounded shadow">
   {filteredUsers.length > 0 ? (
-    <div className="w-full overflow-x-auto">
-      <table className="min-w-full text-sm bg-white border dark:bg-gray-600 border-gray-300">
-        <thead>
-          <tr className="bg-gray-200 h-8 text-gray-600 dark:bg-gray-300 text-left">
-            <th className="py-2 px-2 border-b">#</th>
-            <th className="py-2 px-2 border-b">Name</th>
-            <th className="py-2 px-2 border-b">Email</th>
-            <th className="py-2 px-2 border-b">Mobile</th>
-            <th className="py-2 px-2 border-b">Role</th>
-            <th className="py-2 px-2 border-b">Actions</th>
+    <table className="min-w-full text-sm text-center border border-gray-200">
+      <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-semibold">
+        <tr>
+          <th className="px-3 py-2">#</th>
+          <th className="px-3 py-2">Name</th>
+          <th className="px-3 py-2">Email</th>
+          <th className="px-3 py-2">Mobile</th>
+          <th className="px-3 py-2">Role</th>
+          <th className="px-3 py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {filteredUsers.map((user, index) => (
+          <tr key={user.user_id} className="hover:bg-gray-50">
+            <td className="px-3 py-2">{index + 1}</td>
+            <td className="px-3 py-2">{user.name}</td>
+            <td className="px-3 py-2">
+              <div className="flex items-center ml-16 justify-start text-gray-800">
+                <MdEmail className="mr-2 text-gray-500" size={16} />
+                {user.email}
+              </div>
+            </td>
+            <td className="px-3 py-2">
+              <div className="flex items-center justify-center text-gray-700">
+                <MdSmartphone className="mr-1 text-gray-500" size={14} />
+                {user.mobileNo}
+              </div>
+            </td>
+            <td className="px-3 py-2">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(roles.find((role) => role.role_id === Number(user.roleId))?.name || '')}`}>
+                {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'N/A'}
+              </span>
+            </td>
+            <td className="px-3 py-2">
+              <div className="flex justify-center gap-1">
+                {/* Edit Button */}
+                <button
+                  onClick={() => handleEdit(user)}
+                  className={`bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded ${
+                    loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  disabled={loggedInUser?.roleId === 3}
+                >
+                  <FaEdit className="inline mr-1" size={10} /> Edit
+                </button>
+
+                {/* Delete Button */}
+                <button
+                  onClick={() => handleOpenDeleteModal(user.user_id)}
+                  className={`bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded ${
+                    loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  disabled={loggedInUser?.roleId === 3}
+                >
+                  <MdDelete className="inline mr-1" size={10} /> Delete
+                </button>
+
+                {/* Password Button */}
+                <button
+                  onClick={() => handleOpenChangePassModal(user.email)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                >
+                  <FaKey className="inline mr-1" size={10} /> Password
+                </button>
+              </div>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {filteredUsers.map((user, index) => (
-            <tr key={user.user_id} className="hover:bg-gray-100 dark:hover:bg-gray-500">
-              <td className="py-2 px-2 border-b">{index + 1}</td>
-              <td className="py-2 px-2 border-b">{user.name}</td>
-              <td className="py-2 px-2 border-b">{user.email}</td>
-              <td className="py-2 px-2 border-b">{user.mobileNo}</td>
-              <td className="py-2 px-2 border-b">
-                {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'NA'}
-              </td>
-              <td className="py-2 px-2 border-b">
-                <div className="flex flex-wrap gap-1">
-                  {/* Edit Button */}
-                  <button
-                    onClick={() => handleEdit(user)}
-                    className={`bg-yellow-500 text-white text-xs px-2 py-1 rounded-md hover:bg-yellow-600 ${
-                      loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={loggedInUser?.roleId === 3}
-                  >
-                    <FaEdit className="inline-block mr-1" /> Edit
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleOpenDeleteModal(user.user_id)}
-                    className={`bg-red-500 text-white text-xs px-2 py-1 rounded-md hover:bg-red-600 ${
-                      loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    disabled={loggedInUser?.roleId === 3}
-                  >
-                    <MdDelete className="inline-block mr-1" /> Delete
-                  </button>
-
-                  {/* Change Password Button */}
-                  <button
-                    onClick={() => handleOpenChangePassModal(user.email)}
-                    className="bg-blue-500 text-white text-xs px-2 py-1 rounded-md hover:bg-blue-600"
-                  >
-                    <FaKey className="inline-block mr-1" /> Change Password
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   ) : (
-    <p className="text-gray-600 text-center py-4 text-sm">No users found.</p>
+    <div className="text-gray-500 text-center py-4 text-sm">
+      No users found. Try adjusting your filters.
+    </div>
   )}
 </div>
 
-
-
+      </div>
 
       {/* Add User Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 pt-2  0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white p-3 rounded-lg shadow-md w-full max-w-sm dark:bg-gray-500">
-            <h2 className="text-base font-semibold mb-2 text-center dark:text-meta-5">Add User</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5 dark:text-gray-800" htmlFor="name">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-blue-100">
+            <div className="bg-indigo-600 text-white p-2 rounded-t-lg -mt-4 -mx-4 mb-3">
+              <h2 className="text-lg font-semibold text-center flex items-center justify-center">
+                <FaUserPlus className="mr-2" size={16} /> Add New User
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {/* Name field */}
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="name">
                   Name
                 </label>
                 <input
@@ -399,16 +490,16 @@ const AddUser: React.FC = () => {
                   required
                   pattern="[A-Za-z\s]{2,50}"
                   title="Name should be 2-50 characters long and contain only letters and spaces"
-                  className={`w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 ${user.name && !/^[A-Za-z\s]{2,50}$/.test(user.name) ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                  className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 ${user.name && !/^[A-Za-z\s]{2,50}$/.test(user.name) ? 'border-red-500' : 'border-gray-300'} text-black`}
                 />
                 {user.name && !/^[A-Za-z\s]{2,50}$/.test(user.name) && (
-                  <p className="text-red-500 text-xs mt-0.5">Valid name: 2-50 letters</p>
+                  <p className="text-red-500 text-xs mt-1">Valid name: 2-50 letters</p>
                 )}
               </div>
 
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5 dark:text-gray-800" htmlFor="email">
+              {/* Email field */}
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="email">
                   Email
                 </label>
                 <input
@@ -421,18 +512,16 @@ const AddUser: React.FC = () => {
                   required
                   pattern="[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
                   title="Please enter a valid email address"
-                  className={`w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 ${user.email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(user.email)
-                      ? 'border-red-500'
-                      : 'border-gray-300'
-                    }`}
+                  className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 ${user.email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(user.email) ? 'border-red-500' : 'border-gray-300'} text-black`}
                 />
                 {user.email && !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(user.email) && (
-                  <p className="text-red-500 text-xs mt-0.5">Enter a valid email</p>
+                  <p className="text-red-500 text-xs mt-1">Enter a valid email</p>
                 )}
               </div>
 
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5 dark:text-gray-800" htmlFor="mobileNo">
+              {/* Mobile field */}
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="mobileNo">
                   Mobile No
                 </label>
                 <input
@@ -445,16 +534,16 @@ const AddUser: React.FC = () => {
                   required
                   pattern="[0-9]{10}"
                   title="Mobile number should be 10 digits"
-                  className={`w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 ${user.mobileNo && !/^[0-9]{10}$/.test(user.mobileNo) ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                  className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 ${user.mobileNo && !/^[0-9]{10}$/.test(user.mobileNo) ? 'border-red-500' : 'border-gray-300'} text-black`}
                 />
                 {user.mobileNo && !/^[0-9]{10}$/.test(user.mobileNo) && (
-                  <p className="text-red-500 text-xs mt-0.5">Enter a 10-digit mobile no</p>
+                  <p className="text-red-500 text-xs mt-1">Enter a 10-digit mobile no</p>
                 )}
               </div>
 
-              <div className="mb-2 relative">
-                <label className="block text-xs font-medium mb-0.5 dark:text-gray-800" htmlFor="password">
+              {/* Password field */}
+              <div className="relative">
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="password">
                   Password
                 </label>
                 <div className="relative">
@@ -468,34 +557,53 @@ const AddUser: React.FC = () => {
                     required
                     pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
                     title="Password must be at least 8 characters long and contain uppercase, lowercase, and numbers"
-                    className={`w-full p-1.5 text-sm border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 ${user.password && !/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(user.password)
-                        ? 'border-red-500'
-                        : 'border-gray-300'
-                      }`}
+                    className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 pr-10 ${user.password && !/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(user.password) ? 'border-red-500' : (passwordsMatch ? 'border-gray-300' : 'border-red-500')} text-black`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showPassword ? (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-                        <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
-                        <path fill="currentColor" d="M320 400c-75.85 0-137.25-58.71-142.9-133.11L72.2 185.82c-13.79 17.3-26.48 35.59-36.72 55.59a32.35 32.35 0 0 0 0 29.19C89.71 376.41 197.07 448 320 448c26.91 0 52.87-4 77.89-10.46L346 397.39a144.13 144.13 0 0 1-26 2.61zm313.82 58.1l-110.55-85.44a331.25 331.25 0 0 0 81.25-102.07 32.35 32.35 0 0 0 0-29.19C550.29 135.59 442.93 64 320 64a308.15 308.15 0 0 0-147.32 37.7L45.46 3.37A16 16 0 0 0 23 6.18L3.37 31.45A16 16 0 0 0 6.18 53.9l588.36 454.73a16 16 0 0 0 22.46-2.81l19.64-25.27a16 16 0 0 0-2.82-22.45zm-183.72-142l-39.3-30.38A94.75 94.75 0 0 0 416 256a94.76 94.76 0 0 0-121.31-92.21A47.65 47.65 0 0 1 304 192a46.64 46.64 0 0 1-1.54 10l-73.61-56.89A142.31 142.31 0 0 1 320 112a143.92 143.92 0 0 1 144 144c0 21.63-5.29 41.79-13.9 60.11z"></path>
-                      </svg>
-                    )}
+                    {showPassword ? <FaEyeSlash className="text-gray-500" size={14} /> : <FaEye className="text-gray-500" size={14} />}
                   </button>
                 </div>
                 {user.password && !/(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}/.test(user.password) && (
-                  <p className="text-red-500 text-xs mt-0.5">8+ chars, upper, lower, number</p>
+                  <p className="text-red-500 text-xs mt-1">8+ chars, upper, lower, number</p>
                 )}
               </div>
 
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5 dark:text-gray-800" htmlFor="roleId">
+              {/* Confirm Password field */}
+              <div className="relative">
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="confirmPassword">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showUserConfirmPassword ? "text" : "password"}
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={userConfirmPassword}
+                    onChange={(e) => setUserConfirmPassword(e.target.value)}
+                    placeholder="Confirm password"
+                    required
+                    className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 pr-10 ${!passwordsMatch ? 'border-red-500' : 'border-gray-300'} text-black`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowUserConfirmPassword(!showUserConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showUserConfirmPassword ? <FaEyeSlash className="text-gray-500" size={14} /> : <FaEye className="text-gray-500" size={14} />}
+                  </button>
+                </div>
+                {!passwordsMatch && (
+                  <p className="text-red-500 text-xs mt-1">Passwords don't match</p>
+                )}
+              </div>
+
+              {/* Role field */}
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="roleId">
                   Role
                 </label>
                 <select
@@ -504,10 +612,9 @@ const AddUser: React.FC = () => {
                   value={user.roleId}
                   onChange={handleChange}
                   required
-                  className={`w-full p-1.5 text-sm border dark:bg-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${user.roleId === '' && user.roleId !== undefined ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                  className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 ${user.roleId === '' ? 'border-red-500' : 'border-gray-300'} text-black`}
                 >
-                  <option value="" className="dark:bg-gray-600">Select Role</option>
+                  <option value="">Select Role</option>
                   {roles && roles.length > 0 ? (
                     roles
                       .filter((role) => role.role_id !== 2)
@@ -522,35 +629,29 @@ const AddUser: React.FC = () => {
                     </option>
                   )}
                 </select>
-                {user.roleId === '' && user.roleId !== undefined && (
-                  <p className="text-red-500 text-xs mt-0.5">Select a role</p>
+                {user.roleId === '' && (
+                  <p className="text-red-500 text-xs mt-1">Select a role</p>
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 mt-2">
+              {/* Button group */}
+              <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
                   onClick={() => {
+                    resetModalForm();
                     setIsModalOpen(false);
-                    setUser({
-                      name: '',
-                      email: '',
-                      mobileNo: '',
-                      password: '',
-                      roleId: '',
-                      created_by: createdBy,
-                    });
                   }}
-                  className="bg-gray-500 text-white px-2 py-1 text-sm rounded-md hover:bg-gray-600"
+                  className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 text-sm rounded flex items-center"
                 >
-                  Cancel
+                  <FaTimes className="mr-1" size={12} /> Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="bg-blue-500 text-white px-2 py-1 text-sm rounded-md hover:bg-blue-600"
+                  disabled={isSubmitting || !passwordsMatch}
+                  className={`${isSubmitting || !passwordsMatch ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1.5 text-sm rounded flex items-center`}
                 >
-                  {isSubmitting ? 'Adding...' : 'Add'}
+                  <FaUserPlus className="mr-1" size={12} /> {isSubmitting ? 'Adding...' : 'Add User'}
                 </button>
               </div>
             </form>
@@ -559,14 +660,17 @@ const AddUser: React.FC = () => {
       )}
 
       {/* Edit User Modal */}
-      {/* Edit User Modal - Compact Version */}
       {isEditModalOpen && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white p-4 rounded-lg shadow-md w-full dark:bg-gray-600 max-w-xs">
-            <h2 className="text-base font-semibold mb-2">Edit User</h2>
-            <form onSubmit={handleEditSubmit}>
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="name">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-yellow-100">
+            <div className="bg-yellow-500 text-white p-2 rounded-t-lg -mt-4 -mx-4 mb-3">
+              <h2 className="text-lg font-semibold text-center flex items-center justify-center">
+                <FaEdit className="mr-2" size={16} /> Edit User
+              </h2>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="name">
                   Name
                 </label>
                 <input
@@ -576,12 +680,12 @@ const AddUser: React.FC = () => {
                   value={editingUser.name}
                   onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
                   required
-                  className="w-full p-1.5 text-sm border dark:bg-gray-700 border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
                 />
               </div>
 
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="email">
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="email">
                   Email
                 </label>
                 <input
@@ -591,12 +695,12 @@ const AddUser: React.FC = () => {
                   value={editingUser.email}
                   onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                   required
-                  className="w-full p-1.5 text-sm border dark:bg-gray-700 border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
                 />
               </div>
 
-              <div className="mb-2">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="mobileNo">
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="mobileNo">
                   Mobile No
                 </label>
                 <input
@@ -606,12 +710,12 @@ const AddUser: React.FC = () => {
                   value={editingUser.mobileNo}
                   onChange={(e) => setEditingUser({ ...editingUser, mobileNo: e.target.value })}
                   required
-                  className="w-full p-1.5 text-sm border border-gray-300 dark:bg-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
                 />
               </div>
 
-              <div className="mb-3">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="roleId">
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="roleId">
                   Role
                 </label>
                 <select
@@ -620,7 +724,7 @@ const AddUser: React.FC = () => {
                   value={editingUser.roleId}
                   onChange={(e) => setEditingUser({ ...editingUser, roleId: e.target.value })}
                   required
-                  className="w-full p-1.5 text-sm border border-gray-300 dark:bg-gray-700 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
                 >
                   <option value="">Select Role</option>
                   {roles && roles.length > 0 ? (
@@ -639,20 +743,20 @@ const AddUser: React.FC = () => {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-1.5">
+              <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="bg-gray-500 text-white px-3 py-1 text-xs rounded hover:bg-gray-600"
+                  className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 text-sm rounded flex items-center"
                 >
-                  Cancel
+                  <FaTimes className="mr-1" size={12} /> Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-blue-500 text-white px-3 py-1 text-xs rounded hover:bg-blue-600"
+                  className={`${isSubmitting ? 'bg-yellow-400' : 'bg-yellow-500 hover:bg-yellow-600'} text-white px-3 py-1.5 text-sm rounded flex items-center`}
                 >
-                  {isSubmitting ? 'Updating...' : 'Update'}
+                  <FaEdit className="mr-1" size={12} /> {isSubmitting ? 'Updating...' : 'Update User'}
                 </button>
               </div>
             </form>
@@ -662,16 +766,18 @@ const AddUser: React.FC = () => {
 
       {/* Change Password Modal */}
       {isChangePassModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white p-3 rounded-lg shadow-md w-full max-w-xs dark:bg-gray-600">
-            <h2 className="text-base font-semibold mb-1 bg-gray-200 text-center border-b py-1 dark:text-gray-700 rounded-md dark:bg-gray-400">
-              Change Password
-            </h2>
-            <form onSubmit={handleChangePass}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-blue-100">
+            <div className="bg-blue-600 text-white p-2 rounded-t-lg -mt-4 -mx-4 mb-3">
+              <h2 className="text-lg font-semibold text-center flex items-center justify-center">
+                <FaKey className="mr-2" size={16} /> Change Password
+              </h2>
+            </div>
+            <form onSubmit={handleChangePass} className="space-y-3">
               <input type="hidden" name="email" value={selectedEmail} />
 
-              <div className="mb-2 relative">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="oldPassword">
+              <div className="relative">
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="oldPassword">
                   Old Password
                 </label>
                 <div className="relative">
@@ -683,28 +789,20 @@ const AddUser: React.FC = () => {
                     onChange={(e) => setOldPassword(e.target.value)}
                     placeholder="Old password"
                     required
-                    className="w-full p-1.5 text-sm border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 pr-10 text-black"
                   />
                   <button
                     type="button"
                     onClick={() => setShowOldPassword(!showOldPassword)}
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showOldPassword ? (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-                        <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
-                        <path fill="currentColor" d="M320 400c-75.85 0-137.25-58.71-142.9-133.11L72.2 185.82c-13.79 17.3-26.48 35.59-36.72 55.59a32.35 32.35 0 0 0 0 29.19C89.71 376.41 197.07 448 320 448c26.91 0 52.87-4 77.89-10.46L346 397.39a144.13 144.13 0 0 1-26 2.61zm313.82 58.1l-110.55-85.44a331.25 331.25 0 0 0 81.25-102.07 32.35 32.35 0 0 0 0-29.19C550.29 135.59 442.93 64 320 64a308.15 308.15 0 0 0-147.32 37.7L45.46 3.37A16 16 0 0 0 23 6.18L3.37 31.45A16 16 0 0 0 6.18 53.9l588.36 454.73a16 16 0 0 0 22.46-2.81l19.64-25.27a16 16 0 0 0-2.82-22.45zm-183.72-142l-39.3-30.38A94.75 94.75 0 0 0 416 256a94.75 94.75 0 0 0-121.31-92.21A47.65 47.65 0 0 1 304 192a46.64 46.64 0 0 1-1.54 10l-73.61-56.89A142.31 142.31 0 0 1 320 112a143.92 143.92 0 0 1 144 144c0 21.63-5.29 41.79-13.9 60.11z"></path>
-                      </svg>
-                    )}
+                    {showOldPassword ? <FaEyeSlash className="text-gray-500" size={14} /> : <FaEye className="text-gray-500" size={14} />}
                   </button>
                 </div>
               </div>
 
-              <div className="mb-2 relative">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="newPassword">
+              <div className="relative">
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="newPassword">
                   New Password
                 </label>
                 <div className="relative">
@@ -716,28 +814,20 @@ const AddUser: React.FC = () => {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="New password"
                     required
-                    className="w-full p-1.5 text-sm border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 pr-10 text-black"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showNewPassword ? (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-                        <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
-                        <path fill="currentColor" d="M320 400c-75.85 0-137.25-58.71-142.9-133.11L72.2 185.82c-13.79 17.3-26.48 35.59-36.72 55.59a32.35 32.35 0 0 0 0 29.19C89.71 376.41 197.07 448 320 448c26.91 0 52.87-4 77.89-10.46L346 397.39a144.13 144.13 0 0 1-26 2.61zm313.82 58.1l-110.55-85.44a331.25 331.25 0 0 0 81.25-102.07 32.35 32.35 0 0 0 0-29.19C550.29 135.59 442.93 64 320 64a308.15 308.15 0 0 0-147.32 37.7L45.46 3.37A16 16 0 0 0 23 6.18L3.37 31.45A16 16 0 0 0 6.18 53.9l588.36 454.73a16 16 0 0 0 22.46-2.81l19.64-25.27a16 16 0 0 0-2.82-22.45zm-183.72-142l-39.3-30.38A94.75 94.75 0 0 0 416 256a94.75 94.75 0 0 0-121.31-92.21A47.65 47.65 0 0 1 304 192a46.64 46.64 0 0 1-1.54 10l-73.61-56.89A142.31 142.31 0 0 1 320 112a143.92 143.92 0 0 1 144 144c0 21.63-5.29 41.79-13.9 60.11z"></path>
-                      </svg>
-                    )}
+                    {showNewPassword ? <FaEyeSlash className="text-gray-500" size={14} /> : <FaEye className="text-gray-500" size={14} />}
                   </button>
                 </div>
               </div>
 
-              <div className="mb-2 relative">
-                <label className="block text-xs font-medium mb-0.5" htmlFor="confirmPassword">
+              <div className="relative">
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="confirmPassword">
                   Confirm Password
                 </label>
                 <div className="relative">
@@ -749,40 +839,35 @@ const AddUser: React.FC = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm password"
                     required
-                    className="w-full p-1.5 text-sm border border-gray-300 dark:bg-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className={`w-full p-2 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-blue-500 pr-10 ${newPassword !== confirmPassword && confirmPassword ? 'border-red-500' : 'border-gray-300'} text-black`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-2 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showConfirmPassword ? (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
-                        <path fill="currentColor" d="M572.52 241.4C518.29 135.59 410.93 64 288 64S57.68 135.64 3.48 241.41a32.35 32.35 0 0 0 0 29.19C57.71 376.41 165.07 448 288 448s230.32-71.64 284.52-177.41a32.35 32.35 0 0 0 0-29.19zM288 400a144 144 0 1 1 144-144 143.93 143.93 0 0 1-144 144zm0-240a95.31 95.31 0 0 0-25.31 3.79 47.85 47.85 0 0 1-66.9 66.9A95.78 95.78 0 1 0 288 160z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="h-4 text-gray-700" fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
-                        <path fill="currentColor" d="M320 400c-75.85 0-137.25-58.71-142.9-133.11L72.2 185.82c-13.79 17.3-26.48 35.59-36.72 55.59a32.35 32.35 0 0 0 0 29.19C89.71 376.41 197.07 448 320 448c26.91 0 52.87-4 77.89-10.46L346 397.39a144.13 144.13 0 0 1-26 2.61zm313.82 58.1l-110.55-85.44a331.25 331.25 0 0 0 81.25-102.07 32.35 32.35 0 0 0 0-29.19C550.29 135.59 442.93 64 320 64a308.15 308.15 0 0 0-147.32 37.7L45.46 3.37A16 16 0 0 0 23 6.18L3.37 31.45A16 16 0 0 0 6.18 53.9l588.36 454.73a16 16 0 0 0 22.46-2.81l19.64-25.27a16 16 0 0 0-2.82-22.45zm-183.72-142l-39.3-30.38A94.75 94.75 0 0 0 416 256a94.75 94.75 0 0 0-121.31-92.21A47.65 47.65 0 0 1 304 192a46.64 46.64 0 0 1-1.54 10l-73.61-56.89A142.31 142.31 0 0 1 320 112a143.92 143.92 0 0 1 144 144c0 21.63-5.29 41.79-13.9 60.11z"></path>
-                      </svg>
-                    )}
+                    {showConfirmPassword ? <FaEyeSlash className="text-gray-500" size={14} /> : <FaEye className="text-gray-500" size={14} />}
                   </button>
                 </div>
+                {newPassword !== confirmPassword && confirmPassword && (
+                  <p className="text-red-500 text-xs mt-1">Passwords don't match</p>
+                )}
               </div>
 
-              <div className="flex justify-end gap-2 mt-2">
+              <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
                   onClick={() => setIsChangePassModalOpen(false)}
-                  className="bg-gray-400 text-white px-2 py-1 text-sm rounded-md hover:bg-gray-500"
+                  className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 text-sm rounded flex items-center"
                 >
-                  Cancel
+                  <FaTimes className="mr-1" size={12} /> Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="bg-blue-500 text-white px-2 py-1 text-sm rounded-md hover:bg-blue-600"
+                  disabled={isSubmitting || (newPassword !== confirmPassword)}
+                  className={`${isSubmitting || (newPassword !== confirmPassword) ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white px-3 py-1.5 text-sm rounded flex items-center`}
                 >
-                  {isSubmitting ? 'Updating...' : 'Update'}
+                  <FaKey className="mr-1" size={12} /> {isSubmitting ? 'Updating...' : 'Update Password'}
                 </button>
               </div>
             </form>
@@ -790,33 +875,37 @@ const AddUser: React.FC = () => {
         </div>
       )}
 
-  
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm  flex items-center justify-center px-4">
-          <div className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-lg w-full max-w-sm">
-            <h3 className="text-lg font-semibold text-center text-gray-900 dark:text-gray-200">Confirm Delete</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 text-center">
-              Are you sure you want to delete this user? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3 mt-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center px-4 z-50">
+          <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-lg shadow-lg w-full max-w-sm border border-red-100">
+            <div className="bg-red-500 text-white p-2 rounded-t-lg -mt-4 -mx-4 mb-3">
+              <h3 className="text-lg font-semibold text-center flex items-center justify-center">
+                <MdDelete className="mr-2" size={18} /> Confirm Delete
+              </h3>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm text-gray-700 text-center">
+                Are you sure you want to delete this user? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3">
               <button
                 onClick={handleCancelDelete}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 rounded text-sm flex items-center"
               >
-                Cancel
+                <FaTimes className="mr-1" size={12} /> Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md transition duration-200 focus:outline-none focus:ring-2 focus:ring-red-400"
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm flex items-center"
               >
-                Delete
+                <MdDelete className="mr-1" size={12} /> Delete
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 };

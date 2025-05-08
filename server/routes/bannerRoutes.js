@@ -1,166 +1,206 @@
 const express = require('express');
 const multer = require('multer');
-const uploadToCloudinary = require('../utils/cloudinaryUpload');
-const { PrismaClient } = require('@prisma/client');
+const cloudinary = require('../config/cloudinaryConfig');
+const { sql, executeQuery } = require('../config/db');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Configure Multer for in-memory file storage
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Fetch all banners
+// 1. GET All Banners
 router.get('/banners', async (req, res) => {
   try {
-    const banners = await prisma.banner.findMany({
-      orderBy: {
-        bannerPosition: 'asc',
-      },
-    });
-    res.status(200).json(banners);
-  } catch (error) {
-    console.error('Error fetching banners:', error);
-    res.status(500).json({ message: 'Error fetching banners', error });
+    const result = await executeQuery('SELECT * FROM Banner ORDER BY bannerPosition ASC');
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Fetch Error:', err);
+    res.status(500).json({ success: false, message: 'Error fetching banners' });
   }
 });
 
-// Upload banner
+// 2. POST Upload Banner
 router.post('/banner/upload', upload.single('file'), async (req, res) => {
   try {
     const { bannerName, created_by, bannerPosition } = req.body;
     const file = req.file;
 
     if (!file || !bannerName || !created_by || bannerPosition === undefined) {
-      return res.status(400).json({ message: 'File, banner name, created_by, and banner position are required.' });
+      return res.status(400).json({ success: false, message: 'File, banner name, created_by, and banner position are required' });
     }
 
-    if (parseInt(bannerPosition) < 1) {
-      return res.status(400).json({ message: 'Banner position must be 1 or greater.' });
+    const position = parseInt(bannerPosition);
+    if (position < 1) {
+      return res.status(400).json({ success: false, message: 'Banner position must be 1 or greater' });
     }
 
-    const uploadResult = await uploadToCloudinary(file.buffer, 'banners');
-
-    const newBanner = await prisma.banner.create({
-      data: {
-        bannerName,
-        bannerUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        bannerPosition: parseInt(bannerPosition),
-        created_by,
-      },
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'auto', folder: 'banners' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      stream.end(file.buffer);
     });
 
-    res.status(201).json({ message: 'Banner uploaded successfully!', banner: newBanner });
-  } catch (error) {
-    console.error('Error uploading banner:', error);
-    res.status(500).json({ message: 'Error uploading banner', error });
+    const query = `
+      INSERT INTO Banner (bannerName, bannerUrl, publicId, bannerPosition, created_by, created_on, IsVisible)
+      OUTPUT INSERTED.*
+      VALUES (@bannerName, @bannerUrl, @publicId, @bannerPosition, @createdBy, GETDATE(), 1)
+    `;
+
+    const result = await executeQuery(query, {
+      bannerName: { type: sql.NVarChar, value: bannerName },
+      bannerUrl: { type: sql.NVarChar, value: uploadResult.secure_url },
+      publicId: { type: sql.NVarChar, value: uploadResult.public_id },
+      bannerPosition: { type: sql.Int, value: position },
+      createdBy: { type: sql.NVarChar, value: created_by },
+    });
+
+    res.status(201).json({ success: true, message: 'Banner uploaded successfully', banner: result.recordset[0] });
+  } catch (err) {
+    console.error('Upload Error:', err);
+    res.status(500).json({ success: false, message: 'Error uploading banner' });
   }
 });
 
-// Update banner
+// 3. PUT Update Banner
 router.put('/banner/update/:id', upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     const { bannerName, modify_by, bannerPosition } = req.body;
     const file = req.file;
 
-    const existingBanner = await prisma.banner.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Banner WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingBanner) {
-      return res.status(404).json({ message: 'Banner not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
     }
 
-    let bannerUrl = existingBanner.bannerUrl;
+    let bannerUrl = existing.recordset[0].bannerUrl;
+    let publicId = existing.recordset[0].publicId;
 
     if (file) {
-      const uploadResult = await uploadToCloudinary(file.buffer, 'banners');
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'auto', folder: 'banners' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+
       bannerUrl = uploadResult.secure_url;
-      await cloudinary.uploader.destroy(existingBanner.publicId);
+      publicId = uploadResult.public_id;
+
+      if (existing.recordset[0].publicId) {
+        await cloudinary.uploader.destroy(existing.recordset[0].publicId);
+      }
     }
 
-    const updateData = {
-      ...(bannerName && { bannerName }),
-      ...(bannerPosition && { bannerPosition: parseInt(bannerPosition) }),
-      ...(file && { bannerUrl }),
-      modify_by,
-      modify_on: new Date(),
-    };
+    const query = `
+      UPDATE Banner
+      SET bannerName = @bannerName,
+          bannerUrl = @bannerUrl,
+          publicId = @publicId,
+          bannerPosition = @bannerPosition,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
 
-    const updatedBanner = await prisma.banner.update({
-      where: { id: parseInt(id) },
-      data: updateData,
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      bannerName: { type: sql.NVarChar, value: bannerName || existing.recordset[0].bannerName },
+      bannerUrl: { type: sql.NVarChar, value: bannerUrl },
+      publicId: { type: sql.NVarChar, value: publicId },
+      bannerPosition: { type: sql.Int, value: bannerPosition ? parseInt(bannerPosition) : existing.recordset[0].bannerPosition },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ message: 'Banner updated successfully!', banner: updatedBanner });
-  } catch (error) {
-    console.error('Error updating banner:', error);
-    res.status(500).json({ message: 'Error updating banner', error });
+    res.status(200).json({ success: true, message: 'Banner updated successfully', banner: result.recordset[0] });
+  } catch (err) {
+    console.error('Update Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating banner' });
   }
 });
 
+// 4. DELETE Banner
 router.delete('/banner/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    console.log('Deleting banner with ID:', id); // Debugging
 
-    const existingBanner = await prisma.banner.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const result = await executeQuery(
+      `SELECT * FROM Banner WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingBanner) {
-      return res.status(404).json({ message: 'Banner not found.' });
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
     }
 
-    // Delete image from Cloudinary
-    try {
-      await cloudinary.uploader.destroy(existingBanner.publicId);
-    } catch (cloudinaryError) {
-      console.error('Error deleting image from Cloudinary:', cloudinaryError);
-      // Optionally, proceed with deleting the database entry even if Cloudinary deletion fails
+    const publicId = result.recordset[0].publicId;
+
+    if (publicId) {
+      try {
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryErr) {
+        console.error('Cloudinary Delete Error:', cloudinaryErr);
+      }
     }
 
-    // Delete banner from database
-    await prisma.banner.delete({
-      where: { id: parseInt(id) },
-    });
+    await executeQuery(
+      `DELETE FROM Banner WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    res.status(200).json({ message: 'Banner deleted successfully.' });
-  } catch (error) {
-    console.error('Error deleting banner:', error);
-    res.status(500).json({ message: 'Error deleting banner.', error });
+    res.status(200).json({ success: true, message: 'Banner deleted successfully' });
+  } catch (err) {
+    console.error('Delete Error:', err);
+    res.status(500).json({ success: false, message: 'Error deleting banner' });
   }
 });
 
-// Toggle banner visibility
+// 5. PUT Toggle Banner Visibility
 router.put('/banner/toggle-visibility/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
 
-    const existingBanner = await prisma.banner.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Banner WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingBanner) {
-      return res.status(404).json({ message: 'Banner not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Banner not found' });
     }
 
-    const updatedBanner = await prisma.banner.update({
-      where: { id: parseInt(id) },
-      data: {
-        IsVisible: !existingBanner.IsVisible,
-        modify_by,
-        modify_on: new Date(),
-      },
+    const query = `
+      UPDATE Banner
+      SET IsVisible = @isVisible,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
+
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      isVisible: { type: sql.Bit, value: !existing.recordset[0].IsVisible },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ message: 'Banner visibility updated successfully!', banner: updatedBanner });
-  } catch (error) {
-    console.error('Error updating banner visibility:', error);
-    res.status(500).json({ message: 'Error updating banner visibility', error });
+    res.status(200).json({ success: true, message: 'Banner visibility updated successfully', banner: result.recordset[0] });
+  } catch (err) {
+    console.error('Toggle Visibility Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating banner visibility' });
   }
 });
 

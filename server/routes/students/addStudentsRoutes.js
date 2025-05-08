@@ -1,12 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const { PrismaClient } = require('@prisma/client');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const bcrypt = require('bcrypt');
 const PDFDocument = require('pdfkit');
+const { sql, executeQuery } = require('../../config/db');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 const path = require('path');
 // Configure Multer for in-memory storage
 const storage = multer.memoryStorage();
@@ -15,30 +14,38 @@ const upload = multer({ storage });
 // GET /colleges - Fetch all colleges
 router.get('/colleges', async (req, res) => {
   try {
-    const colleges = await prisma.college.findMany({
-      orderBy: { id: 'asc' },
-    });
-    res.status(200).json(colleges);
+    const query = `
+      SELECT id, collegeName
+      FROM College
+      WHERE status = 1
+      ORDER BY id ASC
+    `;
+    const result = await executeQuery(query);
+    res.status(200).json(result.recordset);
   } catch (error) {
     console.error('Error fetching colleges:', error);
-    res.status(500).json({ success: false, message: 'Error fetching colleges', error });
+    res.status(500).json({ success: false, message: 'Error fetching colleges', error: error.message });
   }
 });
 
 // GET /courses - Fetch all courses
-router.get('/courses', async (req, res) => {
-  try {
-    const courses = await prisma.course.findMany({
-      orderBy: { id: 'asc' },
-    });
-    res.status(200).json(courses);
-  } catch (error) {
-    console.error('Error fetching courses:', error);
-    res.status(500).json({ success: false, message: 'Error fetching courses', error });
-  }
-});
+  router.get('/courses', async (req, res) => {
+    try {
+      const query = `
+        SELECT id, courseName, courseDuration
+        FROM Course
+        WHERE status = 1
+        ORDER BY id ASC
+      `;
+      const result = await executeQuery(query);
+      res.status(200).json(result.recordset);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      res.status(500).json({ success: false, message: 'Error fetching courses', error: error.message });
+    }
+  });
 
-
+// POST /students - Create a new student with academic details and EMI details
 // POST /students - Create a new student with academic details and EMI details
 router.post('/students', upload.fields([
   { name: 'StudentImage' },
@@ -94,8 +101,14 @@ router.post('/students', upload.fields([
     if (isNaN(collegeIdNum)) {
       return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
     }
-    const collegeExists = await prisma.college.findUnique({ where: { id: collegeIdNum } });
-    if (!collegeExists) {
+    const collegeQuery = `
+      SELECT id
+      FROM College
+      WHERE id = @collegeId
+    `;
+    const collegeParams = { collegeId: { type: sql.Int, value: collegeIdNum } };
+    const collegeResult = await executeQuery(collegeQuery, collegeParams);
+    if (!collegeResult.recordset[0]) {
       return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
     }
 
@@ -107,19 +120,38 @@ router.post('/students', upload.fields([
     if (isNaN(courseIdNum)) {
       return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
     }
-    const courseExists = await prisma.course.findUnique({ where: { id: courseIdNum } });
-    if (!courseExists) {
+    const courseQuery = `
+      SELECT id
+      FROM Course
+      WHERE id = @courseId
+    `;
+    const courseParams = { courseId: { type: sql.Int, value: courseIdNum } };
+    const courseResult = await executeQuery(courseQuery, courseParams);
+    if (!courseResult.recordset[0]) {
       return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
     }
 
     // Check for duplicate RollNumber
-    const existingStudent = await prisma.student.findFirst({ where: { rollNumber: RollNumber } });
-    if (existingStudent) {
+    const rollNumberQuery = `
+      SELECT id
+      FROM Student
+      WHERE rollNumber = @rollNumber
+    `;
+    const rollNumberParams = { rollNumber: { type: sql.NVarChar, value: RollNumber } };
+    const rollNumberResult = await executeQuery(rollNumberQuery, rollNumberParams);
+    if (rollNumberResult.recordset[0]) {
       return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
     }
+
     // Check for duplicate EmailId
-    const existingStudentEmail = await prisma.student.findFirst({ where: { email: EmailId } });
-    if (existingStudentEmail) {
+    const emailQuery = `
+      SELECT id
+      FROM Student
+      WHERE email = @email
+    `;
+    const emailParams = { email: { type: sql.NVarChar, value: EmailId } };
+    const emailResult = await executeQuery(emailQuery, emailParams);
+    if (emailResult.recordset[0]) {
       return res.status(400).json({ success: false, message: 'Email ID already exists.' });
     }
 
@@ -137,9 +169,25 @@ router.post('/students', upload.fields([
 
     // Function to generate stdCollId base (without student ID)
     const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
-      // Fetch course and college details
-      const course = await prisma.course.findUnique({ where: { id: parseInt(courseId) } });
-      const college = await prisma.college.findUnique({ where: { id: parseInt(collegeId) } });
+      // Fetch course details
+      const courseQuery = `
+        SELECT courseName
+        FROM Course
+        WHERE id = @courseId
+      `;
+      const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
+      const courseResult = await executeQuery(courseQuery, courseParams);
+      const course = courseResult.recordset[0];
+
+      // Fetch college details
+      const collegeQuery = `
+        SELECT collegeName
+        FROM College
+        WHERE id = @collegeId
+      `;
+      const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
+      const collegeResult = await executeQuery(collegeQuery, collegeParams);
+      const college = collegeResult.recordset[0];
 
       // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
       const courseName = course?.courseName || '';
@@ -191,93 +239,556 @@ router.post('/students', upload.fields([
     ]);
 
     // Create student, academic details, documents, and EMI details in a transaction
-    const newStudent = await prisma.$transaction(async (prisma) => {
+    let newStudent;
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    try {
+      await transaction.begin();
+      const request = new sql.Request(transaction);
+
       // Create Student
-      const student = await prisma.student.create({
-        data: {
-          stdCollId: stdCollIdBase, // Temporary, will be updated with student ID
-          rollNumber: RollNumber,
-          fName: FName,
-          lName: LName || null,
-          dob: new Date(DOB),
-          gender: Gender,
-          mobileNumber: MobileNumber,
-          alternateNumber: AlternateNumber || null,
-          email: EmailId,
-          fatherName: FatherName,
-          fatherMobile: FatherMobileNumber || null,
-          motherName: MotherName,
-          address: Address,
-          city: City,
-          state: State,
-          pincode: Pincode,
-          admissionMode: AdmissionMode,
-          collegeId: collegeIdNum,
-          courseId: courseIdNum,
-          admissionDate: new Date(AdmissionDate),
-          studentImage: documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null,
-          category: Category,
-          isDiscontinue: IsDiscontinue === 'true',
-          isLateral: isLateral === 'true',
-          discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
-          discontinueBy: DiscontinueBy || null,
-          createdBy: CreatedBy,
-          status: true,
-        },
-      });
+      const studentImageUrl = documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null;
+      const studentQuery = `
+        INSERT INTO Student (
+          stdCollId, rollNumber, fName, lName, dob, gender, mobileNumber, alternateNumber,
+          email, fatherName, fatherMobile, motherName, address, city, state, pincode,
+          admissionMode, collegeId, courseId, admissionDate, studentImage, category,
+          isDiscontinue, isLateral, discontinueOn, discontinueBy, createdBy, createdOn, status
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @stdCollId, @rollNumber, @fName, @lName, @dob, @gender, @mobileNumber, @alternateNumber,
+          @email, @fatherName, @fatherMobile, @motherName, @address, @city, @state, @pincode,
+          @admissionMode, @collegeId, @courseId, @admissionDate, @studentImage, @category,
+          @isDiscontinue, @isLateral, @discontinueOn, @discontinueBy, @createdBy, @createdOn, @status
+        )
+      `;
+      request.input('stdCollId', sql.NVarChar, stdCollIdBase); // Temporary
+      request.input('rollNumber', sql.NVarChar, RollNumber);
+      request.input('fName', sql.NVarChar, FName);
+      request.input('lName', sql.NVarChar, LName || null);
+      request.input('dob', sql.Date, new Date(DOB));
+      request.input('gender', sql.NVarChar, Gender);
+      request.input('mobileNumber', sql.NVarChar, MobileNumber);
+      request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
+      request.input('email', sql.NVarChar, EmailId);
+      request.input('fatherName', sql.NVarChar, FatherName);
+      request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
+      request.input('motherName', sql.NVarChar, MotherName);
+      request.input('address', sql.NVarChar, Address);
+      request.input('city', sql.NVarChar, City);
+      request.input('state', sql.NVarChar, State);
+      request.input('pincode', sql.NVarChar, Pincode);
+      request.input('admissionMode', sql.NVarChar, AdmissionMode);
+      request.input('collegeId', sql.Int, collegeIdNum);
+      request.input('courseId', sql.Int, courseIdNum);
+      request.input('admissionDate', sql.Date, new Date(AdmissionDate));
+      request.input('studentImage', sql.NVarChar, studentImageUrl);
+      request.input('category', sql.NVarChar, Category);
+      request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
+      request.input('isLateral', sql.Bit, isLateral === 'true');
+      request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
+      request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
+      request.input('createdBy', sql.NVarChar, CreatedBy);
+      request.input('createdOn', sql.DateTime, new Date());
+      request.input('status', sql.Bit, true);
+
+      const studentResult = await request.query(studentQuery);
+      const student = studentResult.recordset[0];
 
       // Update stdCollId with student ID
       const finalStdCollId = `${stdCollIdBase}/${student.id}`;
-      await prisma.student.update({
-        where: { id: student.id },
-        data: { stdCollId: finalStdCollId }
-      });
+      const updateStdCollIdQuery = `
+        UPDATE Student
+        SET stdCollId = @finalStdCollId
+        WHERE id = @studentId
+        SELECT *
+        FROM Student
+        WHERE id = @studentId
+      `;
+      request.input('finalStdCollId', sql.NVarChar, finalStdCollId);
+      request.input('studentId', sql.Int, student.id);
+      const updatedStudentResult = await request.query(updateStdCollIdQuery);
+      newStudent = updatedStudentResult.recordset[0];
 
       // Create StudentAcademicDetails
-      const academicDetails = await prisma.studentAcademicDetails.create({
-        data: {
-          studentId: student.id,
-          sessionYear: SessionYear,
-          paymentMode: PaymentMode,
-          adminAmount: adminAmount,
-          feesAmount: feesAmount,
-          numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-          ledgerNumber: LedgerNumber || null,
-          courseYear: CourseYear || null,
-          createdBy: CreatedBy,
-        },
-      });
+      const academicQuery = `
+        INSERT INTO StudentAcademicDetails (
+          studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
+          ledgerNumber, courseYear, createdBy, createdOn
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
+          @ledgerNumber, @courseYear, @createdBy, @createdOn
+        )
+      `;
+      request.input('sessionYear', sql.NVarChar, SessionYear);
+      request.input('paymentMode', sql.NVarChar, PaymentMode);
+      request.input('adminAmount', sql.Decimal(10, 2), adminAmount);
+      request.input('feesAmount', sql.Decimal(10, 2), feesAmount);
+      request.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+      request.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+      request.input('courseYear', sql.NVarChar, CourseYear || null);
+      request.input('createdBy', sql.NVarChar, CreatedBy);
+      request.input('createdOn', sql.DateTime, new Date());
+
+      const academicResult = await request.query(academicQuery);
+      const academicDetails = academicResult.recordset[0];
 
       // Create Documents
-      if (documentsData.length > 0) {
-        await prisma.documents.createMany({
-          data: documentsData.map(doc => ({
-            studentId: student.id,
-            documentType: doc.documentType,
-            publicId: doc.publicId,
-            fileUrl: doc.fileUrl,
-            fileName: doc.fileName,
-            createdBy: doc.createdBy,
-          })),
-        });
+      for (const doc of documentsData) {
+        const documentQuery = `
+          INSERT INTO Documents (
+            studentId, documentType, publicId, fileUrl, fileName, createdBy, createdOn
+          )
+          VALUES (
+            @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @createdOn
+          )
+        `;
+        request.input('documentType', sql.NVarChar, doc.documentType);
+        request.input('publicId', sql.NVarChar, doc.publicId);
+        request.input('fileUrl', sql.NVarChar, doc.fileUrl);
+        request.input('fileName', sql.NVarChar, doc.fileName);
+        await request.query(documentQuery);
       }
 
       // Create EMI Details if applicable
       if (PaymentMode === 'EMI' && emiDetails.length > 0) {
-        await prisma.EMIDetails.createMany({
-          data: emiDetails.map(emi => ({
-            studentId: student.id,
-            studentAcademicId: academicDetails.id,
-            emiNumber: emi.emiNumber,
-            amount: emi.amount,
-            dueDate: emi.dueDate,
-            createdBy: emi.createdBy,
-          })),
-        });
+        for (const emi of emiDetails) {
+          const emiQuery = `
+            INSERT INTO EMIDetails (
+              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn
+            )
+            VALUES (
+              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn
+            )
+          `;
+          request.input('studentAcademicId', sql.Int, academicDetails.id);
+          request.input('emiNumber', sql.Int, emi.emiNumber);
+          request.input('amount', sql.Decimal(10, 2), emi.amount);
+          request.input('dueDate', sql.Date, emi.dueDate);
+          await request.query(emiQuery);
+        }
       }
 
-      return { ...student, stdCollId: finalStdCollId };
-    });
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
+
+    res.status(201).json({ success: true, student: newStudent });
+  } catch (error) {
+    console.error('Erreur lors de la création de l', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+// GET all students with related data
+router.get('/students', async (req, res) => {
+  try {
+    // Fetch all students with college and course details
+    const studentQuery = `
+      SELECT 
+        s.*,
+        col.id AS collegeId, col.collegeName, col.location, col.establishYear, col.contactNumber AS collegeContactNumber, col.email AS collegeEmail, col.status AS collegeStatus, col.createdBy AS collegeCreatedBy, col.createdOn AS collegeCreatedOn, col.modifiedBy AS collegeModifiedBy, col.modifiedOn AS collegeModifiedOn,
+        c.id AS courseId, c.courseName, c.collegeId AS courseCollegeId, c.courseDuration, c.createdBy AS courseCreatedBy, c.createdOn AS courseCreatedOn, c.modifiedBy AS courseModifiedBy, c.modifiedOn AS courseModifiedOn, c.status AS courseStatus
+      FROM Student s
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      ORDER BY s.id ASC
+    `;
+    const studentResult = await executeQuery(studentQuery);
+    const students = studentResult.recordset;
+
+    // Fetch related data for each student
+    for (const student of students) {
+      // Format college and course objects
+      student.college = {
+        id: student.collegeId,
+        collegeName: student.collegeName,
+        location: student.location,
+        establishYear: student.establishYear,
+        contactNumber: student.collegeContactNumber,
+        email: student.collegeEmail,
+        status: student.collegeStatus,
+        createdBy: student.collegeCreatedBy,
+        createdOn: student.collegeCreatedOn,
+        modifiedBy: student.collegeModifiedBy,
+        modifiedOn: student.collegeModifiedOn,
+      };
+
+      student.course = {
+        id: student.courseId,
+        courseName: student.courseName,
+        collegeId: student.courseCollegeId,
+        courseDuration: student.courseDuration,
+        createdBy: student.courseCreatedBy,
+        createdOn: student.courseCreatedOn,
+        modifiedBy: student.courseModifiedBy,
+        modifiedOn: student.courseModifiedOn,
+        status: student.courseStatus,
+      };
+
+      // Remove duplicated fields from the student object
+      delete student.collegeId; delete student.collegeName; delete student.location; delete student.establishYear;
+      delete student.collegeContactNumber; delete student.collegeEmail; delete student.collegeStatus;
+      delete student.collegeCreatedBy; delete student.collegeCreatedOn; delete student.collegeModifiedBy; delete student.collegeModifiedOn;
+      delete student.courseId; delete student.courseName; delete student.courseCollegeId; delete student.courseDuration;
+      delete student.courseCreatedBy; delete student.courseCreatedOn; delete student.courseModifiedBy; delete student.courseModifiedOn; delete student.courseStatus;
+
+      // Fetch documents
+      const documentsQuery = `
+        SELECT *
+        FROM Documents
+        WHERE studentId = @studentId
+      `;
+      const documentsParams = { studentId: { type: sql.Int, value: student.id } };
+      const documentsResult = await executeQuery(documentsQuery, documentsParams);
+      student.documents = documentsResult.recordset;
+
+      // Fetch academic details
+      const academicQuery = `
+        SELECT *
+        FROM StudentAcademicDetails
+        WHERE studentId = @studentId
+      `;
+      const academicParams = { studentId: { type: sql.Int, value: student.id } };
+      const academicResult = await executeQuery(academicQuery, academicParams);
+      student.academicDetails = academicResult.recordset;
+
+      // Fetch EMI details
+      const emiQuery = `
+        SELECT *
+        FROM EMIDetails
+        WHERE studentId = @studentId
+      `;
+      const emiParams = { studentId: { type: sql.Int, value: student.id } };
+      const emiResult = await executeQuery(emiQuery, emiParams);
+      student.emiDetails = emiResult.recordset;
+    }
+
+    res.status(200).json(students);
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    res.status(500).json({ success: false, message: 'Error fetching students', error: error.message });
+  }
+});
+
+
+
+router.post('/students', upload.fields([
+  { name: 'StudentImage' },
+  { name: 'CasteCertificate' },
+  { name: 'TenthMarks' },
+  { name: 'TwelfthMarks' },
+  { name: 'Residential' },
+  { name: 'Income' }
+]), async (req, res) => {
+  try {
+    const {
+      RollNumber, FName, LName, DOB, Gender, MobileNumber, AlternateNumber,
+      EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
+      CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
+      AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
+      RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI, isLateral
+    } = req.body;
+
+    console.log("Request Body:", req.body);
+
+    // Parse EMI details
+    const emiDetails = [];
+    let totalEMIAmount = 0;
+    if (PaymentMode === 'EMI' && NumberOfEMI) {
+      let index = 0;
+      while (req.body[`emiDetails[${index}].emiNumber`]) {
+        const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || (index + 1);
+        const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
+        const date = req.body[`emiDetails[${index}].date`];
+
+        console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
+
+        if (amount > 0 && date) {
+          emiDetails.push({
+            emiNumber,
+            amount,
+            dueDate: new Date(date),
+            createdBy: CreatedBy,
+          });
+          totalEMIAmount += amount;
+        }
+        index++;
+      }
+    }
+
+    console.log("Parsed EMI Details:", emiDetails);
+
+    // Validate CollegeId
+    if (!CollegeId || CollegeId === '') {
+      return res.status(400).json({ success: false, message: 'CollegeId is required' });
+    }
+    const collegeIdNum = parseInt(CollegeId);
+    if (isNaN(collegeIdNum)) {
+      return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
+    }
+    const collegeQuery = `SELECT id FROM College WHERE id = @collegeId`;
+    const collegeParams = { collegeId: { type: sql.Int, value: collegeIdNum } };
+    const collegeResult = await executeQuery(collegeQuery, collegeParams);
+    if (!collegeResult.recordset[0]) {
+      return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
+    }
+
+    // Validate CourseId
+    if (!CourseId || CourseId === '') {
+      return res.status(400).json({ success: false, message: 'CourseId is required' });
+    }
+    const courseIdNum = parseInt(CourseId);
+    if (isNaN(courseIdNum)) {
+      return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
+    }
+    const courseQuery = `SELECT id FROM Course WHERE id = @courseId`;
+    const courseParams = { courseId: { type: sql.Int, value: courseIdNum } };
+    const courseResult = await executeQuery(courseQuery, courseParams);
+    if (!courseResult.recordset[0]) {
+      return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
+    }
+
+    // Check for duplicate RollNumber
+    const rollQuery = `SELECT id FROM Student WHERE rollNumber = @rollNumber`;
+    const rollParams = { rollNumber: { type: sql.NVarChar, value: RollNumber } };
+    const rollResult = await executeQuery(rollQuery, rollParams);
+    if (rollResult.recordset[0]) {
+      return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
+    }
+
+    // Check for duplicate EmailId
+    const emailQuery = `SELECT id FROM Student WHERE email = @email`;
+    const emailParams = { email: { type: sql.NVarChar, value: EmailId } };
+    const emailResult = await executeQuery(emailQuery, emailParams);
+    if (emailResult.recordset[0]) {
+      return res.status(400).json({ success: false, message: 'Email ID already exists.' });
+    }
+
+    // Validate admin amount + fees amount against EMI sum
+    const adminAmount = parseFloat(FineAmount) || 0;
+    const feesAmount = parseFloat(RefundAmount) || 0;
+    const totalAmount = adminAmount + feesAmount;
+    
+    if (PaymentMode === 'EMI' && totalEMIAmount > 0 && totalEMIAmount > totalAmount) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `The sum of total EMI (${totalEMIAmount}) is greater than sum of admin (${adminAmount}) and fees amount (${feesAmount})`
+      });
+    }
+
+    // Function to generate stdCollId base (without student ID)
+    const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
+      // Fetch course and college details
+      const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
+      const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
+      const courseResult = await executeQuery(courseQuery, courseParams);
+      const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
+      const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
+      const collegeResult = await executeQuery(collegeQuery, collegeParams);
+
+      const course = courseResult.recordset[0];
+      const college = collegeResult.recordset[0];
+
+      // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
+      const courseName = course?.courseName || '';
+      const cleanedCourseName = courseName.replace(/[\s.]/g, '');
+      const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
+
+      // Step 2: Get college prefix (remove special characters and abbreviate)
+      let collegeName = college?.collegeName || '';
+      collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
+      const collegeWords = collegeName.split(/(?=[A-Z])/);
+      const collegePrefix = collegeWords.length > 1
+        ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
+        : collegeName.substring(0, 5).toUpperCase();
+
+      // Step 3: Get year suffix from admission date
+      const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
+      const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
+
+      // Step 4: Combine parts (without student ID)
+      return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
+    };
+
+    // Generate stdCollId base
+    const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
+
+    // Upload documents to Cloudinary
+    const documentsData = [];
+    const uploadFile = async (fieldName) => {
+      if (req.files[fieldName]?.[0]) {
+        const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
+        if (uploadedFile?.public_id && uploadedFile?.url) {
+          documentsData.push({
+            documentType: fieldName,
+            publicId: uploadedFile.public_id,
+            fileUrl: uploadedFile.url,
+            fileName: req.files[fieldName][0].originalname,
+            createdBy: CreatedBy,
+          });
+        }
+      }
+    };
+    await Promise.all([
+      uploadFile('StudentImage'),
+      uploadFile('CasteCertificate'),
+      uploadFile('TenthMarks'),
+      uploadFile('TwelfthMarks'),
+      uploadFile('Residential'),
+      uploadFile('Income')
+    ]);
+
+    // Create student, academic details, documents, and EMI details
+    let newStudent;
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    try {
+      await transaction.begin();
+
+      const request = new sql.Request(transaction);
+
+      // Create Student
+      const studentQuery = `
+        INSERT INTO Student (
+          stdCollId, rollNumber, fName, lName, dob, gender, mobileNumber, alternateNumber,
+          email, fatherName, fatherMobile, motherName, address, city, state, pincode,
+          admissionMode, collegeId, courseId, admissionDate, studentImage, category,
+          isDiscontinue, isLateral, discontinueOn, discontinueBy, createdBy, status
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @stdCollId, @rollNumber, @fName, @lName, @dob, @gender, @mobileNumber, @alternateNumber,
+          @email, @fatherName, @fatherMobile, @motherName, @address, @city, @state, @pincode,
+          @admissionMode, @collegeId, @courseId, @admissionDate, @studentImage, @category,
+          @isDiscontinue, @isLateral, @discontinueOn, @discontinueBy, @createdBy, @status
+        )
+      `;
+      request.input('stdCollId', sql.NVarChar, stdCollIdBase);
+      request.input('rollNumber', sql.NVarChar, RollNumber);
+      request.input('fName', sql.NVarChar, FName);
+      request.input('lName', sql.NVarChar, LName || null);
+      request.input('dob', sql.Date, new Date(DOB));
+      request.input('gender', sql.NVarChar, Gender);
+      request.input('mobileNumber', sql.NVarChar, MobileNumber);
+      request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
+      request.input('email', sql.NVarChar, EmailId);
+      request.input('fatherName', sql.NVarChar, FatherName);
+      request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
+      request.input('motherName', sql.NVarChar, MotherName);
+      request.input('address', sql.NVarChar, Address);
+      request.input('city', sql.NVarChar, City);
+      request.input('state', sql.NVarChar, State);
+      request.input('pincode', sql.NVarChar, Pincode);
+      request.input('admissionMode', sql.NVarChar, AdmissionMode);
+      request.input('collegeId', sql.Int, collegeIdNum);
+      request.input('courseId', sql.Int, courseIdNum);
+      request.input('admissionDate', sql.Date, new Date(AdmissionDate));
+      request.input('studentImage', sql.NVarChar, documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null);
+      request.input('category', sql.NVarChar, Category);
+      request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
+      request.input('isLateral', sql.Bit, isLateral === 'true');
+      request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
+      request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
+      request.input('createdBy', sql.NVarChar, CreatedBy);
+      request.input('status', sql.Bit, true);
+
+      const studentResult = await request.query(studentQuery);
+      const student = studentResult.recordset[0];
+
+      // Update stdCollId with student ID
+      const finalStdCollId = `${stdCollIdBase}/${student.id}`;
+      const updateStdCollIdQuery = `
+        UPDATE Student
+        SET stdCollId = @finalStdCollId
+        WHERE id = @studentId
+      `;
+      const updateStdCollIdRequest = new sql.Request(transaction);
+      updateStdCollIdRequest.input('finalStdCollId', sql.NVarChar, finalStdCollId);
+      updateStdCollIdRequest.input('studentId', sql.Int, student.id);
+      await updateStdCollIdRequest.query(updateStdCollIdQuery);
+
+      // Create StudentAcademicDetails
+      const academicQuery = `
+        INSERT INTO StudentAcademicDetails (
+          studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
+          ledgerNumber, courseYear, createdBy
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
+          @ledgerNumber, @courseYear, @createdBy
+        )
+      `;
+      const academicRequest = new sql.Request(transaction);
+      academicRequest.input('studentId', sql.Int, student.id);
+      academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
+      academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+      academicRequest.input('adminAmount', sql.Decimal(10, 2), adminAmount);
+      academicRequest.input('feesAmount', sql.Decimal(10, 2), feesAmount);
+      academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+      academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+      academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
+      academicRequest.input('createdBy', sql.NVarChar, CreatedBy);
+      const academicResult = await academicRequest.query(academicQuery);
+      const academicDetails = academicResult.recordset[0];
+
+      // Create Documents
+      for (const doc of documentsData) {
+        const docQuery = `
+          INSERT INTO Documents (
+            studentId, documentType, publicId, fileUrl, fileName, createdBy
+          )
+          VALUES (
+            @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy
+          )
+        `;
+        const docRequest = new sql.Request(transaction);
+        docRequest.input('studentId', sql.Int, student.id);
+        docRequest.input('documentType', sql.NVarChar, doc.documentType);
+        docRequest.input('publicId', sql.NVarChar, doc.publicId);
+        docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
+        docRequest.input('fileName', sql.NVarChar, doc.fileName);
+        docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
+        await docRequest.query(docQuery);
+      }
+
+      // Create EMI Details if applicable
+      if (PaymentMode === 'EMI' && emiDetails.length > 0) {
+        for (const emi of emiDetails) {
+          const emiQuery = `
+            INSERT INTO EMIDetails (
+              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy
+            )
+            VALUES (
+              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy
+            )
+          `;
+          const emiRequest = new sql.Request(transaction);
+          emiRequest.input('studentId', sql.Int, student.id);
+          emiRequest.input('studentAcademicId', sql.Int, academicDetails.id);
+          emiRequest.input('emiNumber', sql.Int, emi.emiNumber);
+          emiRequest.input('amount', sql.Decimal(10, 2), emi.amount);
+          emiRequest.input('dueDate', sql.Date, emi.dueDate);
+          emiRequest.input('createdBy', sql.NVarChar, emi.createdBy);
+          await emiRequest.query(emiQuery);
+        }
+      }
+
+      newStudent = { ...student, stdCollId: finalStdCollId };
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
 
     res.status(201).json({ success: true, student: newStudent });
   } catch (error) {
@@ -289,16 +800,165 @@ router.post('/students', upload.fields([
 // GET /students - Fetch all students
 router.get('/students', async (req, res) => {
   try {
-    const students = await prisma.student.findMany({
-      include: {
-        college: true,
-        course: true,
-        documents: true,
-        academicDetails: true,
-        emiDetails: true,
-      },
-      orderBy: { id: 'asc' },
-    });
+    const query = `
+      SELECT 
+        s.*, 
+        col.id AS colId, col.collegeName, col.location, col.establishYear, col.contactNumber, col.email AS colEmail, 
+        col.status AS colStatus, col.createdBy AS colCreatedBy, col.createdOn AS colCreatedOn, 
+        col.modifiedBy AS colModifiedBy, col.modifiedOn AS colModifiedOn,
+        c.id AS cId, c.courseName, c.collegeId AS cCollegeId, c.courseDuration, 
+        c.createdBy AS cCreatedBy, c.createdOn AS cCreatedOn, c.modifiedBy AS cModifiedBy, 
+        c.modifiedOn AS cModifiedOn, c.status AS cStatus
+      FROM Student s
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      ORDER BY s.id ASC
+    `;
+    const result = await executeQuery(query);
+
+    const studentsMap = new Map();
+    for (const record of result.recordset) {
+      if (!studentsMap.has(record.id)) {
+        studentsMap.set(record.id, {
+          id: record.id,
+          stdCollId: record.stdCollId,
+          fName: record.fName,
+          lName: record.lName,
+          rollNumber: record.rollNumber,
+          gender: record.gender,
+          fatherName: record.fatherName,
+          motherName: record.motherName,
+          mobileNumber: record.mobileNumber,
+          fatherMobile: record.fatherMobile,
+          alternateNumber: record.alternateNumber,
+          dob: record.dob,
+          email: record.email,
+          address: record.address,
+          state: record.state,
+          pincode: record.pincode,
+          city: record.city,
+          admissionMode: record.admissionMode,
+          collegeId: record.collegeId,
+          courseId: record.courseId,
+          admissionDate: record.admissionDate,
+          studentImage: record.studentImage,
+          category: record.category,
+          isDiscontinue: record.isDiscontinue,
+          isLateral: record.isLateral,
+          discontinueOn: record.discontinueOn,
+          discontinueBy: record.discontinueBy,
+          createdBy: record.createdBy,
+          createdOn: record.createdOn,
+          modifiedBy: record.modifiedBy,
+          modifiedOn: record.modifiedOn,
+          status: record.status,
+          college: {
+            id: record.colId,
+            collegeName: record.collegeName,
+            location: record.location,
+            establishYear: record.establishYear,
+            contactNumber: record.contactNumber,
+            email: record.colEmail,
+            status: record.colStatus,
+            createdBy: record.colCreatedBy,
+            createdOn: record.colCreatedOn,
+            modifiedBy: record.colModifiedBy,
+            modifiedOn: record.colModifiedOn
+          },
+          course: {
+            id: record.cId,
+            courseName: record.courseName,
+            collegeId: record.cCollegeId,
+            courseDuration: record.courseDuration,
+            createdBy: record.cCreatedBy,
+            createdOn: record.cCreatedOn,
+            modifiedBy: record.cModifiedBy,
+            modifiedOn: record.cModifiedOn,
+            status: record.cStatus
+          },
+          documents: [],
+          academicDetails: [],
+          emiDetails: []
+        });
+      }
+    }
+
+    // Fetch documents
+    const docQuery = `
+      SELECT *
+      FROM Documents
+      WHERE studentId IN (${Array.from(studentsMap.keys()).join(',')})
+    `;
+    const docResult = await executeQuery(docQuery);
+    for (const doc of docResult.recordset) {
+      const student = studentsMap.get(doc.studentId);
+      student.documents.push({
+        id: doc.id,
+        studentId: doc.studentId,
+        documentType: doc.documentType,
+        publicId: doc.publicId,
+        fileUrl: doc.fileUrl,
+        fileName: doc.fileName,
+        uploadDate: doc.uploadDate,
+        createdBy: doc.createdBy,
+        createdOn: doc.createdOn,
+        modifiedBy: doc.modifiedBy,
+        modifiedOn: doc.modifiedOn
+      });
+    }
+
+    // Fetch academic details
+    const academicQuery = `
+      SELECT *
+      FROM StudentAcademicDetails
+      WHERE studentId IN (${Array.from(studentsMap.keys()).join(',')})
+      ORDER BY createdOn DESC
+    `;
+    const academicResult = await executeQuery(academicQuery);
+    for (const academic of academicResult.recordset) {
+      const student = studentsMap.get(academic.studentId);
+      student.academicDetails.push({
+        id: academic.id,
+        studentId: academic.studentId,
+        sessionYear: academic.sessionYear,
+        paymentMode: academic.paymentMode,
+        adminAmount: academic.adminAmount,
+        feesAmount: academic.feesAmount,
+        numberOfEMI: academic.numberOfEMI,
+        ledgerNumber: academic.ledgerNumber,
+        courseYear: academic.courseYear,
+        createdBy: academic.createdBy,
+        createdOn: academic.createdOn,
+        modifiedBy: academic.modifiedBy,
+        modifiedOn: academic.modifiedOn
+      });
+    }
+
+    // Fetch EMI details
+    const emiQuery = `
+      SELECT *
+      FROM EMIDetails
+      WHERE studentId IN (${Array.from(studentsMap.keys()).join(',')})
+      ORDER BY emiNumber ASC
+    `;
+    const emiResult = await executeQuery(emiQuery);
+    for (const emi of emiResult.recordset) {
+      const student = studentsMap.get(emi.studentId);
+      student.emiDetails.push({
+        id: emi.id,
+        studentId: emi.studentId,
+        studentAcademicId: emi.studentAcademicId,
+        emiNumber: emi.emiNumber,
+        amount: emi.amount,
+        dueDate: emi.dueDate,
+        createdBy: emi.createdBy,
+        createdOn: emi.createdOn,
+        modifiedBy: emi.modifiedBy,
+        modifiedOn: emi.modifiedOn
+      });
+    }
+
+    const students = Array.from(studentsMap.values());
     res.status(200).json(students);
   } catch (error) {
     console.error('Error fetching students:', error);
@@ -306,55 +966,47 @@ router.get('/students', async (req, res) => {
   }
 });
 
-// GET /colleges - Fetch all colleges
-router.get('/colleges', async (req, res) => {
-  try {
-    const colleges = await prisma.college.findMany({
-      orderBy: { id: 'asc' },
-      select: { id: true, collegeName: true },
-    });
-    res.status(200).json(colleges);
-  } catch (error) {
-    console.error('Error fetching colleges:', error);
-    res.status(500).json({ success: false, message: 'Error fetching colleges', error: error.message });
-  }
-});
-
-// GET /courses - Fetch all courses
-router.get('/courses', async (req, res) => {
-  try {
-    const courses = await prisma.course.findMany({
-      orderBy: { id: 'asc' },
-      select: { id: true, courseName: true, courseDuration: true },
-    });
-    res.status(200).json(courses);
-  } catch (error) {
-    console.error('Error fetching courses:', error);
-    res.status(500).json({ success: false, message: 'Error fetching courses', error: error.message });
-  }
-});
-
 // GET /students/:id - Fetch single student with complete data
 router.get('/students/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        academicDetails: {
-          orderBy: { createdOn: 'desc' }, // Get the latest academic details first
-          take: 1, // Only take the most recent record
-        },
-        emiDetails: true,
-        documents: true,
-      },
-    });
+    const studentQuery = `
+      SELECT *
+      FROM Student
+      WHERE id = @studentId
+    `;
+    const studentParams = { studentId: { type: sql.Int, value: studentId } };
+    const studentResult = await executeQuery(studentQuery, studentParams);
+    const student = studentResult.recordset[0];
 
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const latestAcademicDetails = student.academicDetails[0] || {};
+    // Fetch latest academic details
+    const academicQuery = `
+      SELECT TOP 1 *
+      FROM StudentAcademicDetails
+      WHERE studentId = @studentId
+      ORDER BY createdOn DESC
+    `;
+    const academicResult = await executeQuery(academicQuery, studentParams);
+    const latestAcademicDetails = academicResult.recordset[0] || {};
+
+    // Fetch EMI details
+    const emiQuery = `
+      SELECT *
+      FROM EMIDetails
+      WHERE studentId = @studentId
+      ORDER BY emiNumber ASC
+    `;
+    const emiResult = await executeQuery(emiQuery, studentParams);
+    const emiDetails = emiResult.recordset.map(emi => ({
+      emiNumber: emi.emiNumber,
+      amount: emi.amount,
+      date: emi.dueDate ? emi.dueDate.toISOString().split('T')[0] : ''
+    }));
+
     const formattedStudent = {
       StudentId: student.id,
       RollNumber: student.rollNumber,
@@ -388,13 +1040,9 @@ router.get('/students/:id', async (req, res) => {
       ModifiedBy: student.modifiedBy || '',
       SessionYear: latestAcademicDetails.sessionYear || '',
       PaymentMode: latestAcademicDetails.paymentMode || '',
-      stdCollId:student.stdCollId,
+      stdCollId: student.stdCollId,
       NumberOfEMI: latestAcademicDetails.numberOfEMI || null,
-      emiDetails: student.emiDetails.map(emi => ({
-        emiNumber: emi.emiNumber,
-        amount: emi.amount,
-        date: emi.dueDate ? emi.dueDate.toISOString().split('T')[0] : '',
-      })),
+      emiDetails: emiDetails
     };
 
     res.status(200).json(formattedStudent);
@@ -404,7 +1052,7 @@ router.get('/students/:id', async (req, res) => {
   }
 });
 
-//  get all Details from student related to its  all table 
+// GET /getAllStudents/:id - Fetch all details for a student
 router.get('/getAllStudents/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
@@ -412,27 +1060,132 @@ router.get('/getAllStudents/:id', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid student ID' });
     }
 
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        college: true,
-        course: true,
-        documents: true,
-        academicDetails: {
-          orderBy: { createdOn: 'desc' },
-          include: {
-            emiDetails: true, // nested EMI details
-          },
-        },
-        emiDetails: true, // top-level EMI details
-      },
-    });
+    const studentQuery = `
+      SELECT 
+        s.*, 
+        col.id AS colId, col.collegeName, col.location, col.establishYear, col.contactNumber, col.email AS colEmail, 
+        col.status AS colStatus, col.createdBy AS colCreatedBy, col.createdOn AS colCreatedOn, 
+        col.modifiedBy AS colModifiedBy, col.modifiedOn AS colModifiedOn,
+        c.id AS cId, c.courseName, c.collegeId AS cCollegeId, c.courseDuration, 
+        c.createdBy AS cCreatedBy, c.createdOn AS cCreatedOn, c.modifiedBy AS cModifiedBy, 
+        c.modifiedOn AS cModifiedOn, c.status AS cStatus
+      FROM Student s
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      WHERE s.id = @studentId
+    `;
+    const studentParams = { studentId: { type: sql.Int, value: studentId } };
+    const studentResult = await executeQuery(studentQuery, studentParams);
+    const student = studentResult.recordset[0];
 
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    res.status(200).json({ success: true, data: student });
+    const formattedStudent = {
+      id: student.id,
+      stdCollId: student.stdCollId,
+      fName: student.fName,
+      lName: student.lName,
+      rollNumber: student.rollNumber,
+      gender: student.gender,
+      fatherName: student.fatherName,
+      motherName: student.motherName,
+      mobileNumber: student.mobileNumber,
+      fatherMobile: student.fatherMobile,
+      alternateNumber: student.alternateNumber,
+      dob: student.dob,
+      email: student.email,
+      address: student.address,
+      state: student.state,
+      pincode: student.pincode,
+      city: student.city,
+      admissionMode: student.admissionMode,
+      collegeId: student.collegeId,
+      courseId: student.courseId,
+      admissionDate: student.admissionDate,
+      studentImage: student.studentImage,
+      category: student.category,
+      isDiscontinue: student.isDiscontinue,
+      isLateral: student.isLateral,
+      discontinueOn: student.discontinueOn,
+      discontinueBy: student.discontinueBy,
+      createdBy: student.createdBy,
+      createdOn: student.createdOn,
+      modifiedBy: student.modifiedBy,
+      modifiedOn: student.modifiedOn,
+      status: student.status,
+      college: {
+        id: student.colId,
+        collegeName: student.collegeName,
+        location: student.location,
+        establishYear: student.establishYear,
+        contactNumber: student.contactNumber,
+        email: student.colEmail,
+        status: student.colStatus,
+        createdBy: student.colCreatedBy,
+        createdOn: student.colCreatedOn,
+        modifiedBy: student.colModifiedBy,
+        modifiedOn: student.colModifiedOn
+      },
+      course: {
+        id: student.cId,
+        courseName: student.courseName,
+        collegeId: student.cCollegeId,
+        courseDuration: student.courseDuration,
+        createdBy: student.cCreatedBy,
+        createdOn: student.cCreatedOn,
+        modifiedBy: student.cModifiedBy,
+        modifiedOn: student.cModifiedOn,
+        status: student.cStatus
+      },
+      documents: [],
+      academicDetails: [],
+      emiDetails: []
+    };
+
+    // Fetch documents
+    const docQuery = `
+      SELECT *
+      FROM Documents
+      WHERE studentId = @studentId
+    `;
+    const docResult = await executeQuery(docQuery, studentParams);
+    formattedStudent.documents = docResult.recordset;
+
+    // Fetch academic details with nested EMI details
+    const academicQuery = `
+      SELECT *
+      FROM StudentAcademicDetails
+      WHERE studentId = @studentId
+      ORDER BY createdOn DESC
+    `;
+    const academicResult = await executeQuery(academicQuery, studentParams);
+    for (const academic of academicResult.recordset) {
+      const academicEntry = { ...academic, emiDetails: [] };
+      const nestedEmiQuery = `
+        SELECT *
+        FROM EMIDetails
+        WHERE studentAcademicId = @academicId
+        ORDER BY emiNumber ASC
+      `;
+      const nestedEmiParams = { academicId: { type: sql.Int, value: academic.id } };
+      const nestedEmiResult = await executeQuery(nestedEmiQuery, nestedEmiParams);
+      academicEntry.emiDetails = nestedEmiResult.recordset;
+      formattedStudent.academicDetails.push(academicEntry);
+    }
+
+    // Fetch top-level EMI details
+    const emiQuery = `
+      SELECT *
+      FROM EMIDetails
+      WHERE studentId = @studentId
+      ORDER BY emiNumber ASC
+    `;
+    const emiResult = await executeQuery(emiQuery, studentParams);
+    formattedStudent.emiDetails = emiResult.recordset;
+
+    res.status(200).json({ success: true, data: formattedStudent });
   } catch (error) {
     console.error('Error fetching student:', error);
     res.status(500).json({ success: false, message: 'Failed to load student data' });
@@ -443,23 +1196,20 @@ router.get('/getAllStudents/:id', async (req, res) => {
 router.get('/students/:id/documents', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
-    const documents = await prisma.documents.findMany({
-      where: { studentId: studentId },
-      select: {
-        id: true,
-        documentType: true,
-        fileName: true,
-        fileUrl: true,
-        publicId: true,
-      },
-    });
+    const query = `
+      SELECT id, documentType, fileName, fileUrl, publicId
+      FROM Documents
+      WHERE studentId = @studentId
+    `;
+    const params = { studentId: { type: sql.Int, value: studentId } };
+    const result = await executeQuery(query, params);
 
-    const formattedDocuments = documents.map(doc => ({
+    const formattedDocuments = result.recordset.map(doc => ({
       DocumentId: doc.id,
       DocumentType: doc.documentType,
       FileName: doc.fileName,
       Url: doc.fileUrl,
-      PublicId: doc.publicId,
+      PublicId: doc.publicId
     }));
 
     res.status(200).json(formattedDocuments);
@@ -469,7 +1219,7 @@ router.get('/students/:id/documents', async (req, res) => {
   }
 });
 
-// PUT update student f and academic details
+// PUT /students/:id - Update student and academic details
 router.put(
   '/students/:id',
   upload.fields([
@@ -518,32 +1268,50 @@ router.put(
         emiDetails, // Expecting JSON string of EMI details
       } = req.body;
 
-      const existingStudent = await prisma.student.findUnique({
-        where: { id: studentId },
-        include: {
-          academicDetails: true,
-          documents: true,
-          emiDetails: true,
-        },
-      });
+      // Fetch existing student
+      const existingQuery = `
+        SELECT s.*, sa.id AS saId, sa.sessionYear, sa.paymentMode, sa.adminAmount, sa.feesAmount, 
+               sa.numberOfEMI, sa.ledgerNumber, sa.courseYear
+        FROM Student s
+        LEFT JOIN StudentAcademicDetails sa ON s.id = sa.studentId
+        WHERE s.id = @studentId
+      `;
+      const existingParams = { studentId: { type: sql.Int, value: studentId } };
+      const existingResult = await executeQuery(existingQuery, existingParams);
+      const existingStudent = existingResult.recordset.find(row => row.id === studentId);
 
       if (!existingStudent) {
         return res.status(404).json({ success: false, message: 'Student not found' });
       }
 
       // Check if academic detail with this CourseYear exists
-      const existingAcademicDetail = existingStudent.academicDetails.find(
+      const existingAcademicDetail = existingResult.recordset.find(
         (detail) => detail.courseYear === CourseYear
       );
+
+      // Fetch existing documents and EMI details
+      const docQuery = `SELECT * FROM Documents WHERE studentId = @studentId`;
+      const docResult = await executeQuery(docQuery, existingParams);
+      const existingDocs = docResult.recordset;
+
+      const emiQuery = `SELECT * FROM EMIDetails WHERE studentId = @studentId AND studentAcademicId = @academicId`;
+      const emiParams = {
+        studentId: { type: sql.Int, value: studentId },
+        academicId: { type: sql.Int, value: existingAcademicDetail?.saId || 0 }
+      };
+      const emiResult = await executeQuery(emiQuery, emiParams);
+      const existingEmiDetails = emiResult.recordset;
 
       // Upload new documents to Cloudinary
       const documentsData = [];
       const uploadFile = async (fieldName) => {
         if (req.files && req.files[fieldName]?.[0]) {
-          const oldDoc = existingStudent.documents.find((doc) => doc.documentType === fieldName);
+          const oldDoc = existingDocs.find((doc) => doc.documentType === fieldName);
           if (oldDoc) {
             await deleteFromCloudinary(oldDoc.publicId);
-            await prisma.documents.delete({ where: { id: oldDoc.id } });
+            const deleteDocQuery = `DELETE FROM Documents WHERE id = @docId`;
+            const deleteDocParams = { docId: { type: sql.Int, value: oldDoc.id } };
+            await executeQuery(deleteDocQuery, deleteDocParams);
           }
 
           const uploadedFile = await uploadToCloudinary(
@@ -572,139 +1340,217 @@ router.put(
       ]);
 
       // Update student in a transaction
-      const updatedStudent = await prisma.$transaction(async (prisma) => {
+      let updatedStudent;
+      const pool = await sql.connect();
+      const transaction = new sql.Transaction(pool);
+      try {
+        await transaction.begin();
+
+        const request = new sql.Request(transaction);
+
         // Update student basic details
-        const student = await prisma.student.update({
-          where: { id: studentId },
-          data: {
-            rollNumber: RollNumber,
-            fName: FName,
-            lName: LName || null,
-            dob: new Date(DOB),
-            gender: Gender,
-            mobileNumber: MobileNumber,
-            alternateNumber: AlternateNumber || null,
-            email: EmailId,
-            fatherName: FatherName,
-            fatherMobile: FatherMobileNumber || null,
-            motherName: MotherName,
-            address: Address,
-            city: City,
-            state: State,
-            pincode: Pincode,
-            admissionMode: AdmissionMode,
-            collegeId: parseInt(CollegeId),
-            courseId: parseInt(CourseId),
-            admissionDate: new Date(AdmissionDate),
-            studentImage:
-              documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl ||
-              existingStudent.studentImage,
-            category: Category,
-            isDiscontinue: IsDiscontinue === 'true',
-            discontinueOn: DiscontinueOn ? new Date(DiscontinueOn) : null,
-            discontinueBy: DiscontinueBy || null,
-            modifiedBy: ModifiedBy,
-            modifiedOn: new Date(),
-          },
-        });
+        const studentUpdateQuery = `
+          UPDATE Student
+          SET rollNumber = @rollNumber, fName = @fName, lName = @lName, dob = @dob, gender = @gender,
+              mobileNumber = @mobileNumber, alternateNumber = @alternateNumber, email = @email,
+              fatherName = @fatherName, fatherMobile = @fatherMobile, motherName = @motherName,
+              address = @address, city = @city, state = @state, pincode = @pincode,
+              admissionMode = @admissionMode, collegeId = @collegeId, courseId = @courseId,
+              admissionDate = @admissionDate, studentImage = @studentImage, category = @category,
+              isDiscontinue = @isDiscontinue, discontinueOn = @discontinueOn, discontinueBy = @discontinueBy,
+              modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
+          WHERE id = @studentId
+          SELECT *
+          FROM Student
+          WHERE id = @studentId
+        `;
+        request.input('rollNumber', sql.NVarChar, RollNumber);
+        request.input('fName', sql.NVarChar, FName);
+        request.input('lName', sql.NVarChar, LName || null);
+        request.input('dob', sql.Date, new Date(DOB));
+        request.input('gender', sql.NVarChar, Gender);
+        request.input('mobileNumber', sql.NVarChar, MobileNumber);
+        request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
+        request.input('email', sql.NVarChar, EmailId);
+        request.input('fatherName', sql.NVarChar, FatherName);
+        request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
+        request.input('motherName', sql.NVarChar, MotherName);
+        request.input('address', sql.NVarChar, Address);
+        request.input('city', sql.NVarChar, City);
+        request.input('state', sql.NVarChar, State);
+        request.input('pincode', sql.NVarChar, Pincode);
+        request.input('admissionMode', sql.NVarChar, AdmissionMode);
+        request.input('collegeId', sql.Int, parseInt(CollegeId));
+        request.input('courseId', sql.Int, parseInt(CourseId));
+        request.input('admissionDate', sql.Date, new Date(AdmissionDate));
+        request.input('studentImage', sql.NVarChar, documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl || existingStudent.studentImage);
+        request.input('category', sql.NVarChar, Category);
+        request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
+        request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
+        request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
+        request.input('modifiedBy', sql.NVarChar, ModifiedBy);
+        request.input('modifiedOn', sql.DateTime, new Date());
+        request.input('studentId', sql.Int, studentId);
+
+        const studentResult = await request.query(studentUpdateQuery);
+        updatedStudent = studentResult.recordset[0];
 
         // Handle academic details
         if (!existingAcademicDetail) {
-          // Create new academic detail (shouldn't happen in update context, but keep for safety)
-          const newAcademicDetail = await prisma.studentAcademicDetails.create({
-            data: {
-              studentId: studentId,
-              sessionYear: SessionYear,
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              courseYear: CourseYear || null,
-              createdBy: ModifiedBy,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            },
-          });
+          // Create new academic detail
+          const academicInsertQuery = `
+            INSERT INTO StudentAcademicDetails (
+              studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
+              ledgerNumber, courseYear, createdBy, modifiedBy, modifiedOn
+            )
+            OUTPUT INSERTED.*
+            VALUES (
+              @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
+              @ledgerNumber, @courseYear, @createdBy, @modifiedBy, @modifiedOn
+            )
+          `;
+          const academicRequest = new sql.Request(transaction);
+          academicRequest.input('studentId', sql.Int, studentId);
+          academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
+          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
+          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
+          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+          academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
+          academicRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedOn', sql.DateTime, new Date());
+          const academicResult = await academicRequest.query(academicInsertQuery);
+          const newAcademicDetail = academicResult.recordset[0];
 
           // Handle EMI details for new academic record
           if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
             const parsedEmiDetails = JSON.parse(emiDetails || '[]');
             if (parsedEmiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: parsedEmiDetails.map((emi) => ({
-                  studentId: studentId,
-                  studentAcademicId: newAcademicDetail.id,
-                  emiNumber: parseInt(emi.emiNumber),
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.dueDate),
-                  createdBy: ModifiedBy,
-                  createdOn: new Date(),
-                  modifiedBy: ModifiedBy,
-                  modifiedOn: new Date(),
-                })),
-              });
+              for (const emi of parsedEmiDetails) {
+                const emiInsertQuery = `
+                  INSERT INTO EMIDetails (
+                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
+                    modifiedBy, modifiedOn
+                  )
+                  VALUES (
+                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
+                    @modifiedBy, @modifiedOn
+                  )
+                `;
+                const emiRequest = new sql.Request(transaction);
+                emiRequest.input('studentId', sql.Int, studentId);
+                emiRequest.input('studentAcademicId', sql.Int, newAcademicDetail.id);
+                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
+                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
+                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
+                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('createdOn', sql.DateTime, new Date());
+                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('modifiedOn', sql.DateTime, new Date());
+                await emiRequest.query(emiInsertQuery);
+              }
             }
           }
         } else {
-          // Update existing academic details, preserving courseYear and sessionYear
-          await prisma.studentAcademicDetails.update({
-            where: { id: existingAcademicDetail.id },
-            data: {
-              paymentMode: PaymentMode,
-              adminAmount: parseFloat(FineAmount) || 0.0,
-              feesAmount: parseFloat(RefundAmount) || 0.0,
-              numberOfEMI: PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null,
-              ledgerNumber: LedgerNumber || null,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            },
-          });
+          // Update existing academic details
+          const academicUpdateQuery = `
+            UPDATE StudentAcademicDetails
+            SET paymentMode = @paymentMode, adminAmount = @adminAmount, feesAmount = @feesAmount,
+                numberOfEMI = @numberOfEMI, ledgerNumber = @ledgerNumber, modifiedBy = @modifiedBy,
+                modifiedOn = @modifiedOn
+            WHERE id = @academicId
+          `;
+          const academicRequest = new sql.Request(transaction);
+          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
+          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
+          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedOn', sql.DateTime, new Date());
+          academicRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+          await academicRequest.query(academicUpdateQuery);
 
           // Handle EMI details
           if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
             const parsedEmiDetails = JSON.parse(emiDetails || '[]');
             // Delete existing EMI details
-            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+            const deleteEmiQuery = `
+              DELETE FROM EMIDetails
+              WHERE studentAcademicId = @academicId
+            `;
+            const deleteEmiRequest = new sql.Request(transaction);
+            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+            await deleteEmiRequest.query(deleteEmiQuery);
+
             if (parsedEmiDetails.length > 0) {
-              await prisma.eMIDetails.createMany({
-                data: parsedEmiDetails.map((emi) => ({
-                  studentId: studentId,
-                  studentAcademicId: existingAcademicDetail.id,
-                  emiNumber: parseInt(emi.emiNumber),
-                  amount: parseFloat(emi.amount),
-                  dueDate: new Date(emi.dueDate),
-                  createdBy: ModifiedBy,
-                  createdOn: new Date(),
-                  modifiedBy: ModifiedBy,
-                  modifiedOn: new Date(),
-                })),
-              });
+              for (const emi of parsedEmiDetails) {
+                const emiInsertQuery = `
+                  INSERT INTO EMIDetails (
+                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
+                    modifiedBy, modifiedOn
+                  )
+                  VALUES (
+                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
+                    @modifiedBy, @modifiedOn
+                  )
+                `;
+                const emiRequest = new sql.Request(transaction);
+                emiRequest.input('studentId', sql.Int, studentId);
+                emiRequest.input('studentAcademicId', sql.Int, existingAcademicDetail.saId);
+                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
+                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
+                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
+                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('createdOn', sql.DateTime, new Date());
+                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('modifiedOn', sql.DateTime, new Date());
+                await emiRequest.query(emiInsertQuery);
+              }
             }
           } else if (PaymentMode === 'One-Time') {
             // Delete EMI details if switching to One-Time
-            await prisma.eMIDetails.deleteMany({ where: { studentAcademicId: existingAcademicDetail.id } });
+            const deleteEmiQuery = `
+              DELETE FROM EMIDetails
+              WHERE studentAcademicId = @academicId
+            `;
+            const deleteEmiRequest = new sql.Request(transaction);
+            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+            await deleteEmiRequest.query(deleteEmiQuery);
           }
         }
 
         // Create new documents
-        if (documentsData.length > 0) {
-          await prisma.documents.createMany({
-            data: documentsData.map((doc) => ({
-              studentId: student.id,
-              documentType: doc.documentType,
-              publicId: doc.publicId,
-              fileUrl: doc.fileUrl,
-              fileName: doc.fileName,
-              createdBy: doc.createdBy,
-              modifiedBy: ModifiedBy,
-              modifiedOn: new Date(),
-            })),
-          });
+        for (const doc of documentsData) {
+          const docInsertQuery = `
+            INSERT INTO Documents (
+              studentId, documentType, publicId, fileUrl, fileName, createdBy, modifiedBy, modifiedOn
+            )
+            VALUES (
+              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @modifiedBy, @modifiedOn
+            )
+          `;
+          const docRequest = new sql.Request(transaction);
+          docRequest.input('studentId', sql.Int, updatedStudent.id);
+          docRequest.input('documentType', sql.NVarChar, doc.documentType);
+          docRequest.input('publicId', sql.NVarChar, doc.publicId);
+          docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
+          docRequest.input('fileName', sql.NVarChar, doc.fileName);
+          docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
+          docRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          docRequest.input('modifiedOn', sql.DateTime, new Date());
+          await docRequest.query(docInsertQuery);
         }
 
-        return student;
-      });
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      } finally {
+        await pool.close();
+      }
 
       res.status(200).json({ success: true, student: updatedStudent });
     } catch (error) {
@@ -714,7 +1560,7 @@ router.put(
   }
 );
 
-// Router for handling student promotion
+// POST /students/:studentId/promote - Handle student promotion
 router.post('/students/:studentId/promote', async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -777,7 +1623,6 @@ router.post('/students/:studentId/promote', async (req, res) => {
       return `${startYear}-${startYear + 1}`;
     });
 
-    // Don't allow future session years beyond current year + 1
     const maxAllowedSessionYear = `${currentYear}-${currentYear + 1}`;
     if (parseInt(newSessionYear.split('-')[0]) > currentYear) {
       return res.status(400).json({
@@ -794,9 +1639,10 @@ router.post('/students/:studentId/promote', async (req, res) => {
     }
 
     // Verify the student exists
-    const student = await prisma.student.findUnique({
-      where: { id: parseInt(studentId) },
-    });
+    const studentQuery = `SELECT * FROM Student WHERE id = @studentId`;
+    const studentParams = { studentId: { type: sql.Int, value: parseInt(studentId) } };
+    const studentResult = await executeQuery(studentQuery, studentParams);
+    const student = studentResult.recordset[0];
 
     if (!student) {
       return res.status(404).json({
@@ -806,25 +1652,34 @@ router.post('/students/:studentId/promote', async (req, res) => {
     }
 
     // Get current academic record
-    const currentAcademic = await prisma.studentAcademicDetails.findUnique({
-      where: { id: parseInt(currentAcademicId) },
-    });
+    const currentAcademicQuery = `
+      SELECT *
+      FROM StudentAcademicDetails
+      WHERE id = @academicId AND studentId = @studentId
+    `;
+    const academicParams = {
+      academicId: { type: sql.Int, value: parseInt(currentAcademicId) },
+      studentId: { type: sql.Int, value: parseInt(studentId) }
+    };
+    const currentAcademicResult = await executeQuery(currentAcademicQuery, academicParams);
+    const currentAcademic = currentAcademicResult.recordset[0];
 
-    if (!currentAcademic || currentAcademic.studentId !== parseInt(studentId)) {
+    if (!currentAcademic) {
       return res.status(404).json({
         success: false,
         message: 'Current academic record not found or does not belong to the student',
       });
     }
 
-    // Get all academic records for this student to check for validity of promotion/demotion
-    const allAcademicRecords = await prisma.studentAcademicDetails.findMany({
-      where: { studentId: parseInt(studentId) },
-      orderBy: [
-        { courseYear: 'asc' },
-        { sessionYear: 'asc' },
-      ],
-    });
+    // Get all academic records for this student
+    const allAcademicQuery = `
+      SELECT *
+      FROM StudentAcademicDetails
+      WHERE studentId = @studentId
+      ORDER BY courseYear ASC, sessionYear ASC
+    `;
+    const allAcademicResult = await executeQuery(allAcademicQuery, studentParams);
+    const allAcademicRecords = allAcademicResult.recordset;
 
     const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
     const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
@@ -832,248 +1687,243 @@ router.post('/students/:studentId/promote', async (req, res) => {
     const newSessionIndex = sessionYears.indexOf(newSessionYear);
 
     let newAcademicRecord;
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    try {
+      await transaction.begin();
 
-    // Special handling for lateral entry students being depromoted to 1st year
-    if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
-      // Check if the session year is the same
-      if (currentAcademic.sessionYear !== newSessionYear) {
-        return res.status(400).json({
-          success: false,
-          message: 'For depromoting a lateral entry student to 1st year, session year must remain the same',
-        });
+      // Special handling for lateral entry students being depromoted to 1st year
+      if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+        if (currentAcademic.sessionYear !== newSessionYear) {
+          throw new Error('For depromoting a lateral entry student to 1st year, session year must remain the same');
+        }
+
+        const existingFirstYearRecord = allAcademicRecords.find(record => record.courseYear === '1st');
+        if (existingFirstYearRecord) {
+          throw new Error('Student already has a record for 1st year. Cannot depromote.');
+        }
+
+        // Update existing record
+        const updateAcademicQuery = `
+          UPDATE StudentAcademicDetails
+          SET courseYear = @courseYear, sessionYear = @sessionYear, adminAmount = @adminAmount,
+              feesAmount = @feesAmount, paymentMode = @paymentMode, numberOfEMI = @numberOfEMI,
+              ledgerNumber = @ledgerNumber, modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
+          WHERE id = @academicId
+          SELECT *
+          FROM StudentAcademicDetails
+          WHERE id = @academicId
+        `;
+        const updateAcademicRequest = new sql.Request(transaction);
+        updateAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
+        updateAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
+        updateAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
+        updateAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
+        updateAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
+        updateAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
+        updateAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
+        updateAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+        updateAcademicRequest.input('modifiedOn', sql.DateTime, new Date());
+        updateAcademicRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
+        const updateAcademicResult = await updateAcademicRequest.query(updateAcademicQuery);
+        newAcademicRecord = updateAcademicResult.recordset[0];
+
+        // Update student isLateral flag
+        const updateStudentQuery = `
+          UPDATE Student
+          SET isLateral = @isLateral, modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
+          WHERE id = @studentId
+        `;
+        const updateStudentRequest = new sql.Request(transaction);
+        updateStudentRequest.input('isLateral', sql.Bit, false);
+        updateStudentRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+        updateStudentRequest.input('modifiedOn', sql.DateTime, new Date());
+        updateStudentRequest.input('studentId', sql.Int, parseInt(studentId));
+        await updateStudentRequest.query(updateStudentQuery);
+      } 
+      // Regular depromote case from 2nd to 1st year
+      else if (isDepromote && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+        if (currentAcademic.sessionYear !== newSessionYear) {
+          throw new Error('For demotion, session year must remain the same');
+        }
+
+        const existingFirstYearRecord = allAcademicRecords.find(record => record.courseYear === '1st');
+        if (existingFirstYearRecord) {
+          throw new Error('Student already has a record for 1st year. Cannot depromote.');
+        }
+
+        // Update existing record
+        const updateAcademicQuery = `
+          UPDATE StudentAcademicDetails
+          SET courseYear = @courseYear, sessionYear = @sessionYear, adminAmount = @adminAmount,
+              feesAmount = @feesAmount, paymentMode = @paymentMode, numberOfEMI = @numberOfEMI,
+              ledgerNumber = @ledgerNumber, modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
+          WHERE id = @academicId
+          SELECT *
+          FROM StudentAcademicDetails
+          WHERE id = @academicId
+        `;
+        const updateAcademicRequest = new sql.Request(transaction);
+        updateAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
+        updateAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
+        updateAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
+        updateAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
+        updateAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
+        updateAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
+        updateAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
+        updateAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+        updateAcademicRequest.input('modifiedOn', sql.DateTime, new Date());
+        updateAcademicRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
+        const updateAcademicResult = await updateAcademicRequest.query(updateAcademicQuery);
+        newAcademicRecord = updateAcademicResult.recordset[0];
+      }
+      // Other depromote cases
+      else if (isDepromote) {
+        if (newCourseYearIndex !== currentCourseYearIndex - 1) {
+          throw new Error(`Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`);
+        }
+
+        if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
+          throw new Error(`Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`);
+        }
+
+        if (currentAcademic.sessionYear !== newSessionYear) {
+          throw new Error('For demotion, session year must remain the same');
+        }
+
+        const existingTargetYearRecord = allAcademicRecords.find(record => record.courseYear === newCourseYear);
+        if (existingTargetYearRecord) {
+          throw new Error(`Student already has a record for ${newCourseYear} year. Cannot depromote.`);
+        }
+
+        // Create new academic record
+        const insertAcademicQuery = `
+          INSERT INTO StudentAcademicDetails (
+            studentId, courseYear, sessionYear, adminAmount, feesAmount, paymentMode,
+            numberOfEMI, ledgerNumber, createdBy, createdOn, modifiedBy
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @studentId, @courseYear, @sessionYear, @adminAmount, @feesAmount, @paymentMode,
+            @numberOfEMI, @ledgerNumber, @createdBy, @createdOn, @modifiedBy
+          )
+        `;
+        const insertAcademicRequest = new sql.Request(transaction);
+        insertAcademicRequest.input('studentId', sql.Int, parseInt(studentId));
+        insertAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
+        insertAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
+        insertAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
+        insertAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
+        insertAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
+        insertAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
+        insertAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
+        insertAcademicRequest.input('createdBy', sql.NVarChar, modifiedBy);
+        insertAcademicRequest.input('createdOn', sql.DateTime, new Date());
+        insertAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+        const insertAcademicResult = await insertAcademicRequest.query(insertAcademicQuery);
+        newAcademicRecord = insertAcademicResult.recordset[0];
+      } 
+      // Regular promotion case
+      else {
+        const existingCourseYearRecord = allAcademicRecords.find(record => record.courseYear === newCourseYear);
+        if (existingCourseYearRecord) {
+          throw new Error(`Student already has an academic record for ${newCourseYear} year`);
+        }
+
+        if (newCourseYearIndex !== currentCourseYearIndex + 1) {
+          throw new Error(`Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`);
+        }
+
+        if (currentAcademic.sessionYear === newSessionYear) {
+          throw new Error(`For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`);
+        }
+
+        if (newSessionIndex <= currentSessionIndex) {
+          throw new Error(`New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`);
+        }
+
+        if (newSessionIndex !== currentSessionIndex + 1) {
+          throw new Error(`Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`);
+        }
+
+        // Create new academic record
+        const insertAcademicQuery = `
+          INSERT INTO StudentAcademicDetails (
+            studentId, courseYear, sessionYear, adminAmount, feesAmount, paymentMode,
+            numberOfEMI, ledgerNumber, createdBy, createdOn, modifiedBy
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @studentId, @courseYear, @sessionYear, @adminAmount, @feesAmount, @paymentMode,
+            @numberOfEMI, @ledgerNumber, @createdBy, @createdOn, @modifiedBy
+          )
+        `;
+        const insertAcademicRequest = new sql.Request(transaction);
+        insertAcademicRequest.input('studentId', sql.Int, parseInt(studentId));
+        insertAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
+        insertAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
+        insertAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
+        insertAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
+        insertAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
+        insertAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
+        insertAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
+        insertAcademicRequest.input('createdBy', sql.NVarChar, modifiedBy);
+        insertAcademicRequest.input('createdOn', sql.DateTime, new Date());
+        insertAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+        const insertAcademicResult = await insertAcademicRequest.query(insertAcademicQuery);
+        newAcademicRecord = insertAcademicResult.recordset[0];
       }
 
-      // Check if there's already a 1st year record
-      const existingFirstYearRecord = allAcademicRecords.find(
-        record => record.courseYear === '1st'
-      );
+      // If payment mode is EMI, create/update EMI details
+      if (paymentMode === 'EMI' && emiDetails && emiDetails.length > 0) {
+        // Delete existing EMI details if updating record
+        if (isDepromote && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+          const deleteEmiQuery = `
+            DELETE FROM EMIDetails
+            WHERE studentId = @studentId AND studentAcademicId = @academicId
+          `;
+          const deleteEmiRequest = new sql.Request(transaction);
+          deleteEmiRequest.input('studentId', sql.Int, parseInt(studentId));
+          deleteEmiRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
+          await deleteEmiRequest.query(deleteEmiQuery);
+        }
 
-      if (existingFirstYearRecord) {
-        return res.status(400).json({
-          success: false,
-          message: 'Student already has a record for 1st year. Cannot depromote.',
-        });
+        for (const emi of emiDetails) {
+          const emiInsertQuery = `
+            INSERT INTO EMIDetails (
+              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn, modifiedBy
+            )
+            VALUES (
+              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn, @modifiedBy
+            )
+          `;
+          const emiRequest = new sql.Request(transaction);
+          emiRequest.input('studentId', sql.Int, parseInt(studentId));
+          emiRequest.input('studentAcademicId', sql.Int, newAcademicRecord.id);
+          emiRequest.input('emiNumber', sql.Int, emi.emiNumber);
+          emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
+          emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
+          emiRequest.input('createdBy', sql.NVarChar, modifiedBy);
+          emiRequest.input('createdOn', sql.DateTime, new Date());
+          emiRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
+          await emiRequest.query(emiInsertQuery);
+        }
       }
 
-      // Update existing record instead of creating new
-      newAcademicRecord = await prisma.studentAcademicDetails.update({
-        where: { id: parseInt(currentAcademicId) },
-        data: {
-          courseYear: newCourseYear,
-          sessionYear: newSessionYear,
-          adminAmount: parseFloat(adminAmount),
-          feesAmount: parseFloat(feesAmount),
-          paymentMode,
-          numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
-          ledgerNumber: ledgerNumber || null,
-          modifiedBy,
-          modifiedOn: new Date(),
-        },
+      await transaction.commit();
+
+      const actionType = isDepromote ? 'demoted' : 'promoted';
+      res.status(200).json({
+        success: true,
+        message: `Student successfully ${actionType} to ${newCourseYear} year for session ${newSessionYear}`,
+        data: newAcademicRecord,
       });
-
-      // Update student isLateral flag
-      await prisma.student.update({
-        where: { id: parseInt(studentId) },
-        data: {
-          isLateral: false,
-          modifiedBy,
-          modifiedOn: new Date(),
-        },
-      });
-    } 
-    // Regular depromote case from 2nd to 1st year
-    else if (isDepromote && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
-      // Validate session year
-      if (currentAcademic.sessionYear !== newSessionYear) {
-        return res.status(400).json({
-          success: false,
-          message: 'For demotion, session year must remain the same',
-        });
-      }
-
-      // Check if there's already a 1st year record
-      const existingFirstYearRecord = allAcademicRecords.find(
-        record => record.courseYear === '1st'
-      );
-
-      if (existingFirstYearRecord) {
-        return res.status(400).json({
-          success: false,
-          message: 'Student already has a record for 1st year. Cannot depromote.',
-        });
-      }
-
-      // Update existing record instead of creating new
-      newAcademicRecord = await prisma.studentAcademicDetails.update({
-        where: { id: parseInt(currentAcademicId) },
-        data: {
-          courseYear: newCourseYear,
-          sessionYear: newSessionYear,
-          adminAmount: parseFloat(adminAmount),
-          feesAmount: parseFloat(feesAmount),
-          paymentMode,
-          numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
-          ledgerNumber: ledgerNumber || null,
-          modifiedBy,
-          modifiedOn: new Date(),
-        },
-      });
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
     }
-    // Other depromote cases
-    else if (isDepromote) {
-      // Validate that we're not skipping course years when depromoting
-      if (newCourseYearIndex !== currentCourseYearIndex - 1) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`,
-        });
-      }
-
-      // Check if student is in 3rd year or higher
-      if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`,
-        });
-      }
-
-      // Check if session year is the same for demotion
-      if (currentAcademic.sessionYear !== newSessionYear) {
-        return res.status(400).json({
-          success: false,
-          message: 'For demotion, session year must remain the same',
-        });
-      }
-
-      // Check if there's already a record for the target course year
-      const existingTargetYearRecord = allAcademicRecords.find(
-        record => record.courseYear === newCourseYear
-      );
-
-      if (existingTargetYearRecord) {
-        return res.status(400).json({
-          success: false,
-          message: `Student already has a record for ${newCourseYear} year. Cannot depromote.`,
-        });
-      }
-
-      // Create new academic record
-      newAcademicRecord = await prisma.studentAcademicDetails.create({
-        data: {
-          studentId: parseInt(studentId),
-          courseYear: newCourseYear,
-          sessionYear: newSessionYear,
-          adminAmount: parseFloat(adminAmount),
-          feesAmount: parseFloat(feesAmount),
-          paymentMode,
-          numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
-          ledgerNumber: ledgerNumber || null,
-          createdBy: modifiedBy,
-          createdOn: new Date(),
-          modifiedBy,
-        },
-      });
-    } 
-    // Regular promotion case
-    else {
-      // Check if the student already has an academic record for the new course year
-      const existingCourseYearRecord = allAcademicRecords.find(
-        record => record.courseYear === newCourseYear
-      );
-
-      if (existingCourseYearRecord) {
-        return res.status(400).json({
-          success: false,
-          message: `Student already has an academic record for ${newCourseYear} year`,
-        });
-      }
-
-      // Check if there's a gap in course year sequence for promotion
-      if (newCourseYearIndex !== currentCourseYearIndex + 1) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`,
-        });
-      }
-
-      // Check if session year is same as current
-      if (currentAcademic.sessionYear === newSessionYear) {
-        return res.status(400).json({
-          success: false,
-          message: `For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`,
-        });
-      }
-
-      // Check if there's a gap in session year sequence
-      if (newSessionIndex <= currentSessionIndex) {
-        return res.status(400).json({
-          success: false,
-          message: `New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`,
-        });
-      }
-
-      if (newSessionIndex !== currentSessionIndex + 1) {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`,
-        });
-      }
-
-      // Create new academic record
-      newAcademicRecord = await prisma.studentAcademicDetails.create({
-        data: {
-          studentId: parseInt(studentId),
-          courseYear: newCourseYear,
-          sessionYear: newSessionYear,
-          adminAmount: parseFloat(adminAmount),
-          feesAmount: parseFloat(feesAmount),
-          paymentMode,
-          numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
-          ledgerNumber: ledgerNumber || null,
-          createdBy: modifiedBy,
-          createdOn: new Date(),
-          modifiedBy,
-        },
-      });
-    }
-
-    // If payment mode is EMI, create/update EMI details
-    if (paymentMode === 'EMI' && emiDetails && emiDetails.length > 0) {
-      // Delete existing EMI details if updating record
-      if (isDepromote && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
-        await prisma.eMIDetails.deleteMany({
-          where: {
-            studentId: parseInt(studentId),
-            studentAcademicId: parseInt(currentAcademicId),
-          },
-        });
-      }
-
-      await Promise.all(
-        emiDetails.map(async (emi) => {
-          await prisma.eMIDetails.create({
-            data: {
-              studentId: parseInt(studentId),
-              studentAcademicId: newAcademicRecord.id,
-              emiNumber: emi.emiNumber,
-              amount: parseFloat(emi.amount),
-              dueDate: new Date(emi.dueDate),
-              createdBy: modifiedBy,
-              createdOn: new Date(),
-              modifiedBy,
-            },
-          });
-        })
-      );
-    }
-
-    // Return success response
-    const actionType = isDepromote ? 'demoted' : 'promoted';
-    res.status(200).json({
-      success: true,
-      message: `Student successfully ${actionType} to ${newCourseYear} year for session ${newSessionYear}`,
-      data: newAcademicRecord,
-    });
   } catch (error) {
     console.error('Error promoting/demoting student:', error.stack);
     res.status(500).json({
@@ -1082,77 +1932,119 @@ router.post('/students/:studentId/promote', async (req, res) => {
     });
   }
 });
+
 // DELETE /students/:id - Delete a student and all related records
 router.delete('/students/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
-    
-    // First, verify the student exists
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        documents: true,
-        academicDetails: true,
-      }
-    });
+
+    // Fetch student and related records
+    const studentQuery = `
+      SELECT s.*, d.id AS docId, d.publicId
+      FROM Student s
+      LEFT JOIN Documents d ON s.id = d.studentId
+      WHERE s.id = @studentId
+    `;
+    const studentParams = { studentId: { type: sql.Int, value: studentId } };
+    const studentResult = await executeQuery(studentQuery, studentParams);
+    const studentRecords = studentResult.recordset;
+    const student = studentRecords.find(row => row.id === studentId);
 
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    // Delete all related records in a transaction
-    await prisma.$transaction(async (prisma) => {
-      // 1. Delete documents from Cloudinary and DB
-      if (student.documents.length > 0) {
-        await Promise.all(
-          student.documents.map(async (doc) => {
-            try {
-              await deleteFromCloudinary(doc.publicId);
-            } catch (error) {
-              console.error(`Error deleting document ${doc.publicId} from Cloudinary:`, error);
-            }
-          })
-        );
-    
-        await prisma.documents.deleteMany({
-          where: { studentId: studentId }
-        });
-      }
-    
-      // 2. Delete EMI details
-      if (student.academicDetails.length > 0) {
-        await prisma.eMIDetails.deleteMany({
-          where: { studentId: studentId }
-        });
-      }
-    
-      // 3. Delete Student Payment 💥 ADD THIS STEP 💥
-      await prisma.studentPayment.deleteMany({
-        where: { studentId: studentId }
-      });
-    
-      // 4. Delete academic details
-      await prisma.studentAcademicDetails.deleteMany({
-        where: { studentId: studentId }
-      });
-    
-      // 5. Finally, delete the student
-      await prisma.student.delete({
-        where: { id: studentId }
-      });
-    });
+    // Collect all public IDs for Cloudinary deletion
+    const publicIds = studentRecords
+      .filter(row => row.publicId)
+      .map(row => row.publicId);
 
-    res.status(200).json({ 
-      success: true, 
-      message: 'Student and all related records deleted successfully' 
-    });
+    // Fetch payment records to get receipt public IDs
+    const paymentQuery = `
+      SELECT receiptPublicId
+      FROM StudentPayment
+      WHERE studentId = @studentId AND receiptPublicId IS NOT NULL
+    `;
+    const paymentResult = await executeQuery(paymentQuery, studentParams);
+    const paymentPublicIds = paymentResult.recordset
+      .filter(row => row.receiptPublicId)
+      .map(row => row.receiptPublicId);
+
+    publicIds.push(...paymentPublicIds);
+
+    // Delete files from Cloudinary
+    if (publicIds.length > 0) {
+      try {
+        await Promise.all(publicIds.map(publicId => deleteFromCloudinary(publicId)));
+      } catch (cloudinaryError) {
+        console.error('Error deleting files from Cloudinary:', cloudinaryError);
+        return res.status(500).json({ success: false, message: 'Failed to delete associated files from Cloudinary' });
+      }
+    }
+
+    // Delete all related records in a transaction
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    try {
+      await transaction.begin();
+
+      // Delete EMI Details
+      const deleteEmiQuery = `
+        DELETE FROM EMIDetails
+        WHERE studentId = @studentId
+      `;
+      const deleteEmiRequest = new sql.Request(transaction);
+      deleteEmiRequest.input('studentId', sql.Int, studentId);
+      await deleteEmiRequest.query(deleteEmiQuery);
+
+      // Delete Student Payment Records
+      const deletePaymentQuery = `
+        DELETE FROM StudentPayment
+        WHERE studentId = @studentId
+      `;
+      const deletePaymentRequest = new sql.Request(transaction);
+      deletePaymentRequest.input('studentId', sql.Int, studentId);
+      await deletePaymentRequest.query(deletePaymentQuery);
+
+      // Delete Student Academic Details
+      const deleteAcademicQuery = `
+        DELETE FROM StudentAcademicDetails
+        WHERE studentId = @studentId
+      `;
+      const deleteAcademicRequest = new sql.Request(transaction);
+      deleteAcademicRequest.input('studentId', sql.Int, studentId);
+      await deleteAcademicRequest.query(deleteAcademicQuery);
+
+      // Delete Documents
+      const deleteDocsQuery = `
+        DELETE FROM Documents
+        WHERE studentId = @studentId
+      `;
+      const deleteDocsRequest = new sql.Request(transaction);
+      deleteDocsRequest.input('studentId', sql.Int, studentId);
+      await deleteDocsRequest.query(deleteDocsQuery);
+
+      // Delete Student
+      const deleteStudentQuery = `
+        DELETE FROM Student
+        WHERE id = @studentId
+      `;
+      const deleteStudentRequest = new sql.Request(transaction);
+      deleteStudentRequest.input('studentId', sql.Int, studentId);
+      await deleteStudentRequest.query(deleteStudentQuery);
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
+
+    res.status(200).json({ success: true, message: 'Student and all related records deleted successfully' });
   } catch (error) {
     console.error('Error deleting student:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error deleting student',
-      error: error.message 
-    });
+    res.status(500).json({ success: false, message: 'Failed to delete student', error: error.message });
   }
 });
 
@@ -1174,15 +2066,29 @@ router.get('/students/:studentId/academic-details', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
 
-    const academicDetails = await prisma.studentAcademicDetails.findMany({
-      where: { studentId },
-      orderBy: { createdOn: 'desc' },
-      include: {
-        emiDetails: {
-          orderBy: { emiNumber: 'asc' },
-        },
-      },
-    });
+    // Fetch academic details
+    const academicQuery = `
+      SELECT *
+      FROM StudentAcademicDetails
+      WHERE studentId = @studentId
+      ORDER BY createdOn DESC
+    `;
+    const academicParams = { studentId: { type: sql.Int, value: studentId } };
+    const academicResult = await executeQuery(academicQuery, academicParams);
+    const academicDetails = academicResult.recordset;
+
+    // Fetch EMI details for each academic record
+    for (const academic of academicDetails) {
+      const emiQuery = `
+        SELECT *
+        FROM EMIDetails
+        WHERE studentAcademicId = @academicId
+        ORDER BY emiNumber ASC
+      `;
+      const emiParams = { academicId: { type: sql.Int, value: academic.id } };
+      const emiResult = await executeQuery(emiQuery, emiParams);
+      academic.emiDetails = emiResult.recordset;
+    }
 
     res.status(200).json({
       success: true,
@@ -1201,16 +2107,17 @@ router.get('/students/:studentId/academic-details', async (req, res) => {
 router.get('/students/:studentId/academic-details/latest', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
-    
-    const latestAcademicDetail = await prisma.studentAcademicDetails.findFirst({
-      where: { studentId },
-      orderBy: { createdOn: 'desc' },
-      include: {
-        emiDetails: {
-          orderBy: { emiNumber: 'asc' }
-        }
-      }
-    });
+
+    // Fetch the latest academic detail
+    const academicQuery = `
+      SELECT TOP 1 *
+      FROM StudentAcademicDetails
+      WHERE studentId = @studentId
+      ORDER BY createdOn DESC
+    `;
+    const academicParams = { studentId: { type: sql.Int, value: studentId } };
+    const academicResult = await executeQuery(academicQuery, academicParams);
+    const latestAcademicDetail = academicResult.recordset[0];
 
     if (!latestAcademicDetail) {
       return res.status(404).json({ 
@@ -1218,6 +2125,17 @@ router.get('/students/:studentId/academic-details/latest', async (req, res) => {
         message: 'No academic records found' 
       });
     }
+
+    // Fetch EMI details for the latest academic record
+    const emiQuery = `
+      SELECT *
+      FROM EMIDetails
+      WHERE studentAcademicId = @academicId
+      ORDER BY emiNumber ASC
+    `;
+    const emiParams = { academicId: { type: sql.Int, value: latestAcademicDetail.id } };
+    const emiResult = await executeQuery(emiQuery, emiParams);
+    latestAcademicDetail.emiDetails = emiResult.recordset;
 
     res.status(200).json({ 
       success: true, 
@@ -1233,7 +2151,6 @@ router.get('/students/:studentId/academic-details/latest', async (req, res) => {
 });
 
 // Create new payment
-
 router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
   try {
     const {
@@ -1245,7 +2162,6 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
       receivedDate,
       approvedBy,
       amountType,
-  
       courseYear,
       sessionYear,
       email,
@@ -1279,24 +2195,33 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
 
     // Check if transactionNumber is unique (if provided)
     if (transactionNumber) {
-      const existingPayment = await prisma.studentPayment.findFirst({
-        where: { transactionNumber },
-      });
-      if (existingPayment) {
+      const transactionQuery = `
+        SELECT id
+        FROM StudentPayment
+        WHERE transactionNumber = @transactionNumber
+      `;
+      const transactionParams = { transactionNumber: { type: sql.NVarChar, value: transactionNumber } };
+      const transactionResult = await executeQuery(transactionQuery, transactionParams);
+      if (transactionResult.recordset[0]) {
         return res.status(400).json({ success: false, error: 'Transaction number already exists' });
       }
     }
 
     // Authenticate user
-    const user = await prisma.user.findUnique({
-      where: { email },
-    });
+    const userQuery = `
+      SELECT *
+      FROM [User]
+      WHERE email = @email
+    `;
+    const userParams = { email: { type: sql.NVarChar, value: email } };
+    const userResult = await executeQuery(userQuery, userParams);
+    const user = userResult.recordset[0];
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
-    let receiptData = {};
+    let receiptData = { receiptUrl: null, receiptPublicId: null };
     if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file.buffer, 'PaymentReceipt');
@@ -1310,25 +2235,54 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
       }
     }
 
-    const payment = await prisma.studentPayment.create({
-      data: {
-        studentId: parseInt(studentId),
-        studentAcademicId: studentAcademicId ? parseInt(studentAcademicId) : null,
-        paymentMode,
-        transactionNumber,
-        amount: parsedAmount,
-        receivedDate: parsedDate,
-        approvedBy,
-        amountType,
-        courseYear,
-        sessionYear,
-        createdBy: user.name || email,
-   
-        ...receiptData,
-      },
-    });
+    // Create payment record
+    let newPayment;
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    try {
+      await transaction.begin();
+      const request = new sql.Request(transaction);
 
-    res.status(201).json({ success: true, data: payment });
+      const paymentQuery = `
+        INSERT INTO StudentPayment (
+          studentId, studentAcademicId, paymentMode, transactionNumber, amount, receivedDate,
+          approvedBy, amountType, courseYear, sessionYear, createdBy, createdOn,
+          receiptUrl, receiptPublicId
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @studentId, @studentAcademicId, @paymentMode, @transactionNumber, @amount, @receivedDate,
+          @approvedBy, @amountType, @courseYear, @sessionYear, @createdBy, @createdOn,
+          @receiptUrl, @receiptPublicId
+        )
+      `;
+      request.input('studentId', sql.Int, parseInt(studentId));
+      request.input('studentAcademicId', sql.Int, studentAcademicId ? parseInt(studentAcademicId) : null);
+      request.input('paymentMode', sql.NVarChar, paymentMode);
+      request.input('transactionNumber', sql.NVarChar, transactionNumber || null);
+      request.input('amount', sql.Decimal(10, 2), parsedAmount);
+      request.input('receivedDate', sql.Date, parsedDate);
+      request.input('approvedBy', sql.NVarChar, approvedBy || null);
+      request.input('amountType', sql.NVarChar, amountType);
+      request.input('courseYear', sql.NVarChar, courseYear || null);
+      request.input('sessionYear', sql.NVarChar, sessionYear || null);
+      request.input('createdBy', sql.NVarChar, user.name || email);
+      request.input('createdOn', sql.DateTime, new Date());
+      request.input('receiptUrl', sql.NVarChar, receiptData.receiptUrl);
+      request.input('receiptPublicId', sql.NVarChar, receiptData.receiptPublicId);
+
+      const paymentResult = await request.query(paymentQuery);
+      newPayment = paymentResult.recordset[0];
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
+
+    res.status(201).json({ success: true, data: newPayment });
   } catch (error) {
     console.error('Payment creation error:', error);
     res.status(500).json({ success: false, error: 'Failed to create payment' });
@@ -1344,45 +2298,47 @@ router.get('/studentPayment/:studentId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid student ID' });
     }
 
-    const payments = await prisma.studentPayment.findMany({
-      where: {
-        studentId: parseInt(studentId),
-      },
-      include: {
-        student: {
-          select: {
-            fName: true,
-            lName: true,
-            rollNumber: true,
-            email: true,
-            mobileNumber: true,
-            fatherName: true,
-            course: {
-              select: {
-                courseName: true,
-              },
-            },
-            college: {
-              select: {
-                collegeName: true,
-              },
-            },
-          },
-        },
-        studentAcademic: {
-          select: {
-            sessionYear: true,
-            courseYear: true,
-          },
-        },
-      },
-    });
+    const paymentQuery = `
+      SELECT 
+        sp.*,
+        s.fName, s.lName, s.rollNumber, s.email, s.mobileNumber, s.fatherName,
+        c.courseName,
+        col.collegeName,
+        sa.sessionYear AS academicSessionYear, sa.courseYear AS academicCourseYear
+      FROM StudentPayment sp
+      LEFT JOIN Student s ON sp.studentId = s.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN StudentAcademicDetails sa ON sp.studentAcademicId = sa.id
+      WHERE sp.studentId = @studentId
+    `;
+    const paymentParams = { studentId: { type: sql.Int, value: parseInt(studentId) } };
+    const paymentResult = await executeQuery(paymentQuery, paymentParams);
+    const payments = paymentResult.recordset;
 
     if (payments.length === 0) {
       return res.status(404).json({ success: false, error: `No payments found for student ID ${studentId}` });
     }
 
-    res.status(200).json({ success: true, data: payments });
+    const formattedPayments = payments.map(payment => ({
+      ...payment,
+      student: {
+        fName: payment.fName,
+        lName: payment.lName,
+        rollNumber: payment.rollNumber,
+        email: payment.email,
+        mobileNumber: payment.mobileNumber,
+        fatherName: payment.fatherName,
+        course: { courseName: payment.courseName },
+        college: { collegeName: payment.collegeName },
+      },
+      studentAcademic: {
+        sessionYear: payment.academicSessionYear,
+        courseYear: payment.academicCourseYear,
+      },
+    }));
+
+    res.status(200).json({ success: true, data: formattedPayments });
   } catch (error) {
     console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
@@ -1400,38 +2356,43 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
     }
 
     // Fetch payment details
-    const payment = await prisma.studentPayment.findUnique({
-      where: { id: parseInt(paymentId) },
-      include: {
-        student: {
-          select: {
-            fName: true,
-            lName: true,
-            rollNumber: true,
-            email: true,
-            mobileNumber: true,
-            fatherName: true,
-            course: {
-              select: {
-                courseName: true,
-              },
-            },
-          },
-        },
-        studentAcademic: {
-          select: {
-            sessionYear: true,
-            courseYear: true,
-          },
-        },
-      },
-    });
+    const paymentQuery = `
+      SELECT 
+        sp.*,
+        s.fName, s.lName, s.rollNumber, s.email, s.mobileNumber, s.fatherName,
+        c.courseName,
+        sa.sessionYear, sa.courseYear
+      FROM StudentPayment sp
+      LEFT JOIN Student s ON sp.studentId = s.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      LEFT JOIN StudentAcademicDetails sa ON sp.studentAcademicId = sa.id
+      WHERE sp.id = @paymentId
+    `;
+    const paymentParams = { paymentId: { type: sql.Int, value: parseInt(paymentId) } };
+    const paymentResult = await executeQuery(paymentQuery, paymentParams);
+    const payment = paymentResult.recordset[0];
 
     if (!payment) {
       return res.status(404).json({ success: false, error: 'Payment record not found' });
     }
 
-    const PDFDocument = require('pdfkit');
+    const formattedPayment = {
+      ...payment,
+      student: {
+        fName: payment.fName,
+        lName: payment.lName,
+        rollNumber: payment.rollNumber,
+        email: payment.email,
+        mobileNumber: payment.mobileNumber,
+        fatherName: payment.fatherName,
+        course: { courseName: payment.courseName },
+      },
+      studentAcademic: {
+        sessionYear: payment.sessionYear,
+        courseYear: payment.courseYear,
+      },
+    };
+
     const doc = new PDFDocument({ size: [400, 600], margin: 30 });
 
     // Set response headers for PDF download
@@ -1511,14 +2472,14 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
       doc.font('Helvetica').text(`${safeValue}`, rightX, yPos + offsetY, { width: 150 });
     };
 
-    drawLabelValue('Name:', `${payment.student.fName} ${payment.student.lName || ''}`, 0);
-    drawLabelValue('Roll Number:', payment.student.rollNumber, 15);
-    drawLabelValue('Email:', payment.student.email, 30);
-    drawLabelValue('Mobile Number:', payment.student.mobileNumber, 45);
-    drawLabelValue('Father\'s Name:', payment.student.fatherName, 60);
-    drawLabelValue('Course:', payment.student.course.courseName, 75);
-    drawLabelValue('Session Year:', payment.studentAcademic.sessionYear, 90);
-    drawLabelValue('Course Year:', payment.studentAcademic.courseYear, 105);
+    drawLabelValue('Name:', `${formattedPayment.student.fName} ${formattedPayment.student.lName || ''}`, 0);
+    drawLabelValue('Roll Number:', formattedPayment.student.rollNumber, 15);
+    drawLabelValue('Email:', formattedPayment.student.email, 30);
+    drawLabelValue('Mobile Number:', formattedPayment.student.mobileNumber, 45);
+    drawLabelValue('Father\'s Name:', formattedPayment.student.fatherName, 60);
+    drawLabelValue('Course:', formattedPayment.student.course.courseName, 75);
+    drawLabelValue('Session Year:', formattedPayment.studentAcademic.sessionYear, 90);
+    drawLabelValue('Course Year:', formattedPayment.studentAcademic.courseYear, 105);
 
     // Modified: Moved payment details section up - reduced spacing
     doc.moveDown(1);
@@ -1537,11 +2498,11 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
 
     yPos = doc.y + 10;
 
-    drawLabelValue('Amount Type:', payment.amountType === 'adminAmount' ? 'Admin Amount' : payment.amountType, 0);
-    drawLabelValue('Payment Mode:', payment.paymentMode, 15);
-    drawLabelValue('Transaction Number:', payment.transactionNumber, 30);
-    drawLabelValue('Amount:', `${payment.amount.toFixed(2)}`, 45);
-    drawLabelValue('Received Date:', `${new Date(payment.receivedDate).toLocaleDateString('en-GB')}`, 60);
+    drawLabelValue('Amount Type:', formattedPayment.amountType === 'adminAmount' ? 'Admin Amount' : formattedPayment.amountType, 0);
+    drawLabelValue('Payment Mode:', formattedPayment.paymentMode, 15);
+    drawLabelValue('Transaction Number:', formattedPayment.transactionNumber, 30);
+    drawLabelValue('Amount:', `${formattedPayment.amount.toFixed(2)}`, 45);
+    drawLabelValue('Received Date:', `${new Date(formattedPayment.receivedDate).toLocaleDateString('en-GB')}`, 60);
     
     // Status with green color
     doc.font('Helvetica-Bold').text('Status:', leftX, yPos + 75, { width: 150 });
@@ -1560,7 +2521,6 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
 
     // End the PDF document
     doc.end();
-
   } catch (error) {
     console.error('Error generating payment slip:', error);
     if (!res.headersSent) {
@@ -1568,118 +2528,164 @@ router.get('/studentPayment/:paymentId/slip', async (req, res) => {
     }
   }
 });
-// routes/studentPayment.js
+
+// GET /amountType - Fetch all payments
 router.get('/amountType', async (req, res) => {
   try {
-    const payments = await prisma.studentPayment.findMany({
-      select: {
-        id: true,
-        amount: true,
-        amountType: true,
-        paymentMode: true,
-        receivedDate: true,
-        transactionNumber: true,
-        courseYear: true,
-        sessionYear: true,
-        student: {
-          select: {
-            id: true,
-            fName: true,
-            lName: true,
-            rollNumber: true,
-            mobileNumber: true,
-            email: true,
-            course: {
-              select: {
-                courseName: true
-              }
-            },
-            college: {
-              select: {
-                collegeName: true
-              }
-            }
-          }
-        },
-        studentAcademic: {
-          select: {
-            id: true,
-            sessionYear: true,
-            feesAmount: true,
-            adminAmount: true,
-            paymentMode: true,
-            courseYear: true
-          }
-        }
-      }
-    });
-    
-    res.status(200).json({ success: true, data: payments });
+    const paymentQuery = `
+      SELECT 
+        sp.id, sp.amount, sp.amountType, sp.paymentMode, sp.receivedDate, sp.transactionNumber, sp.courseYear, sp.sessionYear,
+        s.id AS studentId, s.fName, s.lName, s.rollNumber, s.mobileNumber, s.email,
+        c.courseName,
+        col.collegeName,
+        sa.id AS academicId, sa.sessionYear AS academicSessionYear, sa.feesAmount, sa.adminAmount, sa.paymentMode AS academicPaymentMode, sa.courseYear AS academicCourseYear
+      FROM StudentPayment sp
+      LEFT JOIN Student s ON sp.studentId = s.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN StudentAcademicDetails sa ON sp.studentAcademicId = sa.id
+    `;
+    const paymentResult = await executeQuery(paymentQuery);
+    const payments = paymentResult.recordset;
+
+    const formattedPayments = payments.map(payment => ({
+      id: payment.id,
+      amount: payment.amount,
+      amountType: payment.amountType,
+      paymentMode: payment.paymentMode,
+      receivedDate: payment.receivedDate,
+      transactionNumber: payment.transactionNumber,
+      courseYear: payment.courseYear,
+      sessionYear: payment.sessionYear,
+      student: {
+        id: payment.studentId,
+        fName: payment.fName,
+        lName: payment.lName,
+        rollNumber: payment.rollNumber,
+        mobileNumber: payment.mobileNumber,
+        email: payment.email,
+        course: { courseName: payment.courseName },
+        college: { collegeName: payment.collegeName },
+      },
+      studentAcademic: {
+        id: payment.academicId,
+        sessionYear: payment.academicSessionYear,
+        feesAmount: payment.feesAmount,
+        adminAmount: payment.adminAmount,
+        paymentMode: payment.academicPaymentMode,
+        courseYear: payment.academicCourseYear,
+      },
+    }));
+
+    res.status(200).json({ success: true, data: formattedPayments });
   } catch (error) {
     console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
 
-
-// registration pup  message
-
 // POST route to handle registration form submission
 router.post('/register', async (req, res) => {
   const { fullName, mobileNumber, email, course } = req.body;
-
   try {
-    const newRegistration = await prisma.CourseEnquiry.create({
-      data: {
-        fullName,
-        mobileNumber,
-        email,
-        course,
-        isContacted: false,
-        modifiedAt: null,  // Explicitly set to null on creation
-        modifiedby: null,  // Explicitly set to null on creation
-      },
-    });
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    let newRegistration;
+
+    try {
+      await transaction.begin();
+      const request = new sql.Request(transaction);
+
+      const registrationQuery = `
+        INSERT INTO CourseEnquiry (
+          fullName, mobileNumber, email, course, isContacted, createdAt
+        )
+        OUTPUT INSERTED.*
+        VALUES (
+          @fullName, @mobileNumber, @email, @course, @isContacted, @createdAt
+        )
+      `;
+      request.input('fullName', sql.NVarChar, fullName);
+      request.input('mobileNumber', sql.NVarChar, mobileNumber);
+      request.input('email', sql.NVarChar, email);
+      request.input('course', sql.NVarChar, course);
+      request.input('isContacted', sql.Bit, false);
+      request.input('createdAt', sql.DateTime, new Date());
+
+      const registrationResult = await request.query(registrationQuery);
+      newRegistration = registrationResult.recordset[0];
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
+
     console.log('Student registration successful:', newRegistration);
     res.status(201).json({ message: 'Registration successful', data: newRegistration });
   } catch (error) {
     console.error('Error registering student:', error);
     res.status(500).json({ message: 'Error registering student' });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
+// GET /getCourseEnquiry - Fetch all course enquiries
 router.get('/getCourseEnquiry', async (req, res) => {
   try {
-    const enquiries = await prisma.CourseEnquiry.findMany({
-      orderBy: {
-        createdAt: 'desc' // Optional: most recent first
-      }
-    });
+    const enquiryQuery = `
+      SELECT *
+      FROM CourseEnquiry
+      ORDER BY createdAt DESC
+    `;
+    const enquiryResult = await executeQuery(enquiryQuery);
+    const enquiries = enquiryResult.recordset;
+
     res.status(200).json({ message: 'Fetched enquiries successfully', data: enquiries });
   } catch (error) {
     console.error('Error fetching course enquiries:', error);
     res.status(500).json({ message: 'Error fetching course enquiries' });
-  } finally {
-    await prisma.$disconnect();
   }
 });
 
 // Update the enquiry status (e.g., mark as contacted)
 router.post('/updateEnquiryStatus', async (req, res) => {
   const { id, isContacted, modifiedAt, modifiedby } = req.body;
-  
+
   try {
-    const updatedEnquiry = await prisma.CourseEnquiry.update({
-      where: { id: Number(id) },
-      data: {
-        isContacted,
-        modifiedAt,
-        modifiedby
-      }
-    });
-    
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
+    let updatedEnquiry;
+
+    try {
+      await transaction.begin();
+      const request = new sql.Request(transaction);
+
+      const updateQuery = `
+        UPDATE CourseEnquiry
+        SET isContacted = @isContacted, modifiedAt = @modifiedAt, modifiedby = @modifiedby
+        WHERE id = @id
+        SELECT *
+        FROM CourseEnquiry
+        WHERE id = @id
+      `;
+      request.input('id', sql.Int, Number(id));
+      request.input('isContacted', sql.Bit, isContacted);
+      request.input('modifiedAt', sql.DateTime, modifiedAt ? new Date(modifiedAt) : null);
+      request.input('modifiedby', sql.NVarChar, modifiedby || null);
+
+      const updateResult = await request.query(updateQuery);
+      updatedEnquiry = updateResult.recordset[0];
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    } finally {
+      await pool.close();
+    }
+
     res.status(200).json({ 
       message: 'Enquiry status updated successfully', 
       data: updatedEnquiry 
@@ -1687,12 +2693,8 @@ router.post('/updateEnquiryStatus', async (req, res) => {
   } catch (error) {
     console.error('Error updating enquiry status:', error);
     res.status(500).json({ message: 'Error updating enquiry status' });
-  } finally {
-    await prisma.$disconnect();
   }
 });
-
-
 
 
 

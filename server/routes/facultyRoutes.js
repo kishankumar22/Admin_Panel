@@ -1,25 +1,23 @@
 const express = require('express');
 const multer = require('multer');
-const uploadToCloudinary = require('../utils/cloudinaryUpload');
-const { PrismaClient } = require('@prisma/client');
+const cloudinary = require('../config/cloudinaryConfig');
+const { sql, executeQuery } = require('../config/db');
+
 const router = express.Router();
-const prisma = new PrismaClient();
+const upload = multer({ storage: multer.memoryStorage() });
 
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
+// 1. GET All Faculties
 router.get('/faculty', async (req, res) => {
   try {
-    const faculties = await prisma.faculty.findMany({
-      orderBy: { faculty_name: 'asc' },
-    });
-    res.status(200).json(faculties);
-  } catch (error) {
-    console.error('Error fetching faculties:', error);
-    res.status(500).json({ message: 'Error fetching faculties', error: error.message });
+    const result = await executeQuery('SELECT * FROM Faculty ORDER BY faculty_name ASC');
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Fetch Error:', err);
+    res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
   }
 });
 
+// 2. POST Add Faculty
 router.post('/faculty/add', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
@@ -37,17 +35,23 @@ router.post('/faculty/add', upload.fields([
     } = req.body;
 
     if (!faculty_name || !qualification || !designation || !created_by) {
-      return res.status(400).json({ message: 'Missing required fields.' });
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
     let profilePicUrl = null;
     let documents = [];
 
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
-      const uploadResult = await uploadToCloudinary(req.files.profilePic[0].buffer, 'faculties');
-      if (!uploadResult || !uploadResult.secure_url) {
-        return res.status(500).json({ message: 'Failed to upload profile picture to Cloudinary' });
-      }
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'auto', folder: 'faculties' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(req.files.profilePic[0].buffer);
+      });
       profilePicUrl = uploadResult.secure_url;
     }
 
@@ -56,39 +60,58 @@ router.post('/faculty/add', upload.fields([
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
-        const uploadResult = await uploadToCloudinary(file.buffer, 'faculties');
-        if (!uploadResult || !uploadResult.secure_url) {
-          return res.status(500).json({ message: `Failed to upload document ${file.originalname} to Cloudinary` });
-        }
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { resource_type: 'auto', folder: 'faculties' },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(file.buffer);
+        });
         const title = titles[i] || `Untitled Document ${i + 1}`;
         documents.push({ title, url: uploadResult.secure_url });
       }
     }
 
-    const newFaculty = await prisma.faculty.create({
-      data: {
-        faculty_name,
-        qualification,
-        designation,
-        profilePicUrl,
-        documents: documents.length > 0 ? JSON.stringify(documents) : null,
-        monthlySalary: monthlySalary ? parseInt(monthlySalary) : null,
-        yearlyLeave: yearlyLeave ? parseInt(yearlyLeave) : null,
-        created_by,
-        IsVisible: IsVisible ? JSON.parse(IsVisible) : true,
-      },
+    const query = `
+      INSERT INTO Faculty (
+        faculty_name, qualification, designation, profilePicUrl, documents, 
+        monthlySalary, yearlyLeave, created_by, created_on, IsVisible
+      )
+      OUTPUT INSERTED.*
+      VALUES (
+        @facultyName, @qualification, @designation, @profilePicUrl, @documents,
+        @monthlySalary, @yearlyLeave, @createdBy, GETDATE(), @isVisible
+      )
+    `;
+
+    const result = await executeQuery(query, {
+      facultyName: { type: sql.NVarChar, value: faculty_name },
+      qualification: { type: sql.NVarChar, value: qualification },
+      designation: { type: sql.NVarChar, value: designation },
+      profilePicUrl: { type: sql.NVarChar, value: profilePicUrl },
+      documents: { type: sql.NVarChar, value: documents.length > 0 ? JSON.stringify(documents) : null },
+      monthlySalary: { type: sql.Int, value: monthlySalary ? parseInt(monthlySalary) : null },
+      yearlyLeave: { type: sql.Int, value: yearlyLeave ? parseInt(yearlyLeave) : null },
+      createdBy: { type: sql.NVarChar, value: created_by },
+      isVisible: { type: sql.Bit, value: IsVisible !== undefined ? JSON.parse(IsVisible) : true },
     });
 
+    console.log('Faculty added:', result.recordset[0].faculty_name);
     res.status(201).json({ 
-      message: 'Faculty added successfully!', 
-      faculty: newFaculty 
+      success: true, 
+      message: 'Faculty added successfully', 
+      faculty: result.recordset[0] 
     });
-  } catch (error) {
-    console.error('Error adding faculty:', error);
-    res.status(500).json({ message: 'Error adding faculty', error: error.message });
+  } catch (err) {
+    console.error('Add Faculty Error:', err);
+    res.status(500).json({ success: false, message: 'Error adding faculty', error: err.message });
   }
 });
 
+// 3. PUT Update Faculty
 router.put('/faculty/update/:id', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
@@ -104,25 +127,32 @@ router.put('/faculty/update/:id', upload.fields([
       modify_by, 
       IsVisible,
       documentTitles,
-      existingDocuments // Add this to track existing documents
+      existingDocuments
     } = req.body;
 
-    const existingFaculty = await prisma.faculty.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Faculty WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingFaculty) {
-      return res.status(404).json({ message: 'Faculty not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
     }
 
-    let profilePicUrl = existingFaculty.profilePicUrl;
-    let documents = existingDocuments ? JSON.parse(existingDocuments) : []; // Start with existing documents
+    let profilePicUrl = existing.recordset[0].profilePicUrl;
+    let documents = existingDocuments ? JSON.parse(existingDocuments) : [];
 
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
-      const uploadResult = await uploadToCloudinary(req.files.profilePic[0].buffer, 'faculties');
-      if (!uploadResult || !uploadResult.secure_url) {
-        return res.status(500).json({ message: 'Failed to upload profile picture to Cloudinary' });
-      }
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'auto', folder: 'faculties' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(req.files.profilePic[0].buffer);
+      });
       profilePicUrl = uploadResult.secure_url;
     }
 
@@ -131,86 +161,129 @@ router.put('/faculty/update/:id', upload.fields([
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
-        const uploadResult = await uploadToCloudinary(file.buffer, 'faculties');
-        if (!uploadResult || !uploadResult.secure_url) {
-          return res.status(500).json({ message: `Failed to upload document ${file.originalname} to Cloudinary` });
-        }
+        const uploadResult = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { resource_type: 'auto', folder: 'faculties' },
+            (error, result) => {
+              if (error) return reject(error);
+              resolve(result);
+            }
+          );
+          stream.end(file.buffer);
+        });
         const title = titles[i] || `Untitled Document ${i + 1}`;
         documents.push({ title, url: uploadResult.secure_url });
       }
     }
 
-    const updatedFaculty = await prisma.faculty.update({
-      where: { id: parseInt(id) },
-      data: {
-        faculty_name,
-        qualification,
-        designation,
-        profilePicUrl,
-        documents: documents.length > 0 ? JSON.stringify(documents) : null,
-        monthlySalary: monthlySalary ? parseInt(monthlySalary) : null,
-        yearlyLeave: yearlyLeave ? parseInt(yearlyLeave) : null,
-        modify_by,
-        modify_on: new Date(),
-        IsVisible: IsVisible !== undefined ? JSON.parse(IsVisible) : existingFaculty.IsVisible,
-      },
+    const query = `
+      UPDATE Faculty
+      SET 
+        faculty_name = @facultyName,
+        qualification = @qualification,
+        designation = @designation,
+        profilePicUrl = @profilePicUrl,
+        documents = @documents,
+        monthlySalary = @monthlySalary,
+        yearlyLeave = @yearlyLeave,
+        modify_by = @modifyBy,
+        modify_on = GETDATE(),
+        IsVisible = @isVisible
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
+
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      facultyName: { type: sql.NVarChar, value: faculty_name || existing.recordset[0].faculty_name },
+      qualification: { type: sql.NVarChar, value: qualification || existing.recordset[0].qualification },
+      designation: { type: sql.NVarChar, value: designation || existing.recordset[0].designation },
+      profilePicUrl: { type: sql.NVarChar, value: profilePicUrl },
+      documents: { type: sql.NVarChar, value: documents.length > 0 ? JSON.stringify(documents) : null },
+      monthlySalary: { type: sql.Int, value: monthlySalary ? parseInt(monthlySalary) : existing.recordset[0].monthlySalary },
+      yearlyLeave: { type: sql.Int, value: yearlyLeave ? parseInt(yearlyLeave) : existing.recordset[0].yearlyLeave },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
+      isVisible: { type: sql.Bit, value: IsVisible !== undefined ? JSON.parse(IsVisible) : existing.recordset[0].IsVisible },
     });
 
-    res.status(200).json({ message: 'Faculty updated successfully!', faculty: updatedFaculty });
-  } catch (error) {
-    console.error('Error updating faculty:', error);
-    res.status(500).json({ message: 'Error updating faculty', error: error.message });
+    console.log('Faculty updated:', result.recordset[0].faculty_name);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Faculty updated successfully', 
+      faculty: result.recordset[0] 
+    });
+  } catch (err) {
+    console.error('Update Faculty Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating faculty', error: err.message });
   }
 });
 
+// 4. DELETE Faculty
 router.delete('/faculty/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const existingFaculty = await prisma.faculty.findUnique({
-      where: { id: parseInt(id) },
-    });
 
-    if (!existingFaculty) {
-      return res.status(404).json({ message: 'Faculty not found.' });
+    const result = await executeQuery(
+      `SELECT * FROM Faculty WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
     }
 
-    await prisma.faculty.delete({
-      where: { id: parseInt(id) },
-    });
+    await executeQuery(
+      `DELETE FROM Faculty WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    res.status(200).json({ message: 'Faculty deleted successfully.' });
-  } catch (error) {
-    console.error('Error deleting faculty:', error);
-    res.status(500).json({ message: 'Error deleting faculty.', error: error.message });
+    console.log('Faculty deleted:', result.recordset[0].faculty_name);
+    res.status(200).json({ success: true, message: 'Faculty deleted successfully' });
+  } catch (err) {
+    console.error('Delete Faculty Error:', err);
+    res.status(500).json({ success: false, message: 'Error deleting faculty', error: err.message });
   }
 });
 
+// 5. PUT Toggle Faculty Visibility
 router.put('/faculty/toggle-visibility/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
 
-    const existingFaculty = await prisma.faculty.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Faculty WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingFaculty) {
-      return res.status(404).json({ message: 'Faculty not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
     }
 
-    const updatedFaculty = await prisma.faculty.update({
-      where: { id: parseInt(id) },
-      data: {
-        IsVisible: !existingFaculty.IsVisible,
-        modify_by,
-        modify_on: new Date(),
-      },
+    const query = `
+      UPDATE Faculty
+      SET IsVisible = @isVisible,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
+
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      isVisible: { type: sql.Bit, value: !existing.recordset[0].IsVisible },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ message: 'Faculty visibility updated successfully!', faculty: updatedFaculty });
-  } catch (error) {
-    console.error('Error updating faculty visibility:', error);
-    res.status(500).json({ message: 'Error updating faculty visibility', error: error.message });
+    console.log('Faculty visibility toggled:', result.recordset[0].faculty_name);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Faculty visibility updated successfully', 
+      faculty: result.recordset[0] 
+    });
+  } catch (err) {
+    console.error('Toggle Visibility Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating faculty visibility', error: err.message });
   }
 });
 

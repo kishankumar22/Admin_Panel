@@ -5,7 +5,8 @@ const dbConfig = {
   user: 'kishankk',
   password: 'Kishan',
   server: 'localhost',
-  database: 'JKIOP',
+  database: 'jkconsultancyadmindb',
+  
   options: {
     trustServerCertificate: true,
     enableArithAbort: true,

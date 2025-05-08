@@ -1,165 +1,206 @@
 const express = require('express');
 const multer = require('multer');
-const uploadToCloudinary = require('../utils/cloudinaryUpload');
-const { PrismaClient } = require('@prisma/client');
+const cloudinary = require('../config/cloudinaryConfig');
+const { sql, executeQuery } = require('../config/db');
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Configure Multer for in-memory file storage
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Fetch all galleries
+// 1. GET All Galleries
 router.get('/gallery', async (req, res) => {
   try {
-    const galleries = await prisma.gallery.findMany({
-      orderBy: {
-        galleryPosition: 'asc',
-      },
-    });
-    res.status(200).json(galleries);
-  } catch (error) {
-    console.error('Error fetching galleries:', error);
-    res.status(500).json({ message: 'Error fetching galleries', error });
+    const result = await executeQuery('SELECT * FROM Gallery ORDER BY galleryPosition ASC');
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Fetch Error:', err);
+    res.status(500).json({ success: false, message: 'Error fetching galleries' });
   }
 });
 
-// Upload gallery
+// 2. POST Upload Gallery
 router.post('/gallery/upload', upload.single('file'), async (req, res) => {
   try {
     const { galleryName, created_by, galleryPosition } = req.body;
     const file = req.file;
 
     if (!file || !galleryName || !created_by || galleryPosition === undefined) {
-      return res.status(400).json({ message: 'File, gallery name, created_by, and gallery position are required.' });
+      return res.status(400).json({ success: false, message: 'File, gallery name, created_by, and gallery position are required' });
     }
 
-    if (parseInt(galleryPosition) < 1) {
-      return res.status(400).json({ message: 'Gallery position must be 1 or greater.' });
+    const position = parseInt(galleryPosition);
+    if (position < 1) {
+      return res.status(400).json({ success: false, message: 'Gallery position must be 1 or greater' });
     }
 
-    const uploadResult = await uploadToCloudinary(file.buffer, 'galleries');
-
-    const newGallery = await prisma.gallery.create({
-      data: {
-        galleryName,
-        galleryUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
-        galleryPosition: parseInt(galleryPosition),
-        created_by,
-      },
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { resource_type: 'auto', folder: 'galleries' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        }
+      );
+      stream.end(file.buffer);
     });
 
-    res.status(201).json({ message: 'Gallery uploaded successfully!', gallery: newGallery });
-  } catch (error) {
-    console.error('Error uploading gallery:', error);
-    res.status(500).json({ message: 'Error uploading gallery', error });
+    const query = `
+      INSERT INTO Gallery (galleryName, galleryUrl, publicId, galleryPosition, created_by, created_on, IsVisible)
+      OUTPUT INSERTED.*
+      VALUES (@galleryName, @galleryUrl, @publicId, @galleryPosition, @createdBy, GETDATE(), 1)
+    `;
+
+    const result = await executeQuery(query, {
+      galleryName: { type: sql.NVarChar, value: galleryName },
+      galleryUrl: { type: sql.NVarChar, value: uploadResult.secure_url },
+      publicId: { type: sql.NVarChar, value: uploadResult.public_id },
+      galleryPosition: { type: sql.Int, value: position },
+      createdBy: { type: sql.NVarChar, value: created_by },
+    });
+
+    res.status(201).json({ success: true, message: 'Gallery uploaded successfully', gallery: result.recordset[0] });
+  } catch (err) {
+    console.error('Upload Error:', err);
+    res.status(500).json({ success: false, message: 'Error uploading gallery' });
   }
 });
 
-// Update gallery
+// 3. PUT Update Gallery
 router.put('/gallery/update/:id', upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     const { galleryName, modify_by, galleryPosition } = req.body;
     const file = req.file;
 
-    const existingGallery = await prisma.gallery.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Gallery WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingGallery) {
-      return res.status(404).json({ message: 'Gallery not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Gallery not found' });
     }
 
-    let galleryUrl = existingGallery.galleryUrl;
+    let galleryUrl = existing.recordset[0].galleryUrl;
+    let publicId = existing.recordset[0].publicId;
 
     if (file) {
-      const uploadResult = await uploadToCloudinary(file.buffer, 'galleries');
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'auto', folder: 'galleries' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+
       galleryUrl = uploadResult.secure_url;
-      await cloudinary.uploader.destroy(existingGallery.publicId);
+      publicId = uploadResult.public_id;
+
+      if (existing.recordset[0].publicId) {
+        await cloudinary.uploader.destroy(existing.recordset[0].publicId);
+      }
     }
 
-    const updateData = {
-      ...(galleryName && { galleryName }),
-      ...(galleryPosition && { galleryPosition: parseInt(galleryPosition) }),
-      ...(file && { galleryUrl }),
-      modify_by,
-      modify_on: new Date(),
-    };
+    const query = `
+      UPDATE Gallery
+      SET galleryName = @galleryName,
+          galleryUrl = @galleryUrl,
+          publicId = @publicId,
+          galleryPosition = @galleryPosition,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
 
-    const updatedGallery = await prisma.gallery.update({
-      where: { id: parseInt(id) },
-      data: updateData,
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      galleryName: { type: sql.NVarChar, value: galleryName || existing.recordset[0].galleryName },
+      galleryUrl: { type: sql.NVarChar, value: galleryUrl },
+      publicId: { type: sql.NVarChar, value: publicId },
+      galleryPosition: { type: sql.Int, value: galleryPosition ? parseInt(galleryPosition) : existing.recordset[0].galleryPosition },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ message: 'Gallery updated successfully!', gallery: updatedGallery });
-  } catch (error) {
-    console.error('Error updating gallery:', error);
-    res.status(500).json({ message: 'Error updating gallery', error });
+    res.status(200).json({ success: true, message: 'Gallery updated successfully', gallery: result.recordset[0] });
+  } catch (err) {
+    console.error('Update Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating gallery' });
   }
 });
-router.delete('/gallery/delete/:id', async (req, res) => {
-    try {
-      const { id } = req.params;
-      console.log('Deleting gallery with ID:', id); // Debugging
-  
-      const existingGallery = await prisma.gallery.findUnique({
-        where: { id: parseInt(id) },
-      });
-  
-      if (!existingGallery) {
-        return res.status(404).json({ message: 'Gallery not found.' });
-      }
-  
-      // Delete image from Cloudinary
-      try {
-        await cloudinary.uploader.destroy(existingGallery.publicId);
-      } catch (cloudinaryError) {
-        console.error('Error deleting image from Cloudinary:', cloudinaryError);
-        // Optionally, proceed with deleting the database entry even if Cloudinary deletion fails
-      }
-  
-      // Delete gallery from database
-      await prisma.gallery.delete({
-        where: { id: parseInt(id) },
-      });
-  
-      res.status(200).json({ message: 'Gallery deleted successfully.' });
-    } catch (error) {
-      console.error('Error deleting gallery:', error);
-      res.status(500).json({ message: 'Error deleting gallery.', error });
-    }
-  });
 
-// Toggle gallery visibility
+// 4. DELETE Gallery
+router.delete('/gallery/delete/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await executeQuery(
+      `SELECT * FROM Gallery WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Gallery not found' });
+    }
+
+    const publicId = result.recordset[0].publicId;
+
+    if (publicId) {
+      try {
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryErr) {
+        console.error('Cloudinary Delete Error:', cloudinaryErr);
+      }
+    }
+
+    await executeQuery(
+      `DELETE FROM Gallery WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
+
+    res.status(200).json({ success: true, message: 'Gallery deleted successfully' });
+  } catch (err) {
+    console.error('Delete Error:', err);
+    res.status(500).json({ success: false, message: 'Error deleting gallery' });
+  }
+});
+
+// 5. PUT Toggle Gallery Visibility
 router.put('/gallery/toggle-visibility/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
 
-    const existingGallery = await prisma.gallery.findUnique({
-      where: { id: parseInt(id) },
-    });
+    const existing = await executeQuery(
+      `SELECT * FROM Gallery WHERE id = @id`,
+      { id: { type: sql.Int, value: parseInt(id) } }
+    );
 
-    if (!existingGallery) {
-      return res.status(404).json({ message: 'Gallery not found.' });
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Gallery not found' });
     }
 
-    const updatedGallery = await prisma.gallery.update({
-      where: { id: parseInt(id) },
-      data: {
-        IsVisible: !existingGallery.IsVisible,
-        modify_by,
-        modify_on: new Date(),
-      },
+    const query = `
+      UPDATE Gallery
+      SET IsVisible = @isVisible,
+          modify_by = @modifyBy,
+          modify_on = GETDATE()
+      OUTPUT INSERTED.*
+      WHERE id = @id
+    `;
+
+    const result = await executeQuery(query, {
+      id: { type: sql.Int, value: parseInt(id) },
+      isVisible: { type: sql.Bit, value: !existing.recordset[0].IsVisible },
+      modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    res.status(200).json({ message: 'Gallery visibility updated successfully!', gallery: updatedGallery });
-  } catch (error) {
-    console.error('Error updating gallery visibility:', error);
-    res.status(500).json({ message: 'Error updating gallery visibility', error });
+    res.status(200).json({ success: true, message: 'Gallery visibility updated successfully', gallery: result.recordset[0] });
+  } catch (err) {
+    console.error('Toggle Visibility Error:', err);
+    res.status(500).json({ success: false, message: 'Error updating gallery visibility' });
   }
 });
 
