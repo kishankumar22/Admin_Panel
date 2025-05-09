@@ -79,6 +79,7 @@ app.use('/api',paymentHandoverRoutes)
 // }); 
 // Start the server
 app.listen(PORT,  () => {
-    console.log(`Server running on http://:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT}/api/banners`);
 });
 // app.listen(PORT, HOST, () => console.log(`Server running on http://${HOST}:${PORT}`));

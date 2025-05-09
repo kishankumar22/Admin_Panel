@@ -6,7 +6,7 @@ const dbConfig = {
   password: 'Kishan',
   server: 'localhost',
   database: 'jkconsultancyadmindb',
-  
+  port: 1433, // default SQL Server port
   options: {
     trustServerCertificate: true,
     enableArithAbort: true,

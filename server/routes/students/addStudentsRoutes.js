@@ -2,9 +2,9 @@ const express = require('express');
 const multer = require('multer');
 const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const bcrypt = require('bcrypt');
-const PDFDocument = require('pdfkit');
-const { sql, executeQuery } = require('../../config/db');
-
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+const PDFDocument = require('pdfkit');const { sql, poolConnect, executeQuery } = require('../../config/db'); 
 const router = express.Router();
 const path = require('path');
 // Configure Multer for in-memory storage
@@ -46,346 +46,700 @@ router.get('/colleges', async (req, res) => {
   });
 
 // POST /students - Create a new student with academic details and EMI details
-// POST /students - Create a new student with academic details and EMI details
-router.post('/students', upload.fields([
-  { name: 'StudentImage' },
-  { name: 'CasteCertificate' },
-  { name: 'TenthMarks' },
-  { name: 'TwelfthMarks' },
-  { name: 'Residential' },
-  { name: 'Income' }
-]), async (req, res) => {
-  try {
-    const {
-      RollNumber, FName, LName, DOB, Gender, MobileNumber, AlternateNumber,
-      EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
-      CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
-      AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
-      RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI, isLateral
-    } = req.body;
-
-    console.log("Request Body:", req.body);
-
-    // Parse EMI details
-    const emiDetails = [];
-    let totalEMIAmount = 0;
-    if (PaymentMode === 'EMI' && NumberOfEMI) {
-      let index = 0;
-      while (req.body[`emiDetails[${index}].emiNumber`]) {
-        const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || (index + 1);
-        const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
-        const date = req.body[`emiDetails[${index}].date`];
-
-        console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
-
-        if (amount > 0 && date) {
-          emiDetails.push({
-            emiNumber,
-            amount,
-            dueDate: new Date(date),
-            createdBy: CreatedBy,
-          });
-          totalEMIAmount += amount;
-        }
-        index++;
-      }
-    }
-
-    console.log("Parsed EMI Details:", emiDetails);
-
-    // Validate CollegeId
-    if (!CollegeId || CollegeId === '') {
-      return res.status(400).json({ success: false, message: 'CollegeId is required' });
-    }
-    const collegeIdNum = parseInt(CollegeId);
-    if (isNaN(collegeIdNum)) {
-      return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
-    }
-    const collegeQuery = `
-      SELECT id
-      FROM College
-      WHERE id = @collegeId
-    `;
-    const collegeParams = { collegeId: { type: sql.Int, value: collegeIdNum } };
-    const collegeResult = await executeQuery(collegeQuery, collegeParams);
-    if (!collegeResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
-    }
-
-    // Validate CourseId
-    if (!CourseId || CourseId === '') {
-      return res.status(400).json({ success: false, message: 'CourseId is required' });
-    }
-    const courseIdNum = parseInt(CourseId);
-    if (isNaN(courseIdNum)) {
-      return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
-    }
-    const courseQuery = `
-      SELECT id
-      FROM Course
-      WHERE id = @courseId
-    `;
-    const courseParams = { courseId: { type: sql.Int, value: courseIdNum } };
-    const courseResult = await executeQuery(courseQuery, courseParams);
-    if (!courseResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
-    }
-
-    // Check for duplicate RollNumber
-    const rollNumberQuery = `
-      SELECT id
-      FROM Student
-      WHERE rollNumber = @rollNumber
-    `;
-    const rollNumberParams = { rollNumber: { type: sql.NVarChar, value: RollNumber } };
-    const rollNumberResult = await executeQuery(rollNumberQuery, rollNumberParams);
-    if (rollNumberResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
-    }
-
-    // Check for duplicate EmailId
-    const emailQuery = `
-      SELECT id
-      FROM Student
-      WHERE email = @email
-    `;
-    const emailParams = { email: { type: sql.NVarChar, value: EmailId } };
-    const emailResult = await executeQuery(emailQuery, emailParams);
-    if (emailResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Email ID already exists.' });
-    }
-
-    // Validate admin amount + fees amount against EMI sum
-    const adminAmount = parseFloat(FineAmount) || 0;
-    const feesAmount = parseFloat(RefundAmount) || 0;
-    const totalAmount = adminAmount + feesAmount;
-    
-    if (PaymentMode === 'EMI' && totalEMIAmount > 0 && totalEMIAmount > totalAmount) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `The sum of total EMI (${totalEMIAmount}) is greater than sum of admin (${adminAmount}) and fees amount (${feesAmount})`
-      });
-    }
-
-    // Function to generate stdCollId base (without student ID)
-    const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
-      // Fetch course details
-      const courseQuery = `
-        SELECT courseName
-        FROM Course
-        WHERE id = @courseId
-      `;
-      const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
-      const courseResult = await executeQuery(courseQuery, courseParams);
-      const course = courseResult.recordset[0];
-
-      // Fetch college details
-      const collegeQuery = `
-        SELECT collegeName
-        FROM College
-        WHERE id = @collegeId
-      `;
-      const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
-      const collegeResult = await executeQuery(collegeQuery, collegeParams);
-      const college = collegeResult.recordset[0];
-
-      // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
-      const courseName = course?.courseName || '';
-      const cleanedCourseName = courseName.replace(/[\s.]/g, ''); // Remove spaces and dots
-      const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase(); // e.g., "BPH" or "DPH"
-
-      // Step 2: Get college prefix (remove special characters and abbreviate)
-      let collegeName = college?.collegeName || '';
-      collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, ''); // Remove special characters
-      const collegeWords = collegeName.split(/(?=[A-Z])/);
-      const collegePrefix = collegeWords.length > 1
-        ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
-        : collegeName.substring(0, 5).toUpperCase(); // Limit to 5 chars if single word
-
-      // Step 3: Get year suffix from admission date
-      const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
-      const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
-
-      // Step 4: Combine parts (without student ID)
-      return `${coursePrefix}/${collegePrefix}/${yearSuffix}`; // e.g., "BPH/JKIOP/2526"
-    };
-
-    // Generate stdCollId base
-    const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
-
-    // Upload documents to Cloudinary
-    const documentsData = [];
-    const uploadFile = async (fieldName) => {
-      if (req.files[fieldName]?.[0]) {
-        const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
-        if (uploadedFile?.public_id && uploadedFile?.url) {
-          documentsData.push({
-            documentType: fieldName,
-            publicId: uploadedFile.public_id,
-            fileUrl: uploadedFile.url,
-            fileName: req.files[fieldName][0].originalname,
-            createdBy: CreatedBy,
-          });
-        }
-      }
-    };
-    await Promise.all([
-      uploadFile('StudentImage'),
-      uploadFile('CasteCertificate'),
-      uploadFile('TenthMarks'),
-      uploadFile('TwelfthMarks'),
-      uploadFile('Residential'),
-      uploadFile('Income')
-    ]);
-
-    // Create student, academic details, documents, and EMI details in a transaction
-    let newStudent;
-    const pool = await sql.connect();
-    const transaction = new sql.Transaction(pool);
+router.post(
+  '/students',
+  upload.fields([
+    { name: 'StudentImage' },
+    { name: 'CasteCertificate' },
+    { name: 'TenthMarks' },
+    { name: 'TwelfthMarks' },
+    { name: 'Residential' },
+    { name: 'Income' },
+  ]),
+  async (req, res) => {
     try {
-      await transaction.begin();
-      const request = new sql.Request(transaction);
+      const {
+        RollNumber,
+        FName,
+        LName,
+        DOB,
+        Gender,
+        MobileNumber,
+        AlternateNumber,
+        EmailId,
+        FatherName,
+        FatherMobileNumber,
+        MotherName,
+        Address,
+        City,
+        State,
+        Pincode,
+        CourseId,
+        CourseYear,
+        Category,
+        LedgerNumber,
+        CollegeId,
+        AdmissionMode,
+        AdmissionDate,
+        IsDiscontinue,
+        DiscontinueOn,
+        DiscontinueBy,
+        FineAmount,
+        RefundAmount,
+        CreatedBy,
+        SessionYear,
+        PaymentMode,
+        NumberOfEMI,
+        isLateral,
+      } = req.body;
 
-      // Create Student
-      const studentImageUrl = documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null;
-      const studentQuery = `
-        INSERT INTO Student (
-          stdCollId, rollNumber, fName, lName, dob, gender, mobileNumber, alternateNumber,
-          email, fatherName, fatherMobile, motherName, address, city, state, pincode,
-          admissionMode, collegeId, courseId, admissionDate, studentImage, category,
-          isDiscontinue, isLateral, discontinueOn, discontinueBy, createdBy, createdOn, status
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @stdCollId, @rollNumber, @fName, @lName, @dob, @gender, @mobileNumber, @alternateNumber,
-          @email, @fatherName, @fatherMobile, @motherName, @address, @city, @state, @pincode,
-          @admissionMode, @collegeId, @courseId, @admissionDate, @studentImage, @category,
-          @isDiscontinue, @isLateral, @discontinueOn, @discontinueBy, @createdBy, @createdOn, @status
-        )
-      `;
-      request.input('stdCollId', sql.NVarChar, stdCollIdBase); // Temporary
-      request.input('rollNumber', sql.NVarChar, RollNumber);
-      request.input('fName', sql.NVarChar, FName);
-      request.input('lName', sql.NVarChar, LName || null);
-      request.input('dob', sql.Date, new Date(DOB));
-      request.input('gender', sql.NVarChar, Gender);
-      request.input('mobileNumber', sql.NVarChar, MobileNumber);
-      request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
-      request.input('email', sql.NVarChar, EmailId);
-      request.input('fatherName', sql.NVarChar, FatherName);
-      request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
-      request.input('motherName', sql.NVarChar, MotherName);
-      request.input('address', sql.NVarChar, Address);
-      request.input('city', sql.NVarChar, City);
-      request.input('state', sql.NVarChar, State);
-      request.input('pincode', sql.NVarChar, Pincode);
-      request.input('admissionMode', sql.NVarChar, AdmissionMode);
-      request.input('collegeId', sql.Int, collegeIdNum);
-      request.input('courseId', sql.Int, courseIdNum);
-      request.input('admissionDate', sql.Date, new Date(AdmissionDate));
-      request.input('studentImage', sql.NVarChar, studentImageUrl);
-      request.input('category', sql.NVarChar, Category);
-      request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
-      request.input('isLateral', sql.Bit, isLateral === 'true');
-      request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
-      request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
-      request.input('createdBy', sql.NVarChar, CreatedBy);
-      request.input('createdOn', sql.DateTime, new Date());
-      request.input('status', sql.Bit, true);
+      console.log('Request Body:', req.body);
 
-      const studentResult = await request.query(studentQuery);
-      const student = studentResult.recordset[0];
+      // Parse EMI details
+      const emiDetails = [];
+      let totalEMIAmount = 0;
+      if (PaymentMode === 'EMI' && NumberOfEMI) {
+        let index = 0;
+        while (req.body[`emiDetails[${index}].emiNumber`]) {
+          const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || index + 1;
+          const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
+          const date = req.body[`emiDetails[${index}].date`];
 
-      // Update stdCollId with student ID
-      const finalStdCollId = `${stdCollIdBase}/${student.id}`;
-      const updateStdCollIdQuery = `
-        UPDATE Student
-        SET stdCollId = @finalStdCollId
-        WHERE id = @studentId
-        SELECT *
-        FROM Student
-        WHERE id = @studentId
-      `;
-      request.input('finalStdCollId', sql.NVarChar, finalStdCollId);
-      request.input('studentId', sql.Int, student.id);
-      const updatedStudentResult = await request.query(updateStdCollIdQuery);
-      newStudent = updatedStudentResult.recordset[0];
+          console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
 
-      // Create StudentAcademicDetails
-      const academicQuery = `
-        INSERT INTO StudentAcademicDetails (
-          studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
-          ledgerNumber, courseYear, createdBy, createdOn
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
-          @ledgerNumber, @courseYear, @createdBy, @createdOn
-        )
-      `;
-      request.input('sessionYear', sql.NVarChar, SessionYear);
-      request.input('paymentMode', sql.NVarChar, PaymentMode);
-      request.input('adminAmount', sql.Decimal(10, 2), adminAmount);
-      request.input('feesAmount', sql.Decimal(10, 2), feesAmount);
-      request.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
-      request.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
-      request.input('courseYear', sql.NVarChar, CourseYear || null);
-      request.input('createdBy', sql.NVarChar, CreatedBy);
-      request.input('createdOn', sql.DateTime, new Date());
+          if (amount > 0 && date) {
+            emiDetails.push({
+              emiNumber,
+              amount,
+              dueDate: new Date(date),
+              createdBy: CreatedBy,
+            });
+            totalEMIAmount += amount;
+          }
+          index++;
+        }
+      }
 
-      const academicResult = await request.query(academicQuery);
-      const academicDetails = academicResult.recordset[0];
+      console.log('Parsed EMI Details:', emiDetails);
 
-      // Create Documents
-      for (const doc of documentsData) {
-        const documentQuery = `
-          INSERT INTO Documents (
-            studentId, documentType, publicId, fileUrl, fileName, createdBy, createdOn
+      // Validate CollegeId
+      if (!CollegeId || CollegeId === '') {
+        return res.status(400).json({ success: false, message: 'CollegeId is required' });
+      }
+      const collegeIdNum = parseInt(CollegeId);
+      if (isNaN(collegeIdNum)) {
+        return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
+      }
+      const collegeQuery = `SELECT id FROM College WHERE id = @collegeId`;
+      const collegeParams = { collegeId: { type: sql.Int, value: collegeIdNum } };
+      const collegeResult = await executeQuery(collegeQuery, collegeParams);
+      if (!collegeResult.recordset[0]) {
+        return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
+      }
+
+      // Validate CourseId
+      if (!CourseId || CourseId === '') {
+        return res.status(400).json({ success: false, message: 'CourseId is required' });
+      }
+      const courseIdNum = parseInt(CourseId);
+      if (isNaN(courseIdNum)) {
+        return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
+      }
+      const courseQuery = `SELECT id FROM Course WHERE id = @courseId`;
+      const courseParams = { courseId: { type: sql.Int, value: courseIdNum } };
+      const courseResult = await executeQuery(courseQuery, courseParams);
+      if (!courseResult.recordset[0]) {
+        return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
+      }
+
+      // Check for duplicate RollNumber
+      const rollQuery = `SELECT id FROM Student WHERE rollNumber = @rollNumber`;
+      const rollParams = { rollNumber: { type: sql.NVarChar, value: RollNumber } };
+      const rollResult = await executeQuery(rollQuery, rollParams);
+      if (rollResult.recordset[0]) {
+        return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
+      }
+
+      // Check for duplicate EmailId
+      const emailQuery = `SELECT id FROM Student WHERE email = @email`;
+      const emailParams = { email: { type: sql.NVarChar, value: EmailId } };
+      const emailResult = await executeQuery(emailQuery, emailParams);
+      if (emailResult.recordset[0]) {
+        return res.status(400).json({ success: false, message: 'Email ID already exists.' });
+      }
+
+      // Validate admin amount + fees amount against EMI sum
+      const adminAmount = parseFloat(FineAmount) || 0;
+      const feesAmount = parseFloat(RefundAmount) || 0;
+      const totalAmount = adminAmount + feesAmount;
+
+      if (PaymentMode === 'EMI' && totalEMIAmount > 0 && totalEMIAmount > totalAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `The sum of total EMI (${totalEMIAmount}) is greater than sum of admin (${adminAmount}) and fees amount (${feesAmount})`,
+        });
+      }
+
+      // Function to generate stdCollId base (without student ID)
+      const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
+        // Fetch course and college details
+        const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
+        const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
+        const courseResult = await executeQuery(courseQuery, courseParams);
+        const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
+        const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
+        const collegeResult = await executeQuery(collegeQuery, collegeParams);
+
+        const course = courseResult.recordset[0];
+        const college = collegeResult.recordset[0];
+
+        // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
+        const courseName = course?.courseName || '';
+        const cleanedCourseName = courseName.replace(/[\s.]/g, '');
+        const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
+
+        // Step 2: Get college prefix (remove special characters and abbreviate)
+        let collegeName = college?.collegeName || '';
+        collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
+        const collegeWords = collegeName.split(/(?=[A-Z])/);
+        const collegePrefix =
+          collegeWords.length > 1
+            ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
+            : collegeName.substring(0, 5).toUpperCase();
+
+        // Step 3: Get year suffix from admission date
+        const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
+        const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
+
+        // Step 4: Combine parts (without student ID)
+        return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
+      };
+
+      // Generate stdCollId base
+      const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
+
+      // Upload documents to Cloudinary
+      const documentsData = [];
+      const uploadFile = async fieldName => {
+        if (req.files[fieldName]?.[0]) {
+          const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
+          if (uploadedFile?.public_id && uploadedFile?.url) {
+            documentsData.push({
+              documentType: fieldName,
+              publicId: uploadedFile.public_id,
+              fileUrl: uploadedFile.url,
+              fileName: req.files[fieldName][0].originalname,
+              createdBy: CreatedBy,
+            });
+          }
+        }
+      };
+      await Promise.all([
+        uploadFile('StudentImage'),
+        uploadFile('CasteCertificate'),
+        uploadFile('TenthMarks'),
+        uploadFile('TwelfthMarks'),
+        uploadFile('Residential'),
+        uploadFile('Income'),
+      ]);
+
+      // Create student, academic details, documents, and EMI details
+      let newStudent;
+      const pool = await poolConnect; // Use the existing poolConnect
+      const transaction = new sql.Transaction(pool);
+      try {
+        await transaction.begin();
+
+        const request = new sql.Request(transaction);
+
+        // Create Student
+        const studentQuery = `
+          INSERT INTO Student (
+            stdCollId, rollNumber, fName, lName, dob, gender, mobileNumber, alternateNumber,
+            email, fatherName, fatherMobile, motherName, address, city, state, pincode,
+            admissionMode, collegeId, courseId, admissionDate, studentImage, category,
+            isDiscontinue, isLateral, discontinueOn, discontinueBy, createdBy, status
           )
+          OUTPUT INSERTED.*
           VALUES (
-            @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @createdOn
+            @stdCollId, @rollNumber, @fName, @lName, @dob, @gender, @mobileNumber, @alternateNumber,
+            @email, @fatherName, @fatherMobile, @motherName, @address, @city, @state, @pincode,
+            @admissionMode, @collegeId, @courseId, @admissionDate, @studentImage, @category,
+            @isDiscontinue, @isLateral, @discontinueOn, @discontinueBy, @createdBy, @status
           )
         `;
-        request.input('documentType', sql.NVarChar, doc.documentType);
-        request.input('publicId', sql.NVarChar, doc.publicId);
-        request.input('fileUrl', sql.NVarChar, doc.fileUrl);
-        request.input('fileName', sql.NVarChar, doc.fileName);
-        await request.query(documentQuery);
-      }
+        request.input('stdCollId', sql.NVarChar, stdCollIdBase);
+        request.input('rollNumber', sql.NVarChar, RollNumber);
+        request.input('fName', sql.NVarChar, FName);
+        request.input('lName', sql.NVarChar, LName || null);
+        request.input('dob', sql.Date, new Date(DOB));
+        request.input('gender', sql.NVarChar, Gender);
+        request.input('mobileNumber', sql.NVarChar, MobileNumber);
+        request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
+        request.input('email', sql.NVarChar, EmailId);
+        request.input('fatherName', sql.NVarChar, FatherName);
+        request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
+        request.input('motherName', sql.NVarChar, MotherName);
+        request.input('address', sql.NVarChar, Address);
+        request.input('city', sql.NVarChar, City);
+        request.input('state', sql.NVarChar, State);
+        request.input('pincode', sql.NVarChar, Pincode);
+        request.input('admissionMode', sql.NVarChar, AdmissionMode);
+        request.input('collegeId', sql.Int, collegeIdNum);
+        request.input('courseId', sql.Int, courseIdNum);
+        request.input('admissionDate', sql.Date, new Date(AdmissionDate));
+        request.input('studentImage', sql.NVarChar, documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null);
+        request.input('category', sql.NVarChar, Category);
+        request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
+        request.input('isLateral', sql.Bit, isLateral === 'true');
+        request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
+        request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
+        request.input('createdBy', sql.NVarChar, CreatedBy);
+        request.input('status', sql.Bit, true);
 
-      // Create EMI Details if applicable
-      if (PaymentMode === 'EMI' && emiDetails.length > 0) {
-        for (const emi of emiDetails) {
-          const emiQuery = `
-            INSERT INTO EMIDetails (
-              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn
+        const studentResult = await request.query(studentQuery);
+        const student = studentResult.recordset[0];
+
+        // Update stdCollId with student ID
+        const finalStdCollId = `${stdCollIdBase}/${student.id}`;
+        const updateStdCollIdQuery = `
+          UPDATE Student
+          SET stdCollId = @finalStdCollId
+          WHERE id = @studentId
+        `;
+        const updateStdCollIdRequest = new sql.Request(transaction);
+        updateStdCollIdRequest.input('finalStdCollId', sql.NVarChar, finalStdCollId);
+        updateStdCollIdRequest.input('studentId', sql.Int, student.id);
+        await updateStdCollIdRequest.query(updateStdCollIdQuery);
+
+        // Create StudentAcademicDetails
+        const academicQuery = `
+          INSERT INTO StudentAcademicDetails (
+            studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
+            ledgerNumber, courseYear, createdBy
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
+            @ledgerNumber, @courseYear, @createdBy
+          )
+        `;
+        const academicRequest = new sql.Request(transaction);
+        academicRequest.input('studentId', sql.Int, student.id);
+        academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
+        academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+        academicRequest.input('adminAmount', sql.Decimal(10, 2), adminAmount);
+        academicRequest.input('feesAmount', sql.Decimal(10, 2), feesAmount);
+        academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+        academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+        academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
+        academicRequest.input('createdBy', sql.NVarChar, CreatedBy);
+        const academicResult = await academicRequest.query(academicQuery);
+        const academicDetails = academicResult.recordset[0];
+
+        // Create Documents
+        for (const doc of documentsData) {
+          const docQuery = `
+            INSERT INTO Documents (
+              studentId, documentType, publicId, fileUrl, fileName, createdBy
             )
             VALUES (
-              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn
+              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy
             )
           `;
-          request.input('studentAcademicId', sql.Int, academicDetails.id);
-          request.input('emiNumber', sql.Int, emi.emiNumber);
-          request.input('amount', sql.Decimal(10, 2), emi.amount);
-          request.input('dueDate', sql.Date, emi.dueDate);
-          await request.query(emiQuery);
+          const docRequest = new sql.Request(transaction);
+          docRequest.input('studentId', sql.Int, student.id);
+          docRequest.input('documentType', sql.NVarChar, doc.documentType);
+          docRequest.input('publicId', sql.NVarChar, doc.publicId);
+          docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
+          docRequest.input('fileName', sql.NVarChar, doc.fileName);
+          docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
+          await docRequest.query(docQuery);
         }
+
+        // Create EMI Details if applicable
+        if (PaymentMode === 'EMI' && emiDetails.length > 0) {
+          for (const emi of emiDetails) {
+            const emiQuery = `
+              INSERT INTO EMIDetails (
+                studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy
+              )
+              VALUES (
+                @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy
+              )
+            `;
+            const emiRequest = new sql.Request(transaction);
+            emiRequest.input('studentId', sql.Int, student.id);
+            emiRequest.input('studentAcademicId', sql.Int, academicDetails.id);
+            emiRequest.input('emiNumber', sql.Int, emi.emiNumber);
+            emiRequest.input('amount', sql.Decimal(10, 2), emi.amount);
+            emiRequest.input('dueDate', sql.Date, emi.dueDate);
+            emiRequest.input('createdBy', sql.NVarChar, emi.createdBy);
+            await emiRequest.query(emiQuery);
+          }
+        }
+
+        newStudent = { ...student, stdCollId: finalStdCollId };
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      } finally {
+        // Do NOT close the global pool here; let it persist for other requests
       }
 
-      await transaction.commit();
+      res.status(201).json({ success: true, student: newStudent });
     } catch (error) {
-      await transaction.rollback();
-      throw error;
-    } finally {
-      await pool.close();
+      console.error('Erreur lors de la création de l\'étudiant:', error.stack);
+      res.status(500).json({ success: false, message: error.message });
     }
-
-    res.status(201).json({ success: true, student: newStudent });
-  } catch (error) {
-    console.error('Erreur lors de la création de l', error);
-    res.status(500).json({ success: false, message: error.message });
   }
-});
+);
+
+//EDIT STUDENT
+
+router.put(
+  '/students/:id',
+  upload.fields([
+    { name: 'StudentImage' },
+    { name: 'CasteCertificate' },
+    { name: 'TenthMarks' },
+    { name: 'TwelfthMarks' },
+    { name: 'Residential' },
+    { name: 'Income' },
+  ]),
+  async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const {
+        RollNumber,
+        FName,
+        LName,
+        DOB,
+        Gender,
+        MobileNumber,
+        AlternateNumber,
+        EmailId,
+        FatherName,
+        FatherMobileNumber,
+        MotherName,
+        Address,
+        City,
+        State,
+        Pincode,
+        CourseId,
+        CourseYear,
+        Category,
+        LedgerNumber,
+        CollegeId,
+        AdmissionMode,
+        AdmissionDate,
+        IsDiscontinue,
+        DiscontinueOn,
+        DiscontinueBy,
+        FineAmount,
+        RefundAmount,
+        ModifiedBy,
+        SessionYear,
+        PaymentMode,
+        NumberOfEMI,
+        emiDetails,
+      } = req.body;
+
+      // Fetch existing student
+      const existingQuery = `
+        SELECT s.*, sa.id AS saId, sa.sessionYear, sa.paymentMode, sa.adminAmount, sa.feesAmount, 
+               sa.numberOfEMI, sa.ledgerNumber, sa.courseYear
+        FROM Student s
+        LEFT JOIN StudentAcademicDetails sa ON s.id = sa.studentId
+        WHERE s.id = @studentId
+      `;
+      const existingParams = { studentId: { type: sql.Int, value: studentId } };
+      const existingResult = await executeQuery(existingQuery, existingParams);
+      const existingStudent = existingResult.recordset.find(row => row.id === studentId);
+
+      if (!existingStudent) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
+
+      // Check if academic detail with this CourseYear exists
+      const existingAcademicDetail = existingResult.recordset.find(
+        (detail) => detail.courseYear === CourseYear
+      );
+
+      // Fetch existing documents and EMI details
+      const docQuery = `SELECT * FROM Documents WHERE studentId = @studentId`;
+      const docResult = await executeQuery(docQuery, existingParams);
+      const existingDocs = docResult.recordset;
+
+      const emiQuery = `SELECT * FROM EMIDetails WHERE studentId = @studentId AND studentAcademicId = @academicId`;
+      const emiParams = {
+        studentId: { type: sql.Int, value: studentId },
+        academicId: { type: sql.Int, value: existingAcademicDetail?.saId || 0 }
+      };
+      const emiResult = await executeQuery(emiQuery, emiParams);
+      const existingEmiDetails = emiResult.recordset;
+
+      // Upload new documents to Cloudinary
+      const documentsData = [];
+      const uploadFile = async (fieldName) => {
+        if (req.files && req.files[fieldName]?.[0]) {
+          const oldDoc = existingDocs.find((doc) => doc.documentType === fieldName);
+          if (oldDoc) {
+            await deleteFromCloudinary(oldDoc.publicId);
+            const deleteDocQuery = `DELETE FROM Documents WHERE id = @docId`;
+            const deleteDocParams = { docId: { type: sql.Int, value: oldDoc.id } };
+            await executeQuery(deleteDocQuery, deleteDocParams);
+          }
+
+          const uploadedFile = await uploadToCloudinary(
+            req.files[fieldName][0].buffer,
+            `student_documents/${fieldName}`
+          );
+          if (uploadedFile?.public_id && uploadedFile?.url) {
+            documentsData.push({
+              documentType: fieldName,
+              publicId: uploadedFile.public_id,
+              fileUrl: uploadedFile.url,
+              fileName: req.files[fieldName][0].originalname,
+              createdBy: ModifiedBy,
+            });
+          }
+        }
+      };
+
+      await Promise.all([
+        uploadFile('StudentImage'),
+        uploadFile('CasteCertificate'),
+        uploadFile('TenthMarks'),
+        uploadFile('TwelfthMarks'),
+        uploadFile('Residential'),
+        uploadFile('Income'),
+      ]);
+
+      // Update student in a transaction
+      let updatedStudent;
+      const pool = await poolConnect; // Use the existing poolConnect
+      const transaction = new sql.Transaction(pool);
+      try {
+        await transaction.begin();
+
+        const request = new sql.Request(transaction);
+
+        // Update student basic details
+        const studentUpdateQuery = `
+          UPDATE Student
+          SET rollNumber = @rollNumber, fName = @fName, lName = @lName, dob = @dob, gender = @gender,
+              mobileNumber = @mobileNumber, alternateNumber = @alternateNumber, email = @email,
+              fatherName = @fatherName, fatherMobile = @fatherMobile, motherName = @motherName,
+              address = @address, city = @city, state = @state, pincode = @pincode,
+              admissionMode = @admissionMode, collegeId = @collegeId, courseId = @courseId,
+              admissionDate = @admissionDate, studentImage = @studentImage, category = @category,
+              isDiscontinue = @isDiscontinue, discontinueOn = @discontinueOn, discontinueBy = @discontinueBy,
+              modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
+          WHERE id = @studentId
+          SELECT *
+          FROM Student
+          WHERE id = @studentId
+        `;
+        request.input('rollNumber', sql.NVarChar, RollNumber);
+        request.input('fName', sql.NVarChar, FName);
+        request.input('lName', sql.NVarChar, LName || null);
+        request.input('dob', sql.Date, new Date(DOB));
+        request.input('gender', sql.NVarChar, Gender);
+        request.input('mobileNumber', sql.NVarChar, MobileNumber);
+        request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
+        request.input('email', sql.NVarChar, EmailId);
+        request.input('fatherName', sql.NVarChar, FatherName);
+        request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
+        request.input('motherName', sql.NVarChar, MotherName);
+        request.input('address', sql.NVarChar, Address);
+        request.input('city', sql.NVarChar, City);
+        request.input('state', sql.NVarChar, State);
+        request.input('pincode', sql.NVarChar, Pincode);
+        request.input('admissionMode', sql.NVarChar, AdmissionMode);
+        request.input('collegeId', sql.Int, parseInt(CollegeId));
+        request.input('courseId', sql.Int, parseInt(CourseId));
+        request.input('admissionDate', sql.Date, new Date(AdmissionDate));
+        request.input('studentImage', sql.NVarChar, documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl || existingStudent.studentImage);
+        request.input('category', sql.NVarChar, Category);
+        request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
+        request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
+        request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
+        request.input('modifiedBy', sql.NVarChar, ModifiedBy);
+        request.input('modifiedOn', sql.DateTime, new Date());
+        request.input('studentId', sql.Int, studentId);
+
+        const studentResult = await request.query(studentUpdateQuery);
+        updatedStudent = studentResult.recordset[0];
+
+        // Handle academic details
+        if (!existingAcademicDetail) {
+          // Create new academic detail
+          const academicInsertQuery = `
+            INSERT INTO StudentAcademicDetails (
+              studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
+              ledgerNumber, courseYear, createdBy, modifiedBy, modifiedOn
+            )
+            OUTPUT INSERTED.*
+            VALUES (
+              @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
+              @ledgerNumber, @courseYear, @createdBy, @modifiedBy, @modifiedOn
+            )
+          `;
+          const academicRequest = new sql.Request(transaction);
+          academicRequest.input('studentId', sql.Int, studentId);
+          academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
+          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
+          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
+          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+          academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
+          academicRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedOn', sql.DateTime, new Date());
+          const academicResult = await academicRequest.query(academicInsertQuery);
+          const newAcademicDetail = academicResult.recordset[0];
+
+          // Handle EMI details for new academic record
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            if (parsedEmiDetails.length > 0) {
+              for (const emi of parsedEmiDetails) {
+                const emiInsertQuery = `
+                  INSERT INTO EMIDetails (
+                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
+                    modifiedBy, modifiedOn
+                  )
+                  VALUES (
+                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
+                    @modifiedBy, @modifiedOn
+                  )
+                `;
+                const emiRequest = new sql.Request(transaction);
+                emiRequest.input('studentId', sql.Int, studentId);
+                emiRequest.input('studentAcademicId', sql.Int, newAcademicDetail.id);
+                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
+                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
+                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
+                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('createdOn', sql.DateTime, new Date());
+                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('modifiedOn', sql.DateTime, new Date());
+                await emiRequest.query(emiInsertQuery);
+              }
+            }
+          }
+        } else {
+          // Update existing academic details
+          const academicUpdateQuery = `
+            UPDATE StudentAcademicDetails
+            SET paymentMode = @paymentMode, adminAmount = @adminAmount, feesAmount = @feesAmount,
+                numberOfEMI = @numberOfEMI, ledgerNumber = @ledgerNumber, modifiedBy = @modifiedBy,
+                modifiedOn = @modifiedOn
+            WHERE id = @academicId
+          `;
+          const academicRequest = new sql.Request(transaction);
+          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
+          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
+          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
+          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
+          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
+          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          academicRequest.input('modifiedOn', sql.DateTime, new Date());
+          academicRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+          await academicRequest.query(academicUpdateQuery);
+
+          // Handle EMI details
+          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
+            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
+            // Delete existing EMI details
+            const deleteEmiQuery = `
+              DELETE FROM EMIDetails
+              WHERE studentAcademicId = @academicId
+            `;
+            const deleteEmiRequest = new sql.Request(transaction);
+            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+            await deleteEmiRequest.query(deleteEmiQuery);
+
+            if (parsedEmiDetails.length > 0) {
+              for (const emi of parsedEmiDetails) {
+                const emiInsertQuery = `
+                  INSERT INTO EMIDetails (
+                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
+                    modifiedBy, modifiedOn
+                  )
+                  VALUES (
+                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
+                    @modifiedBy, @modifiedOn
+                  )
+                `;
+                const emiRequest = new sql.Request(transaction);
+                emiRequest.input('studentId', sql.Int, studentId);
+                emiRequest.input('studentAcademicId', sql.Int, existingAcademicDetail.saId);
+                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
+                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
+                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
+                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('createdOn', sql.DateTime, new Date());
+                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+                emiRequest.input('modifiedOn', sql.DateTime, new Date());
+                await emiRequest.query(emiInsertQuery);
+              }
+            }
+          } else if (PaymentMode === 'One-Time') {
+            // Delete EMI details if switching to One-Time
+            const deleteEmiQuery = `
+              DELETE FROM EMIDetails
+              WHERE studentAcademicId = @academicId
+            `;
+            const deleteEmiRequest = new sql.Request(transaction);
+            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
+            await deleteEmiRequest.query(deleteEmiQuery);
+          }
+        }
+
+        // Create new documents
+        for (const doc of documentsData) {
+          const docInsertQuery = `
+            INSERT INTO Documents (
+              studentId, documentType, publicId, fileUrl, fileName, createdBy, modifiedBy, modifiedOn
+            )
+            VALUES (
+              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @modifiedBy, @modifiedOn
+            )
+          `;
+          const docRequest = new sql.Request(transaction);
+          docRequest.input('studentId', sql.Int, updatedStudent.id);
+          docRequest.input('documentType', sql.NVarChar, doc.documentType);
+          docRequest.input('publicId', sql.NVarChar, doc.publicId);
+          docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
+          docRequest.input('fileName', sql.NVarChar, doc.fileName);
+          docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
+          docRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
+          docRequest.input('modifiedOn', sql.DateTime, new Date());
+          await docRequest.query(docInsertQuery);
+        }
+
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      } finally {
+        // Do NOT close the global pool here; let it persist for other requests
+        // If you created a new pool, you would close it, but we're using poolConnect
+      }
+
+      res.status(200).json({ success: true, student: updatedStudent });
+    } catch (error) {
+      console.error('Error updating student:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+
 // GET all students with related data
 router.get('/students', async (req, res) => {
   try {
@@ -477,325 +831,6 @@ router.get('/students', async (req, res) => {
   }
 });
 
-
-
-router.post('/students', upload.fields([
-  { name: 'StudentImage' },
-  { name: 'CasteCertificate' },
-  { name: 'TenthMarks' },
-  { name: 'TwelfthMarks' },
-  { name: 'Residential' },
-  { name: 'Income' }
-]), async (req, res) => {
-  try {
-    const {
-      RollNumber, FName, LName, DOB, Gender, MobileNumber, AlternateNumber,
-      EmailId, FatherName, FatherMobileNumber, MotherName, Address, City, State, Pincode,
-      CourseId, CourseYear, Category, LedgerNumber, CollegeId, AdmissionMode,
-      AdmissionDate, IsDiscontinue, DiscontinueOn, DiscontinueBy, FineAmount,
-      RefundAmount, CreatedBy, SessionYear, PaymentMode, NumberOfEMI, isLateral
-    } = req.body;
-
-    console.log("Request Body:", req.body);
-
-    // Parse EMI details
-    const emiDetails = [];
-    let totalEMIAmount = 0;
-    if (PaymentMode === 'EMI' && NumberOfEMI) {
-      let index = 0;
-      while (req.body[`emiDetails[${index}].emiNumber`]) {
-        const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || (index + 1);
-        const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
-        const date = req.body[`emiDetails[${index}].date`];
-
-        console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
-
-        if (amount > 0 && date) {
-          emiDetails.push({
-            emiNumber,
-            amount,
-            dueDate: new Date(date),
-            createdBy: CreatedBy,
-          });
-          totalEMIAmount += amount;
-        }
-        index++;
-      }
-    }
-
-    console.log("Parsed EMI Details:", emiDetails);
-
-    // Validate CollegeId
-    if (!CollegeId || CollegeId === '') {
-      return res.status(400).json({ success: false, message: 'CollegeId is required' });
-    }
-    const collegeIdNum = parseInt(CollegeId);
-    if (isNaN(collegeIdNum)) {
-      return res.status(400).json({ success: false, message: 'CollegeId must be a valid number' });
-    }
-    const collegeQuery = `SELECT id FROM College WHERE id = @collegeId`;
-    const collegeParams = { collegeId: { type: sql.Int, value: collegeIdNum } };
-    const collegeResult = await executeQuery(collegeQuery, collegeParams);
-    if (!collegeResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Invalid CollegeId.' });
-    }
-
-    // Validate CourseId
-    if (!CourseId || CourseId === '') {
-      return res.status(400).json({ success: false, message: 'CourseId is required' });
-    }
-    const courseIdNum = parseInt(CourseId);
-    if (isNaN(courseIdNum)) {
-      return res.status(400).json({ success: false, message: 'CourseId must be a valid number' });
-    }
-    const courseQuery = `SELECT id FROM Course WHERE id = @courseId`;
-    const courseParams = { courseId: { type: sql.Int, value: courseIdNum } };
-    const courseResult = await executeQuery(courseQuery, courseParams);
-    if (!courseResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Invalid CourseId.' });
-    }
-
-    // Check for duplicate RollNumber
-    const rollQuery = `SELECT id FROM Student WHERE rollNumber = @rollNumber`;
-    const rollParams = { rollNumber: { type: sql.NVarChar, value: RollNumber } };
-    const rollResult = await executeQuery(rollQuery, rollParams);
-    if (rollResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Roll Number already exists.' });
-    }
-
-    // Check for duplicate EmailId
-    const emailQuery = `SELECT id FROM Student WHERE email = @email`;
-    const emailParams = { email: { type: sql.NVarChar, value: EmailId } };
-    const emailResult = await executeQuery(emailQuery, emailParams);
-    if (emailResult.recordset[0]) {
-      return res.status(400).json({ success: false, message: 'Email ID already exists.' });
-    }
-
-    // Validate admin amount + fees amount against EMI sum
-    const adminAmount = parseFloat(FineAmount) || 0;
-    const feesAmount = parseFloat(RefundAmount) || 0;
-    const totalAmount = adminAmount + feesAmount;
-    
-    if (PaymentMode === 'EMI' && totalEMIAmount > 0 && totalEMIAmount > totalAmount) {
-      return res.status(400).json({ 
-        success: false, 
-        message: `The sum of total EMI (${totalEMIAmount}) is greater than sum of admin (${adminAmount}) and fees amount (${feesAmount})`
-      });
-    }
-
-    // Function to generate stdCollId base (without student ID)
-    const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
-      // Fetch course and college details
-      const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
-      const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
-      const courseResult = await executeQuery(courseQuery, courseParams);
-      const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
-      const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
-      const collegeResult = await executeQuery(collegeQuery, collegeParams);
-
-      const course = courseResult.recordset[0];
-      const college = collegeResult.recordset[0];
-
-      // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
-      const courseName = course?.courseName || '';
-      const cleanedCourseName = courseName.replace(/[\s.]/g, '');
-      const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
-
-      // Step 2: Get college prefix (remove special characters and abbreviate)
-      let collegeName = college?.collegeName || '';
-      collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
-      const collegeWords = collegeName.split(/(?=[A-Z])/);
-      const collegePrefix = collegeWords.length > 1
-        ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
-        : collegeName.substring(0, 5).toUpperCase();
-
-      // Step 3: Get year suffix from admission date
-      const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
-      const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
-
-      // Step 4: Combine parts (without student ID)
-      return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
-    };
-
-    // Generate stdCollId base
-    const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
-
-    // Upload documents to Cloudinary
-    const documentsData = [];
-    const uploadFile = async (fieldName) => {
-      if (req.files[fieldName]?.[0]) {
-        const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
-        if (uploadedFile?.public_id && uploadedFile?.url) {
-          documentsData.push({
-            documentType: fieldName,
-            publicId: uploadedFile.public_id,
-            fileUrl: uploadedFile.url,
-            fileName: req.files[fieldName][0].originalname,
-            createdBy: CreatedBy,
-          });
-        }
-      }
-    };
-    await Promise.all([
-      uploadFile('StudentImage'),
-      uploadFile('CasteCertificate'),
-      uploadFile('TenthMarks'),
-      uploadFile('TwelfthMarks'),
-      uploadFile('Residential'),
-      uploadFile('Income')
-    ]);
-
-    // Create student, academic details, documents, and EMI details
-    let newStudent;
-    const pool = await sql.connect();
-    const transaction = new sql.Transaction(pool);
-    try {
-      await transaction.begin();
-
-      const request = new sql.Request(transaction);
-
-      // Create Student
-      const studentQuery = `
-        INSERT INTO Student (
-          stdCollId, rollNumber, fName, lName, dob, gender, mobileNumber, alternateNumber,
-          email, fatherName, fatherMobile, motherName, address, city, state, pincode,
-          admissionMode, collegeId, courseId, admissionDate, studentImage, category,
-          isDiscontinue, isLateral, discontinueOn, discontinueBy, createdBy, status
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @stdCollId, @rollNumber, @fName, @lName, @dob, @gender, @mobileNumber, @alternateNumber,
-          @email, @fatherName, @fatherMobile, @motherName, @address, @city, @state, @pincode,
-          @admissionMode, @collegeId, @courseId, @admissionDate, @studentImage, @category,
-          @isDiscontinue, @isLateral, @discontinueOn, @discontinueBy, @createdBy, @status
-        )
-      `;
-      request.input('stdCollId', sql.NVarChar, stdCollIdBase);
-      request.input('rollNumber', sql.NVarChar, RollNumber);
-      request.input('fName', sql.NVarChar, FName);
-      request.input('lName', sql.NVarChar, LName || null);
-      request.input('dob', sql.Date, new Date(DOB));
-      request.input('gender', sql.NVarChar, Gender);
-      request.input('mobileNumber', sql.NVarChar, MobileNumber);
-      request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
-      request.input('email', sql.NVarChar, EmailId);
-      request.input('fatherName', sql.NVarChar, FatherName);
-      request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
-      request.input('motherName', sql.NVarChar, MotherName);
-      request.input('address', sql.NVarChar, Address);
-      request.input('city', sql.NVarChar, City);
-      request.input('state', sql.NVarChar, State);
-      request.input('pincode', sql.NVarChar, Pincode);
-      request.input('admissionMode', sql.NVarChar, AdmissionMode);
-      request.input('collegeId', sql.Int, collegeIdNum);
-      request.input('courseId', sql.Int, courseIdNum);
-      request.input('admissionDate', sql.Date, new Date(AdmissionDate));
-      request.input('studentImage', sql.NVarChar, documentsData.find(doc => doc.documentType === 'StudentImage')?.fileUrl || null);
-      request.input('category', sql.NVarChar, Category);
-      request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
-      request.input('isLateral', sql.Bit, isLateral === 'true');
-      request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
-      request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
-      request.input('createdBy', sql.NVarChar, CreatedBy);
-      request.input('status', sql.Bit, true);
-
-      const studentResult = await request.query(studentQuery);
-      const student = studentResult.recordset[0];
-
-      // Update stdCollId with student ID
-      const finalStdCollId = `${stdCollIdBase}/${student.id}`;
-      const updateStdCollIdQuery = `
-        UPDATE Student
-        SET stdCollId = @finalStdCollId
-        WHERE id = @studentId
-      `;
-      const updateStdCollIdRequest = new sql.Request(transaction);
-      updateStdCollIdRequest.input('finalStdCollId', sql.NVarChar, finalStdCollId);
-      updateStdCollIdRequest.input('studentId', sql.Int, student.id);
-      await updateStdCollIdRequest.query(updateStdCollIdQuery);
-
-      // Create StudentAcademicDetails
-      const academicQuery = `
-        INSERT INTO StudentAcademicDetails (
-          studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
-          ledgerNumber, courseYear, createdBy
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
-          @ledgerNumber, @courseYear, @createdBy
-        )
-      `;
-      const academicRequest = new sql.Request(transaction);
-      academicRequest.input('studentId', sql.Int, student.id);
-      academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
-      academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
-      academicRequest.input('adminAmount', sql.Decimal(10, 2), adminAmount);
-      academicRequest.input('feesAmount', sql.Decimal(10, 2), feesAmount);
-      academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
-      academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
-      academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
-      academicRequest.input('createdBy', sql.NVarChar, CreatedBy);
-      const academicResult = await academicRequest.query(academicQuery);
-      const academicDetails = academicResult.recordset[0];
-
-      // Create Documents
-      for (const doc of documentsData) {
-        const docQuery = `
-          INSERT INTO Documents (
-            studentId, documentType, publicId, fileUrl, fileName, createdBy
-          )
-          VALUES (
-            @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy
-          )
-        `;
-        const docRequest = new sql.Request(transaction);
-        docRequest.input('studentId', sql.Int, student.id);
-        docRequest.input('documentType', sql.NVarChar, doc.documentType);
-        docRequest.input('publicId', sql.NVarChar, doc.publicId);
-        docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
-        docRequest.input('fileName', sql.NVarChar, doc.fileName);
-        docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
-        await docRequest.query(docQuery);
-      }
-
-      // Create EMI Details if applicable
-      if (PaymentMode === 'EMI' && emiDetails.length > 0) {
-        for (const emi of emiDetails) {
-          const emiQuery = `
-            INSERT INTO EMIDetails (
-              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy
-            )
-            VALUES (
-              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy
-            )
-          `;
-          const emiRequest = new sql.Request(transaction);
-          emiRequest.input('studentId', sql.Int, student.id);
-          emiRequest.input('studentAcademicId', sql.Int, academicDetails.id);
-          emiRequest.input('emiNumber', sql.Int, emi.emiNumber);
-          emiRequest.input('amount', sql.Decimal(10, 2), emi.amount);
-          emiRequest.input('dueDate', sql.Date, emi.dueDate);
-          emiRequest.input('createdBy', sql.NVarChar, emi.createdBy);
-          await emiRequest.query(emiQuery);
-        }
-      }
-
-      newStudent = { ...student, stdCollId: finalStdCollId };
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    } finally {
-      await pool.close();
-    }
-
-    res.status(201).json({ success: true, student: newStudent });
-  } catch (error) {
-    console.error('Erreur lors de la création de l', error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
 
 // GET /students - Fetch all students
 router.get('/students', async (req, res) => {
@@ -1219,346 +1254,6 @@ router.get('/students/:id/documents', async (req, res) => {
   }
 });
 
-// PUT /students/:id - Update student and academic details
-router.put(
-  '/students/:id',
-  upload.fields([
-    { name: 'StudentImage' },
-    { name: 'CasteCertificate' },
-    { name: 'TenthMarks' },
-    { name: 'TwelfthMarks' },
-    { name: 'Residential' },
-    { name: 'Income' },
-  ]),
-  async (req, res) => {
-    try {
-      const studentId = parseInt(req.params.id);
-      const {
-        RollNumber,
-        FName,
-        LName,
-        DOB,
-        Gender,
-        MobileNumber,
-        AlternateNumber,
-        EmailId,
-        FatherName,
-        FatherMobileNumber,
-        MotherName,
-        Address,
-        City,
-        State,
-        Pincode,
-        CourseId,
-        CourseYear,
-        Category,
-        LedgerNumber,
-        CollegeId,
-        AdmissionMode,
-        AdmissionDate,
-        IsDiscontinue,
-        DiscontinueOn,
-        DiscontinueBy,
-        FineAmount,
-        RefundAmount,
-        ModifiedBy,
-        SessionYear,
-        PaymentMode,
-        NumberOfEMI,
-        emiDetails, // Expecting JSON string of EMI details
-      } = req.body;
-
-      // Fetch existing student
-      const existingQuery = `
-        SELECT s.*, sa.id AS saId, sa.sessionYear, sa.paymentMode, sa.adminAmount, sa.feesAmount, 
-               sa.numberOfEMI, sa.ledgerNumber, sa.courseYear
-        FROM Student s
-        LEFT JOIN StudentAcademicDetails sa ON s.id = sa.studentId
-        WHERE s.id = @studentId
-      `;
-      const existingParams = { studentId: { type: sql.Int, value: studentId } };
-      const existingResult = await executeQuery(existingQuery, existingParams);
-      const existingStudent = existingResult.recordset.find(row => row.id === studentId);
-
-      if (!existingStudent) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
-      }
-
-      // Check if academic detail with this CourseYear exists
-      const existingAcademicDetail = existingResult.recordset.find(
-        (detail) => detail.courseYear === CourseYear
-      );
-
-      // Fetch existing documents and EMI details
-      const docQuery = `SELECT * FROM Documents WHERE studentId = @studentId`;
-      const docResult = await executeQuery(docQuery, existingParams);
-      const existingDocs = docResult.recordset;
-
-      const emiQuery = `SELECT * FROM EMIDetails WHERE studentId = @studentId AND studentAcademicId = @academicId`;
-      const emiParams = {
-        studentId: { type: sql.Int, value: studentId },
-        academicId: { type: sql.Int, value: existingAcademicDetail?.saId || 0 }
-      };
-      const emiResult = await executeQuery(emiQuery, emiParams);
-      const existingEmiDetails = emiResult.recordset;
-
-      // Upload new documents to Cloudinary
-      const documentsData = [];
-      const uploadFile = async (fieldName) => {
-        if (req.files && req.files[fieldName]?.[0]) {
-          const oldDoc = existingDocs.find((doc) => doc.documentType === fieldName);
-          if (oldDoc) {
-            await deleteFromCloudinary(oldDoc.publicId);
-            const deleteDocQuery = `DELETE FROM Documents WHERE id = @docId`;
-            const deleteDocParams = { docId: { type: sql.Int, value: oldDoc.id } };
-            await executeQuery(deleteDocQuery, deleteDocParams);
-          }
-
-          const uploadedFile = await uploadToCloudinary(
-            req.files[fieldName][0].buffer,
-            `student_documents/${fieldName}`
-          );
-          if (uploadedFile?.public_id && uploadedFile?.url) {
-            documentsData.push({
-              documentType: fieldName,
-              publicId: uploadedFile.public_id,
-              fileUrl: uploadedFile.url,
-              fileName: req.files[fieldName][0].originalname,
-              createdBy: ModifiedBy,
-            });
-          }
-        }
-      };
-
-      await Promise.all([
-        uploadFile('StudentImage'),
-        uploadFile('CasteCertificate'),
-        uploadFile('TenthMarks'),
-        uploadFile('TwelfthMarks'),
-        uploadFile('Residential'),
-        uploadFile('Income'),
-      ]);
-
-      // Update student in a transaction
-      let updatedStudent;
-      const pool = await sql.connect();
-      const transaction = new sql.Transaction(pool);
-      try {
-        await transaction.begin();
-
-        const request = new sql.Request(transaction);
-
-        // Update student basic details
-        const studentUpdateQuery = `
-          UPDATE Student
-          SET rollNumber = @rollNumber, fName = @fName, lName = @lName, dob = @dob, gender = @gender,
-              mobileNumber = @mobileNumber, alternateNumber = @alternateNumber, email = @email,
-              fatherName = @fatherName, fatherMobile = @fatherMobile, motherName = @motherName,
-              address = @address, city = @city, state = @state, pincode = @pincode,
-              admissionMode = @admissionMode, collegeId = @collegeId, courseId = @courseId,
-              admissionDate = @admissionDate, studentImage = @studentImage, category = @category,
-              isDiscontinue = @isDiscontinue, discontinueOn = @discontinueOn, discontinueBy = @discontinueBy,
-              modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
-          WHERE id = @studentId
-          SELECT *
-          FROM Student
-          WHERE id = @studentId
-        `;
-        request.input('rollNumber', sql.NVarChar, RollNumber);
-        request.input('fName', sql.NVarChar, FName);
-        request.input('lName', sql.NVarChar, LName || null);
-        request.input('dob', sql.Date, new Date(DOB));
-        request.input('gender', sql.NVarChar, Gender);
-        request.input('mobileNumber', sql.NVarChar, MobileNumber);
-        request.input('alternateNumber', sql.NVarChar, AlternateNumber || null);
-        request.input('email', sql.NVarChar, EmailId);
-        request.input('fatherName', sql.NVarChar, FatherName);
-        request.input('fatherMobile', sql.NVarChar, FatherMobileNumber || null);
-        request.input('motherName', sql.NVarChar, MotherName);
-        request.input('address', sql.NVarChar, Address);
-        request.input('city', sql.NVarChar, City);
-        request.input('state', sql.NVarChar, State);
-        request.input('pincode', sql.NVarChar, Pincode);
-        request.input('admissionMode', sql.NVarChar, AdmissionMode);
-        request.input('collegeId', sql.Int, parseInt(CollegeId));
-        request.input('courseId', sql.Int, parseInt(CourseId));
-        request.input('admissionDate', sql.Date, new Date(AdmissionDate));
-        request.input('studentImage', sql.NVarChar, documentsData.find((doc) => doc.documentType === 'StudentImage')?.fileUrl || existingStudent.studentImage);
-        request.input('category', sql.NVarChar, Category);
-        request.input('isDiscontinue', sql.Bit, IsDiscontinue === 'true');
-        request.input('discontinueOn', sql.Date, DiscontinueOn ? new Date(DiscontinueOn) : null);
-        request.input('discontinueBy', sql.NVarChar, DiscontinueBy || null);
-        request.input('modifiedBy', sql.NVarChar, ModifiedBy);
-        request.input('modifiedOn', sql.DateTime, new Date());
-        request.input('studentId', sql.Int, studentId);
-
-        const studentResult = await request.query(studentUpdateQuery);
-        updatedStudent = studentResult.recordset[0];
-
-        // Handle academic details
-        if (!existingAcademicDetail) {
-          // Create new academic detail
-          const academicInsertQuery = `
-            INSERT INTO StudentAcademicDetails (
-              studentId, sessionYear, paymentMode, adminAmount, feesAmount, numberOfEMI,
-              ledgerNumber, courseYear, createdBy, modifiedBy, modifiedOn
-            )
-            OUTPUT INSERTED.*
-            VALUES (
-              @studentId, @sessionYear, @paymentMode, @adminAmount, @feesAmount, @numberOfEMI,
-              @ledgerNumber, @courseYear, @createdBy, @modifiedBy, @modifiedOn
-            )
-          `;
-          const academicRequest = new sql.Request(transaction);
-          academicRequest.input('studentId', sql.Int, studentId);
-          academicRequest.input('sessionYear', sql.NVarChar, SessionYear);
-          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
-          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
-          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
-          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
-          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
-          academicRequest.input('courseYear', sql.NVarChar, CourseYear || null);
-          academicRequest.input('createdBy', sql.NVarChar, ModifiedBy);
-          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
-          academicRequest.input('modifiedOn', sql.DateTime, new Date());
-          const academicResult = await academicRequest.query(academicInsertQuery);
-          const newAcademicDetail = academicResult.recordset[0];
-
-          // Handle EMI details for new academic record
-          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
-            if (parsedEmiDetails.length > 0) {
-              for (const emi of parsedEmiDetails) {
-                const emiInsertQuery = `
-                  INSERT INTO EMIDetails (
-                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
-                    modifiedBy, modifiedOn
-                  )
-                  VALUES (
-                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
-                    @modifiedBy, @modifiedOn
-                  )
-                `;
-                const emiRequest = new sql.Request(transaction);
-                emiRequest.input('studentId', sql.Int, studentId);
-                emiRequest.input('studentAcademicId', sql.Int, newAcademicDetail.id);
-                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
-                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
-                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
-                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
-                emiRequest.input('createdOn', sql.DateTime, new Date());
-                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
-                emiRequest.input('modifiedOn', sql.DateTime, new Date());
-                await emiRequest.query(emiInsertQuery);
-              }
-            }
-          }
-        } else {
-          // Update existing academic details
-          const academicUpdateQuery = `
-            UPDATE StudentAcademicDetails
-            SET paymentMode = @paymentMode, adminAmount = @adminAmount, feesAmount = @feesAmount,
-                numberOfEMI = @numberOfEMI, ledgerNumber = @ledgerNumber, modifiedBy = @modifiedBy,
-                modifiedOn = @modifiedOn
-            WHERE id = @academicId
-          `;
-          const academicRequest = new sql.Request(transaction);
-          academicRequest.input('paymentMode', sql.NVarChar, PaymentMode);
-          academicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(FineAmount) || 0.0);
-          academicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(RefundAmount) || 0.0);
-          academicRequest.input('numberOfEMI', sql.Int, PaymentMode === 'EMI' ? parseInt(NumberOfEMI) || 0 : null);
-          academicRequest.input('ledgerNumber', sql.NVarChar, LedgerNumber || null);
-          academicRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
-          academicRequest.input('modifiedOn', sql.DateTime, new Date());
-          academicRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
-          await academicRequest.query(academicUpdateQuery);
-
-          // Handle EMI details
-          if (PaymentMode === 'EMI' && NumberOfEMI && emiDetails) {
-            const parsedEmiDetails = JSON.parse(emiDetails || '[]');
-            // Delete existing EMI details
-            const deleteEmiQuery = `
-              DELETE FROM EMIDetails
-              WHERE studentAcademicId = @academicId
-            `;
-            const deleteEmiRequest = new sql.Request(transaction);
-            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
-            await deleteEmiRequest.query(deleteEmiQuery);
-
-            if (parsedEmiDetails.length > 0) {
-              for (const emi of parsedEmiDetails) {
-                const emiInsertQuery = `
-                  INSERT INTO EMIDetails (
-                    studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn,
-                    modifiedBy, modifiedOn
-                  )
-                  VALUES (
-                    @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn,
-                    @modifiedBy, @modifiedOn
-                  )
-                `;
-                const emiRequest = new sql.Request(transaction);
-                emiRequest.input('studentId', sql.Int, studentId);
-                emiRequest.input('studentAcademicId', sql.Int, existingAcademicDetail.saId);
-                emiRequest.input('emiNumber', sql.Int, parseInt(emi.emiNumber));
-                emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
-                emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
-                emiRequest.input('createdBy', sql.NVarChar, ModifiedBy);
-                emiRequest.input('createdOn', sql.DateTime, new Date());
-                emiRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
-                emiRequest.input('modifiedOn', sql.DateTime, new Date());
-                await emiRequest.query(emiInsertQuery);
-              }
-            }
-          } else if (PaymentMode === 'One-Time') {
-            // Delete EMI details if switching to One-Time
-            const deleteEmiQuery = `
-              DELETE FROM EMIDetails
-              WHERE studentAcademicId = @academicId
-            `;
-            const deleteEmiRequest = new sql.Request(transaction);
-            deleteEmiRequest.input('academicId', sql.Int, existingAcademicDetail.saId);
-            await deleteEmiRequest.query(deleteEmiQuery);
-          }
-        }
-
-        // Create new documents
-        for (const doc of documentsData) {
-          const docInsertQuery = `
-            INSERT INTO Documents (
-              studentId, documentType, publicId, fileUrl, fileName, createdBy, modifiedBy, modifiedOn
-            )
-            VALUES (
-              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @modifiedBy, @modifiedOn
-            )
-          `;
-          const docRequest = new sql.Request(transaction);
-          docRequest.input('studentId', sql.Int, updatedStudent.id);
-          docRequest.input('documentType', sql.NVarChar, doc.documentType);
-          docRequest.input('publicId', sql.NVarChar, doc.publicId);
-          docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
-          docRequest.input('fileName', sql.NVarChar, doc.fileName);
-          docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
-          docRequest.input('modifiedBy', sql.NVarChar, ModifiedBy);
-          docRequest.input('modifiedOn', sql.DateTime, new Date());
-          await docRequest.query(docInsertQuery);
-        }
-
-        await transaction.commit();
-      } catch (error) {
-        await transaction.rollback();
-        throw error;
-      } finally {
-        await pool.close();
-      }
-
-      res.status(200).json({ success: true, student: updatedStudent });
-    } catch (error) {
-      console.error('Error updating student:', error);
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
-);
 
 // POST /students/:studentId/promote - Handle student promotion
 router.post('/students/:studentId/promote', async (req, res) => {
@@ -1576,7 +1271,10 @@ router.post('/students/:studentId/promote', async (req, res) => {
       ledgerNumber,
       modifiedBy,
       isDepromote,
+      confirmLateralChange,
     } = req.body;
+
+    console.log('Promotion/Demotion Request:', { studentId, currentAcademicId, newCourseYear, newSessionYear, isDepromote, confirmLateralChange });
 
     // Input validation
     if (!newCourseYear || !newSessionYear) {
@@ -1593,18 +1291,47 @@ router.post('/students/:studentId/promote', async (req, res) => {
       });
     }
 
-    if (paymentMode === 'EMI' && (!numberOfEMI || numberOfEMI <= 0)) {
+    const validPaymentModes = ['One-Time', 'EMI'];
+    if (!validPaymentModes.includes(paymentMode)) {
       return res.status(400).json({
         success: false,
-        message: 'Number of EMIs must be greater than 0 for EMI payment mode',
+        message: 'Payment mode must be one of: One-Time, EMI',
       });
     }
 
-    if (paymentMode === 'EMI' && (!emiDetails || !Array.isArray(emiDetails) || emiDetails.length === 0)) {
-      return res.status(400).json({
-        success: false,
-        message: 'EMI details are required and must be a non-empty array for EMI payment mode',
-      });
+    if (paymentMode === 'EMI') {
+      if (!numberOfEMI || numberOfEMI <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Number of EMIs must be greater than 0 for EMI payment mode',
+        });
+      }
+      if (!emiDetails || !Array.isArray(emiDetails) || emiDetails.length !== numberOfEMI) {
+        return res.status(400).json({
+          success: false,
+          message: `EMI details must be an array with exactly ${numberOfEMI} entries`,
+        });
+      }
+      for (const [index, emi] of emiDetails.entries()) {
+        if (!emi.emiNumber || emi.emiNumber !== index + 1) {
+          return res.status(400).json({
+            success: false,
+            message: `EMI ${index + 1} has invalid emiNumber (expected ${index + 1})`,
+          });
+        }
+        if (!emi.amount || emi.amount <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: `EMI ${index + 1} has invalid or missing amount`,
+          });
+        }
+        if (!emi.dueDate || isNaN(new Date(emi.dueDate).getTime())) {
+          return res.status(400).json({
+            success: false,
+            message: `EMI ${index + 1} has invalid dueDate`,
+          });
+        }
+      }
     }
 
     // Verify course year validity
@@ -1612,7 +1339,7 @@ router.post('/students/:studentId/promote', async (req, res) => {
     if (!courseYearOrder.includes(newCourseYear)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid course year',
+        message: `Invalid course year: ${newCourseYear}`,
       });
     }
 
@@ -1623,23 +1350,15 @@ router.post('/students/:studentId/promote', async (req, res) => {
       return `${startYear}-${startYear + 1}`;
     });
 
-    const maxAllowedSessionYear = `${currentYear}-${currentYear + 1}`;
-    if (parseInt(newSessionYear.split('-')[0]) > currentYear) {
-      return res.status(400).json({
-        success: false,
-        message: `Cannot use future session year beyond ${maxAllowedSessionYear}`,
-      });
-    }
-
     if (!sessionYears.includes(newSessionYear)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid session year',
+        message: `Invalid session year: ${newSessionYear}`,
       });
     }
 
     // Verify the student exists
-    const studentQuery = `SELECT * FROM Student WHERE id = @studentId`;
+    const studentQuery = `SELECT id, isLateral FROM Student WHERE id = @studentId`;
     const studentParams = { studentId: { type: sql.Int, value: parseInt(studentId) } };
     const studentResult = await executeQuery(studentQuery, studentParams);
     const student = studentResult.recordset[0];
@@ -1653,13 +1372,13 @@ router.post('/students/:studentId/promote', async (req, res) => {
 
     // Get current academic record
     const currentAcademicQuery = `
-      SELECT *
+      SELECT id, courseYear, sessionYear
       FROM StudentAcademicDetails
       WHERE id = @academicId AND studentId = @studentId
     `;
     const academicParams = {
       academicId: { type: sql.Int, value: parseInt(currentAcademicId) },
-      studentId: { type: sql.Int, value: parseInt(studentId) }
+      studentId: { type: sql.Int, value: parseInt(studentId) },
     };
     const currentAcademicResult = await executeQuery(currentAcademicQuery, academicParams);
     const currentAcademic = currentAcademicResult.recordset[0];
@@ -1673,13 +1392,12 @@ router.post('/students/:studentId/promote', async (req, res) => {
 
     // Get all academic records for this student
     const allAcademicQuery = `
-      SELECT *
+      SELECT courseYear
       FROM StudentAcademicDetails
       WHERE studentId = @studentId
-      ORDER BY courseYear ASC, sessionYear ASC
     `;
     const allAcademicResult = await executeQuery(allAcademicQuery, studentParams);
-    const allAcademicRecords = allAcademicResult.recordset;
+    const existingCourseYears = allAcademicResult.recordset.map(record => record.courseYear);
 
     const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
     const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
@@ -1687,7 +1405,7 @@ router.post('/students/:studentId/promote', async (req, res) => {
     const newSessionIndex = sessionYears.indexOf(newSessionYear);
 
     let newAcademicRecord;
-    const pool = await sql.connect();
+    const pool = await poolConnect;
     const transaction = new sql.Transaction(pool);
     try {
       await transaction.begin();
@@ -1697,9 +1415,11 @@ router.post('/students/:studentId/promote', async (req, res) => {
         if (currentAcademic.sessionYear !== newSessionYear) {
           throw new Error('For depromoting a lateral entry student to 1st year, session year must remain the same');
         }
+        if (!confirmLateralChange) {
+          throw new Error('Lateral entry status change confirmation is required for demotion to 1st year');
+        }
 
-        const existingFirstYearRecord = allAcademicRecords.find(record => record.courseYear === '1st');
-        if (existingFirstYearRecord) {
+        if (existingCourseYears.includes('1st')) {
           throw new Error('Student already has a record for 1st year. Cannot depromote.');
         }
 
@@ -1714,18 +1434,19 @@ router.post('/students/:studentId/promote', async (req, res) => {
           FROM StudentAcademicDetails
           WHERE id = @academicId
         `;
-        const updateAcademicRequest = new sql.Request(transaction);
-        updateAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
-        updateAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
-        updateAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
-        updateAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
-        updateAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
-        updateAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
-        updateAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
-        updateAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-        updateAcademicRequest.input('modifiedOn', sql.DateTime, new Date());
-        updateAcademicRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
-        const updateAcademicResult = await updateAcademicRequest.query(updateAcademicQuery);
+        const updateAcademicParams = {
+          courseYear: { type: sql.NVarChar, value: newCourseYear },
+          sessionYear: { type: sql.NVarChar, value: newSessionYear },
+          adminAmount: { type: sql.Decimal(10, 2), value: parseFloat(adminAmount) },
+          feesAmount: { type: sql.Decimal(10, 2), value: parseFloat(feesAmount) },
+          paymentMode: { type: sql.NVarChar, value: paymentMode },
+          numberOfEMI: { type: sql.Int, value: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null },
+          ledgerNumber: { type: sql.NVarChar, value: ledgerNumber || null },
+          modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+          modifiedOn: { type: sql.DateTime, value: new Date() },
+          academicId: { type: sql.Int, value: parseInt(currentAcademicId) },
+        };
+        const updateAcademicResult = await executeQuery(updateAcademicQuery, updateAcademicParams, transaction);
         newAcademicRecord = updateAcademicResult.recordset[0];
 
         // Update student isLateral flag
@@ -1734,21 +1455,21 @@ router.post('/students/:studentId/promote', async (req, res) => {
           SET isLateral = @isLateral, modifiedBy = @modifiedBy, modifiedOn = @modifiedOn
           WHERE id = @studentId
         `;
-        const updateStudentRequest = new sql.Request(transaction);
-        updateStudentRequest.input('isLateral', sql.Bit, false);
-        updateStudentRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-        updateStudentRequest.input('modifiedOn', sql.DateTime, new Date());
-        updateStudentRequest.input('studentId', sql.Int, parseInt(studentId));
-        await updateStudentRequest.query(updateStudentQuery);
-      } 
+        const updateStudentParams = {
+          isLateral: { type: sql.Bit, value: false },
+          modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+          modifiedOn: { type: sql.DateTime, value: new Date() },
+          studentId: { type: sql.Int, value: parseInt(studentId) },
+        };
+        await executeQuery(updateStudentQuery, updateStudentParams, transaction);
+      }
       // Regular depromote case from 2nd to 1st year
       else if (isDepromote && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
         if (currentAcademic.sessionYear !== newSessionYear) {
-          throw new Error('For demotion, session year must remain the same');
+          throw new Error('For demotion to 1st year, session year must remain the same');
         }
 
-        const existingFirstYearRecord = allAcademicRecords.find(record => record.courseYear === '1st');
-        if (existingFirstYearRecord) {
+        if (existingCourseYears.includes('1st')) {
           throw new Error('Student already has a record for 1st year. Cannot depromote.');
         }
 
@@ -1763,37 +1484,33 @@ router.post('/students/:studentId/promote', async (req, res) => {
           FROM StudentAcademicDetails
           WHERE id = @academicId
         `;
-        const updateAcademicRequest = new sql.Request(transaction);
-        updateAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
-        updateAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
-        updateAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
-        updateAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
-        updateAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
-        updateAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
-        updateAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
-        updateAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-        updateAcademicRequest.input('modifiedOn', sql.DateTime, new Date());
-        updateAcademicRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
-        const updateAcademicResult = await updateAcademicRequest.query(updateAcademicQuery);
+        const updateAcademicParams = {
+          courseYear: { type: sql.NVarChar, value: newCourseYear },
+          sessionYear: { type: sql.NVarChar, value: newSessionYear },
+          adminAmount: { type: sql.Decimal(10, 2), value: parseFloat(adminAmount) },
+          feesAmount: { type: sql.Decimal(10, 2), value: parseFloat(feesAmount) },
+          paymentMode: { type: sql.NVarChar, value: paymentMode },
+          numberOfEMI: { type: sql.Int, value: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null },
+          ledgerNumber: { type: sql.NVarChar, value: ledgerNumber || null },
+          modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+          modifiedOn: { type: sql.DateTime, value: new Date() },
+          academicId: { type: sql.Int, value: parseInt(currentAcademicId) },
+        };
+        const updateAcademicResult = await executeQuery(updateAcademicQuery, updateAcademicParams, transaction);
         newAcademicRecord = updateAcademicResult.recordset[0];
       }
       // Other depromote cases
       else if (isDepromote) {
         if (newCourseYearIndex !== currentCourseYearIndex - 1) {
-          throw new Error(`Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`);
-        }
-
-        if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
-          throw new Error(`Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`);
+          throw new Error(`Cannot depromote from ${currentAcademic.courseYear} to ${newCourseYear}. Demotion must be sequential.`);
         }
 
         if (currentAcademic.sessionYear !== newSessionYear) {
           throw new Error('For demotion, session year must remain the same');
         }
 
-        const existingTargetYearRecord = allAcademicRecords.find(record => record.courseYear === newCourseYear);
-        if (existingTargetYearRecord) {
-          throw new Error(`Student already has a record for ${newCourseYear} year. Cannot depromote.`);
+        if (existingCourseYears.includes(newCourseYear)) {
+          throw new Error(`Student already has a record for ${newCourseYear}. Cannot depromote.`);
         }
 
         // Create new academic record
@@ -1808,42 +1525,38 @@ router.post('/students/:studentId/promote', async (req, res) => {
             @numberOfEMI, @ledgerNumber, @createdBy, @createdOn, @modifiedBy
           )
         `;
-        const insertAcademicRequest = new sql.Request(transaction);
-        insertAcademicRequest.input('studentId', sql.Int, parseInt(studentId));
-        insertAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
-        insertAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
-        insertAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
-        insertAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
-        insertAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
-        insertAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
-        insertAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
-        insertAcademicRequest.input('createdBy', sql.NVarChar, modifiedBy);
-        insertAcademicRequest.input('createdOn', sql.DateTime, new Date());
-        insertAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-        const insertAcademicResult = await insertAcademicRequest.query(insertAcademicQuery);
+        const insertAcademicParams = {
+          studentId: { type: sql.Int, value: parseInt(studentId) },
+          courseYear: { type: sql.NVarChar, value: newCourseYear },
+          sessionYear: { type: sql.NVarChar, value: newSessionYear },
+          adminAmount: { type: sql.Decimal(10, 2), value: parseFloat(adminAmount) },
+          feesAmount: { type: sql.Decimal(10, 2), value: parseFloat(feesAmount) },
+          paymentMode: { type: sql.NVarChar, value: paymentMode },
+          numberOfEMI: { type: sql.Int, value: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null },
+          ledgerNumber: { type: sql.NVarChar, value: ledgerNumber || null },
+          createdBy: { type: sql.NVarChar, value: modifiedBy },
+          createdOn: { type: sql.DateTime, value: new Date() },
+          modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+        };
+        const insertAcademicResult = await executeQuery(insertAcademicQuery, insertAcademicParams, transaction);
         newAcademicRecord = insertAcademicResult.recordset[0];
-      } 
+      }
       // Regular promotion case
       else {
-        const existingCourseYearRecord = allAcademicRecords.find(record => record.courseYear === newCourseYear);
-        if (existingCourseYearRecord) {
-          throw new Error(`Student already has an academic record for ${newCourseYear} year`);
+        if (existingCourseYears.includes(newCourseYear)) {
+          throw new Error(`Student already has an academic record for ${newCourseYear}`);
         }
 
         if (newCourseYearIndex !== currentCourseYearIndex + 1) {
-          throw new Error(`Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`);
-        }
-
-        if (currentAcademic.sessionYear === newSessionYear) {
-          throw new Error(`For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`);
+          throw new Error(`Cannot promote from ${currentAcademic.courseYear} to ${newCourseYear}. Promotion must be sequential.`);
         }
 
         if (newSessionIndex <= currentSessionIndex) {
-          throw new Error(`New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`);
+          throw new Error(`New session year (${newSessionYear}) must be after current session year (${currentAcademic.sessionYear})`);
         }
 
         if (newSessionIndex !== currentSessionIndex + 1) {
-          throw new Error(`Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`);
+          throw new Error(`Cannot skip session years. Next valid session year is ${sessionYears[currentSessionIndex + 1]}`);
         }
 
         // Create new academic record
@@ -1858,19 +1571,20 @@ router.post('/students/:studentId/promote', async (req, res) => {
             @numberOfEMI, @ledgerNumber, @createdBy, @createdOn, @modifiedBy
           )
         `;
-        const insertAcademicRequest = new sql.Request(transaction);
-        insertAcademicRequest.input('studentId', sql.Int, parseInt(studentId));
-        insertAcademicRequest.input('courseYear', sql.NVarChar, newCourseYear);
-        insertAcademicRequest.input('sessionYear', sql.NVarChar, newSessionYear);
-        insertAcademicRequest.input('adminAmount', sql.Decimal(10, 2), parseFloat(adminAmount));
-        insertAcademicRequest.input('feesAmount', sql.Decimal(10, 2), parseFloat(feesAmount));
-        insertAcademicRequest.input('paymentMode', sql.NVarChar, paymentMode);
-        insertAcademicRequest.input('numberOfEMI', sql.Int, paymentMode === 'EMI' ? parseInt(numberOfEMI) : null);
-        insertAcademicRequest.input('ledgerNumber', sql.NVarChar, ledgerNumber || null);
-        insertAcademicRequest.input('createdBy', sql.NVarChar, modifiedBy);
-        insertAcademicRequest.input('createdOn', sql.DateTime, new Date());
-        insertAcademicRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-        const insertAcademicResult = await insertAcademicRequest.query(insertAcademicQuery);
+        const insertAcademicParams = {
+          studentId: { type: sql.Int, value: parseInt(studentId) },
+          courseYear: { type: sql.NVarChar, value: newCourseYear },
+          sessionYear: { type: sql.NVarChar, value: newSessionYear },
+          adminAmount: { type: sql.Decimal(10, 2), value: parseFloat(adminAmount) },
+          feesAmount: { type: sql.Decimal(10, 2), value: parseFloat(feesAmount) },
+          paymentMode: { type: sql.NVarChar, value: paymentMode },
+          numberOfEMI: { type: sql.Int, value: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null },
+          ledgerNumber: { type: sql.NVarChar, value: ledgerNumber || null },
+          createdBy: { type: sql.NVarChar, value: modifiedBy },
+          createdOn: { type: sql.DateTime, value: new Date() },
+          modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+        };
+        const insertAcademicResult = await executeQuery(insertAcademicQuery, insertAcademicParams, transaction);
         newAcademicRecord = insertAcademicResult.recordset[0];
       }
 
@@ -1882,31 +1596,34 @@ router.post('/students/:studentId/promote', async (req, res) => {
             DELETE FROM EMIDetails
             WHERE studentId = @studentId AND studentAcademicId = @academicId
           `;
-          const deleteEmiRequest = new sql.Request(transaction);
-          deleteEmiRequest.input('studentId', sql.Int, parseInt(studentId));
-          deleteEmiRequest.input('academicId', sql.Int, parseInt(currentAcademicId));
-          await deleteEmiRequest.query(deleteEmiQuery);
+          const deleteEmiParams = {
+            studentId: { type: sql.Int, value: parseInt(studentId) },
+            academicId: { type: sql.Int, value: parseInt(currentAcademicId) },
+          };
+          await executeQuery(deleteEmiQuery, deleteEmiParams, transaction);
         }
 
         for (const emi of emiDetails) {
           const emiInsertQuery = `
             INSERT INTO EMIDetails (
-              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn, modifiedBy
+              studentId, studentAcademicId, emiNumber, amount, dueDate, createdBy, createdOn, modifiedBy, modifiedOn
             )
             VALUES (
-              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn, @modifiedBy
+              @studentId, @studentAcademicId, @emiNumber, @amount, @dueDate, @createdBy, @createdOn, @modifiedBy, @modifiedOn
             )
           `;
-          const emiRequest = new sql.Request(transaction);
-          emiRequest.input('studentId', sql.Int, parseInt(studentId));
-          emiRequest.input('studentAcademicId', sql.Int, newAcademicRecord.id);
-          emiRequest.input('emiNumber', sql.Int, emi.emiNumber);
-          emiRequest.input('amount', sql.Decimal(10, 2), parseFloat(emi.amount));
-          emiRequest.input('dueDate', sql.Date, new Date(emi.dueDate));
-          emiRequest.input('createdBy', sql.NVarChar, modifiedBy);
-          emiRequest.input('createdOn', sql.DateTime, new Date());
-          emiRequest.input('modifiedBy', sql.NVarChar, modifiedBy);
-          await emiRequest.query(emiInsertQuery);
+          const emiParams = {
+            studentId: { type: sql.Int, value: parseInt(studentId) },
+            studentAcademicId: { type: sql.Int, value: newAcademicRecord.id },
+            emiNumber: { type: sql.Int, value: emi.emiNumber },
+            amount: { type: sql.Decimal(10, 2), value: parseFloat(emi.amount) },
+            dueDate: { type: sql.DateTime, value: new Date(emi.dueDate) },
+            createdBy: { type: sql.NVarChar, value: modifiedBy },
+            createdOn: { type: sql.DateTime, value: new Date() },
+            modifiedBy: { type: sql.NVarChar, value: modifiedBy },
+            modifiedOn: { type: sql.DateTime, value: new Date() },
+          };
+          await executeQuery(emiInsertQuery, emiParams, transaction);
         }
       }
 
@@ -1920,18 +1637,311 @@ router.post('/students/:studentId/promote', async (req, res) => {
       });
     } catch (error) {
       await transaction.rollback();
+      console.error('Transaction error:', error.stack);
       throw error;
-    } finally {
-      await pool.close();
     }
   } catch (error) {
     console.error('Error promoting/demoting student:', error.stack);
     res.status(500).json({
       success: false,
       message: error.message || 'An error occurred while promoting/demoting the student',
+      details: error.stack,
     });
   }
 });
+// router.post('/students/:studentId/promote', async (req, res) => {
+//   try {
+//     const { studentId } = req.params;
+//     const {
+//       currentAcademicId,
+//       newCourseYear,
+//       newSessionYear,
+//       adminAmount,
+//       feesAmount,
+//       paymentMode,
+//       numberOfEMI,
+//       emiDetails,
+//       ledgerNumber,
+//       modifiedBy,
+//       isDepromote, // New field to determine if this is a demotion operation
+//     } = req.body;
+
+//     // Input validation
+//     if (!newCourseYear || !newSessionYear) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'New course year and session year are required',
+//       });
+//     }
+
+//     if (adminAmount < 0 || feesAmount < 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Admin amount and fees amount cannot be negative',
+//       });
+//     }
+
+//     if (paymentMode === 'EMI' && (!numberOfEMI || numberOfEMI <= 0)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Number of EMIs must be greater than 0 for EMI payment mode',
+//       });
+//     }
+
+//     if (paymentMode === 'EMI' && (!emiDetails || !Array.isArray(emiDetails) || emiDetails.length === 0)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'EMI details are required and must be a non-empty array for EMI payment mode',
+//       });
+//     }
+
+//     // Verify course year validity
+//     const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+//     if (!courseYearOrder.includes(newCourseYear)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid course year',
+//       });
+//     }
+
+//     // Get current year and validate session years
+//     const currentYear = new Date().getFullYear();
+//     const sessionYears = Array.from({ length: 10 }, (_, i) => {
+//       const startYear = currentYear - 5 + i;
+//       return `${startYear}-${startYear + 1}`;
+//     });
+
+//     // Don't allow future session years beyond current year + 1
+//     const maxAllowedSessionYear = `${currentYear}-${currentYear + 1}`;
+//     if (parseInt(newSessionYear.split('-')[0]) > currentYear) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Cannot use future session year beyond ${maxAllowedSessionYear}`,
+//       });
+//     }
+
+//     if (!sessionYears.includes(newSessionYear)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid session year',
+//       });
+//     }
+
+//     // Verify the student exists
+//     const student = await prisma.student.findUnique({
+//       where: { id: parseInt(studentId) },
+//     });
+
+//     if (!student) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Student not found',
+//       });
+//     }
+
+//     // Get current academic record
+//     const currentAcademic = await prisma.studentAcademicDetails.findUnique({
+//       where: { id: parseInt(currentAcademicId) },
+//     });
+
+//     if (!currentAcademic || currentAcademic.studentId !== parseInt(studentId)) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Current academic record not found or does not belong to the student',
+//       });
+//     }
+
+//     // Get all academic records for this student to check for validity of promotion/demotion
+//     const allAcademicRecords = await prisma.studentAcademicDetails.findMany({
+//       where: { studentId: parseInt(studentId) },
+//       orderBy: [
+//         { courseYear: 'asc' },
+//         { sessionYear: 'asc' },
+//       ],
+//     });
+
+//     const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
+//     const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
+//     const currentSessionIndex = sessionYears.indexOf(currentAcademic.sessionYear);
+//     const newSessionIndex = sessionYears.indexOf(newSessionYear);
+
+//     // Special handling for lateral entry students being depromoted to 1st year
+//     if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+//       // This is a lateral entry student being depromoted from 2nd to 1st year
+      
+//       // Check if the session year is the same
+//       if (currentAcademic.sessionYear !== newSessionYear) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'For depromoting a lateral entry student to 1st year, session year must remain the same',
+//         });
+//       }
+
+//       // Check if there's already a 1st year record
+//       const existingFirstYearRecord = allAcademicRecords.find(
+//         record => record.courseYear === '1st'
+//       );
+
+//       if (existingFirstYearRecord) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'Student already has a record for 1st year. Cannot depromote.',
+//         });
+//       }
+//     } 
+//     // Regular depromote case (not for lateral entry)
+//     else if (isDepromote) {
+//       // Validate that we're not skipping course years when depromoting
+//       if (newCourseYearIndex !== currentCourseYearIndex - 1) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`,
+//         });
+//       }
+
+//       // Check if student is already in 3rd year or higher, can't depromote back to 1st
+//       if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`,
+//         });
+//       }
+
+//       // Check if session year is the same for demotion
+//       if (currentAcademic.sessionYear !== newSessionYear) {
+//         return res.status(400).json({
+//           success: false,
+//           message: 'For demotion, session year must remain the same',
+//         });
+//       }
+
+//       // Check if there's already a record for the target course year
+//       const existingTargetYearRecord = allAcademicRecords.find(
+//         record => record.courseYear === newCourseYear
+//       );
+
+//       if (existingTargetYearRecord) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Student already has a record for ${newCourseYear} year. Cannot depromote.`,
+//         });
+//       }
+//     } 
+//     // Regular promotion case
+//     else {
+//       // Check if the student already has an academic record for the new course year
+//       const existingCourseYearRecord = allAcademicRecords.find(
+//         record => record.courseYear === newCourseYear
+//       );
+
+//       if (existingCourseYearRecord) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Student already has an academic record for ${newCourseYear} year`,
+//         });
+//       }
+
+//       // Check if there's a gap in course year sequence for promotion
+//       if (newCourseYearIndex !== currentCourseYearIndex + 1) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`,
+//         });
+//       }
+
+//       // Check if session year is same as current (not allowed for promotion)
+//       if (currentAcademic.sessionYear === newSessionYear) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`,
+//         });
+//       }
+
+//       // Check if there's a gap in session year sequence
+//       if (newSessionIndex <= currentSessionIndex) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`,
+//         });
+//       }
+
+//       if (newSessionIndex !== currentSessionIndex + 1) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`,
+//         });
+//       }
+//     }
+
+//     // Create new academic record for the student
+//     const academicData = {
+//       studentId: parseInt(studentId),
+//       courseYear: newCourseYear,
+//       sessionYear: newSessionYear,
+//       adminAmount: parseFloat(adminAmount),
+//       feesAmount: parseFloat(feesAmount),
+//       paymentMode,
+//       numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
+//       ledgerNumber: ledgerNumber || null,
+//       createdBy: modifiedBy,
+//       createdOn: new Date(),
+//       modifiedBy,
+//     };
+
+//     // Create the new academic record
+//     const newAcademicRecord = await prisma.studentAcademicDetails.create({
+//       data: academicData,
+//     });
+
+//     // If payment mode is EMI, create EMI details
+//     if (paymentMode === 'EMI' && emiDetails && emiDetails.length > 0) {
+//       await Promise.all(
+//         emiDetails.map(async (emi) => {
+//           await prisma.eMIDetails.create({
+//             data: {
+//               studentId: parseInt(studentId),
+//               studentAcademicId: newAcademicRecord.id,
+//               emiNumber: emi.emiNumber,
+//               amount: parseFloat(emi.amount),
+//               dueDate: new Date(emi.dueDate),
+//               createdBy: modifiedBy,
+//               createdOn: new Date(),
+//               modifiedBy,
+//             },
+//           });
+//         })
+//       );
+//     }
+
+//     // If this is a lateral entry student being depromoted to 1st year, update the isLateral flag
+//     if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
+//       await prisma.student.update({
+//         where: { id: parseInt(studentId) },
+//         data: {
+//           isLateral: false,
+//           modifiedBy,
+//           modifiedOn: new Date(),
+//         },
+//       });
+//     }
+
+//     // Return success response
+//     const actionType = isDepromote ? 'demoted' : 'promoted';
+//     res.status(200).json({
+//       success: true,
+//       message: `Student successfully ${actionType} to ${newCourseYear} year for session ${newSessionYear}`,
+//       data: newAcademicRecord,
+//     });
+//   } catch (error) {
+//     console.error('Error promoting/demoting student:', error.stack);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || 'An error occurred while promoting/demoting the student',
+//     });
+//   }
+// });
+
+
 
 // DELETE /students/:id - Delete a student and all related records
 router.delete('/students/:id', async (req, res) => {
@@ -1983,7 +1993,7 @@ router.delete('/students/:id', async (req, res) => {
     }
 
     // Delete all related records in a transaction
-    const pool = await sql.connect();
+    const pool = await poolConnect;
     const transaction = new sql.Transaction(pool);
     try {
       await transaction.begin();
@@ -2038,7 +2048,7 @@ router.delete('/students/:id', async (req, res) => {
       await transaction.rollback();
       throw error;
     } finally {
-      await pool.close();
+      
     }
 
     res.status(200).json({ success: true, message: 'Student and all related records deleted successfully' });
@@ -2103,49 +2113,122 @@ router.get('/students/:studentId/academic-details', async (req, res) => {
   }
 });
 
-// Get the latest academic detail for a student
 router.get('/students/:studentId/academic-details/latest', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
 
-    // Fetch the latest academic detail
+    // Query to get the latest academic detail
     const academicQuery = `
       SELECT TOP 1 *
       FROM StudentAcademicDetails
       WHERE studentId = @studentId
       ORDER BY createdOn DESC
     `;
-    const academicParams = { studentId: { type: sql.Int, value: studentId } };
+    const academicParams = {
+      studentId: { type: sql.Int, value: studentId },
+    };
     const academicResult = await executeQuery(academicQuery, academicParams);
     const latestAcademicDetail = academicResult.recordset[0];
 
     if (!latestAcademicDetail) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No academic records found' 
+      return res.status(404).json({
+        success: false,
+        message: 'No academic records found',
       });
     }
 
-    // Fetch EMI details for the latest academic record
+    // Query to get associated EMI details
     const emiQuery = `
       SELECT *
       FROM EMIDetails
-      WHERE studentAcademicId = @academicId
+      WHERE studentAcademicId = @studentAcademicId
       ORDER BY emiNumber ASC
     `;
-    const emiParams = { academicId: { type: sql.Int, value: latestAcademicDetail.id } };
+    const emiParams = {
+      studentAcademicId: { type: sql.Int, value: latestAcademicDetail.id },
+    };
     const emiResult = await executeQuery(emiQuery, emiParams);
-    latestAcademicDetail.emiDetails = emiResult.recordset;
+    const emiDetails = emiResult.recordset;
 
-    res.status(200).json({ 
-      success: true, 
-      data: latestAcademicDetail 
+    // Combine the academic detail with EMI details
+    const responseData = {
+      ...latestAcademicDetail,
+      emiDetails,
+    };
+
+    res.status(200).json({
+      success: true,
+      data: responseData,
     });
   } catch (error) {
-    console.error('Error fetching latest academic detail:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Failed to fetch latest academic details' 
+    console.error('Error fetching latest academic detail:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch latest academic details',
+      details: error.message,
+    });
+  }
+});
+
+
+router.get('/students/:studentId/academic-details/:academicId/emi', async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.studentId);
+    const academicId = parseInt(req.params.academicId);
+
+    // Validate input parameters
+    if (isNaN(studentId) || isNaN(academicId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid studentId or academicId: both must be numbers',
+      });
+    }
+
+    // Query to verify the academic record exists and belongs to the student
+    const academicQuery = `
+      SELECT id
+      FROM StudentAcademicDetails
+      WHERE id = @academicId AND studentId = @studentId
+    `;
+    const academicParams = {
+      studentId: { type: sql.Int, value: studentId },
+      academicId: { type: sql.Int, value: academicId },
+    };
+    const academicResult = await executeQuery(academicQuery, academicParams);
+    const academicRecord = academicResult.recordset[0];
+
+    if (!academicRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academic record not found for the specified student',
+      });
+    }
+
+    // Query to get EMI details
+    const emiQuery = `
+      SELECT id, studentId, studentAcademicId, emiNumber, amount, dueDate, 
+             createdBy, createdOn, modifiedBy, modifiedOn
+      FROM EMIDetails
+      WHERE studentId = @studentId AND studentAcademicId = @academicId
+      ORDER BY emiNumber ASC
+    `;
+    const emiParams = {
+      studentId: { type: sql.Int, value: studentId },
+      academicId: { type: sql.Int, value: academicId },
+    };
+    const emiResult = await executeQuery(emiQuery, emiParams);
+    const emiDetails = emiResult.recordset;
+
+    res.status(200).json({
+      success: true,
+      data: emiDetails,
+    });
+  } catch (error) {
+    console.error('Error fetching EMI details:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch EMI details',
+      details: error.message,
     });
   }
 });
@@ -2237,7 +2320,7 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
 
     // Create payment record
     let newPayment;
-    const pool = await sql.connect();
+    const pool = await poolConnect; // Use the existing poolConnect
     const transaction = new sql.Transaction(pool);
     try {
       await transaction.begin();
@@ -2279,13 +2362,13 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
       await transaction.rollback();
       throw error;
     } finally {
-      await pool.close();
+      // Do NOT close the global pool here; let it persist for other requests
     }
 
     res.status(201).json({ success: true, data: newPayment });
   } catch (error) {
-    console.error('Payment creation error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create payment' });
+    console.error('Payment creation error:', error.stack);
+    res.status(500).json({ success: false, error: `Failed to create payment: ${error.message}` });
   }
 });
 
@@ -2588,46 +2671,75 @@ router.get('/amountType', async (req, res) => {
 router.post('/register', async (req, res) => {
   const { fullName, mobileNumber, email, course } = req.body;
   try {
-    const pool = await sql.connect();
-    const transaction = new sql.Transaction(pool);
-    let newRegistration;
+      // Validate inputs
+      if (!fullName || fullName.trim() === '') {
+          return res.status(400).json({ message: 'Full name is required' });
+      }
+      if (!mobileNumber || !/^\d{10}$/.test(mobileNumber)) {
+          return res.status(400).json({ message: 'Valid 10-digit mobile number is required' });
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          return res.status(400).json({ message: 'Valid email is required' });
+      }
+      if (!course || course.trim() === '') {
+          return res.status(400).json({ message: 'Course is required' });
+      }
 
-    try {
-      await transaction.begin();
-      const request = new sql.Request(transaction);
-
-      const registrationQuery = `
-        INSERT INTO CourseEnquiry (
-          fullName, mobileNumber, email, course, isContacted, createdAt
-        )
-        OUTPUT INSERTED.*
-        VALUES (
-          @fullName, @mobileNumber, @email, @course, @isContacted, @createdAt
-        )
+      // Check for duplicates
+      const checkQuery = `
+          SELECT id
+          FROM CourseEnquiry
+          WHERE email = @email OR mobileNumber = @mobileNumber
       `;
-      request.input('fullName', sql.NVarChar, fullName);
-      request.input('mobileNumber', sql.NVarChar, mobileNumber);
-      request.input('email', sql.NVarChar, email);
-      request.input('course', sql.NVarChar, course);
-      request.input('isContacted', sql.Bit, false);
-      request.input('createdAt', sql.DateTime, new Date());
+      const checkParams = {
+          email: { type: sql.NVarChar, value: email },
+          mobileNumber: { type: sql.NVarChar, value: mobileNumber },
+      };
+      const checkResult = await executeQuery(checkQuery, checkParams);
+      if (checkResult.recordset[0]) {
+          return res.status(400).json({ message: 'Email or mobile number already registered' });
+      }
 
-      const registrationResult = await request.query(registrationQuery);
-      newRegistration = registrationResult.recordset[0];
+      const pool = await poolConnect;
+      const transaction = new sql.Transaction(pool);
+      let newRegistration;
 
-      await transaction.commit();
-    } catch (error) {
-      await transaction.rollback();
-      throw error;
-    } finally {
-      await pool.close();
-    }
+      try {
+          await transaction.begin();
 
-    console.log('Student registration successful:', newRegistration);
-    res.status(201).json({ message: 'Registration successful', data: newRegistration });
+          const registrationQuery = `
+              INSERT INTO CourseEnquiry (
+                fullName, mobileNumber, email, course, isContacted, createdAt
+              )
+              OUTPUT INSERTED.*
+              VALUES (
+                @fullName, @mobileNumber, @email, @course, @isContacted, @createdAt
+              )
+          `;
+          const registrationParams = {
+              fullName: { type: sql.NVarChar, value: fullName },
+              mobileNumber: { type: sql.NVarChar, value: mobileNumber },
+              email: { type: sql.NVarChar, value: email },
+              course: { type: sql.NVarChar, value: course },
+              isContacted: { type: sql.Bit, value: false },
+              createdAt: { type: sql.DateTime, value: new Date() },
+          };
+
+          const registrationResult = await executeQuery(registrationQuery, registrationParams, transaction);
+          newRegistration = registrationResult.recordset[0];
+
+          await transaction.commit();
+      } catch (error) {
+          await transaction.rollback();
+          throw error;
+      } finally {
+          // Do NOT close the global pool here; let it persist for other requests
+      }
+      console.log('Student registration successful:', newRegistration);
+      res.status(201).json({ message: 'Registration successful', data: newRegistration });
   } catch (error) {
-    console.error('Error registering student:', error);
-    res.status(500).json({ message: 'Error registering student' });
+      console.error('Error registering student:', error.stack);
+      res.status(500).json({ message: 'Error registering student', error: error.message });
   }
 });
 
@@ -2649,18 +2761,25 @@ router.get('/getCourseEnquiry', async (req, res) => {
   }
 });
 
-// Update the enquiry status (e.g., mark as contacted)
+// Update the enquiry status (e.g., mark as contacted
 router.post('/updateEnquiryStatus', async (req, res) => {
   const { id, isContacted, modifiedAt, modifiedby } = req.body;
 
   try {
-    const pool = await sql.connect();
+    // Validate inputs
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ message: 'Valid enquiry ID is required' });
+    }
+    if (isContacted === undefined || isContacted === null) {
+      return res.status(400).json({ message: 'isContacted status is required' });
+    }
+
+    const pool = await poolConnect;
     const transaction = new sql.Transaction(pool);
     let updatedEnquiry;
 
     try {
       await transaction.begin();
-      const request = new sql.Request(transaction);
 
       const updateQuery = `
         UPDATE CourseEnquiry
@@ -2670,12 +2789,14 @@ router.post('/updateEnquiryStatus', async (req, res) => {
         FROM CourseEnquiry
         WHERE id = @id
       `;
-      request.input('id', sql.Int, Number(id));
-      request.input('isContacted', sql.Bit, isContacted);
-      request.input('modifiedAt', sql.DateTime, modifiedAt ? new Date(modifiedAt) : null);
-      request.input('modifiedby', sql.NVarChar, modifiedby || null);
+      const params = {
+        id: { type: sql.Int, value: Number(id) },
+        isContacted: { type: sql.Bit, value: isContacted },
+        modifiedAt: { type: sql.DateTime, value: modifiedAt ? new Date(modifiedAt) : null },
+        modifiedby: { type: sql.NVarChar, value: modifiedby || null },
+      };
 
-      const updateResult = await request.query(updateQuery);
+      const updateResult = await executeQuery(updateQuery, params, transaction);
       updatedEnquiry = updateResult.recordset[0];
 
       await transaction.commit();
@@ -2683,19 +2804,17 @@ router.post('/updateEnquiryStatus', async (req, res) => {
       await transaction.rollback();
       throw error;
     } finally {
-      await pool.close();
+      // Do NOT close the global pool here; let it persist for other requests
     }
-
-    res.status(200).json({ 
-      message: 'Enquiry status updated successfully', 
-      data: updatedEnquiry 
+    console.log( 'Enquiry status updated successfully')
+    res.status(200).json({
+      message: 'Enquiry status updated successfully',
+      data: updatedEnquiry,
     });
   } catch (error) {
-    console.error('Error updating enquiry status:', error);
-    res.status(500).json({ message: 'Error updating enquiry status' });
+    console.error('Error updating enquiry status:', error.stack);
+    res.status(500).json({ message: 'Error updating enquiry status', error: error.message });
   }
 });
-
-
 
 module.exports = router;

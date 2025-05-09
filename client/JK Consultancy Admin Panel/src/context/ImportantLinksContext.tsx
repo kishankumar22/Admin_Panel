@@ -48,7 +48,7 @@ export const ImportantLinksProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       const response = await axiosInstance.get('/important-links/all');
       setLinks(response.data || []); // Ensure empty array if response.data is undefined
-      console.log('Links fetched successfully:', response.data.length);
+      // console.log('Links fetched successfully:', response.data.length);
     } catch (error: any) {
       console.error('Error fetching links:', error.response?.data || error.message);
       toast.error('Failed to fetch links');
