@@ -1,85 +1,103 @@
-const express = require('express'); 
+const express = require('express');
 const dotenv = require('dotenv');
-const cors = require('cors'); // Import CORS
-const loginRoutes = require('./routes/loginRoutes'); // Correctly import the login routes
+const cors = require('cors');
+const loginRoutes = require('./routes/loginRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const bodyParser = require('body-parser');
 const formRoutes = require('./routes/formRoutes');
-const bannerRoutes=require('./routes/bannerRoutes')
-const facultyRoutes=require('./routes/facultyRoutes')
-const latestPostRoutes=require('./routes/latestPostRoutes')
-const galleryRoutes=require('./routes/galleryRoutes')
-const userRoutes=require('./routes/userRoutes')
-const createpageRoutes=require('./routes/createPageRoutes')
-const addStudentsRoutes=require('./routes/students/addStudentsRoutes')
-const paymentHandoverRoutes=require('./routes/students/paymentHandoverRoutes')
-const assignroleRoutes=require('./routes/assignroleRoutes')
-const importentLogolinkRoutes=require('./routes/importentLogolinkRoutes');
+const bannerRoutes = require('./routes/bannerRoutes');
+const facultyRoutes = require('./routes/facultyRoutes');
+const latestPostRoutes = require('./routes/latestPostRoutes');
+const galleryRoutes = require('./routes/galleryRoutes');
+const userRoutes = require('./routes/userRoutes');
+const createpageRoutes = require('./routes/createPageRoutes');
+const addStudentsRoutes = require('./routes/students/addStudentsRoutes');
+const paymentHandoverRoutes = require('./routes/students/paymentHandoverRoutes');
+const assignroleRoutes = require('./routes/assignroleRoutes');
+const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
+const winston = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
+const { poolConnect } = require('../server/config/db'); // Correct import path
 
-// const { createUser } = require('./controllers/controller');
-// createUser()
-
-
-dotenv.config(); // Load environment variables
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Set up Winston logger for errors only with daily rotation
+const errorLogger = winston.createLogger({
+  level: 'error',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new DailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d',
+      level: 'error',
+    }),
+  ],
+});
 
 // Middleware to parse JSON requests
-app.use(express.json());    
+app.use(express.json());
 app.use(cors({
-    origin: ['http://localhost:5173','http://localhost:5174'], // Explicitly allow frontend origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false, // Set to true if cookies are needed
-  }));
-  app.use((req, res, next) => {
-    // console.log('Incoming request:', {
-    //   method: req.method,
-    //   url: req.url,
-    //   headers: req.headers,
-    // });
-    next();
-  });
-app.use(bodyParser.json()); // Make sure to parse JSON bodies
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:8081'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+}));
 
+app.use(bodyParser.json());
 
-// Use the login route
-app.use('/api', loginRoutes); // Correctly set up thce routee for login
-// Routes
+// Use the routes
+app.use('/api', loginRoutes);
 app.use('/form', formRoutes);
-
-// Your code using Cloudinary goes here
-// console.log("Cloude details:  ",cloudinary.config());
+app.use('/api/notifications', notificationRoutes);
+app.use('/api', bannerRoutes);
+app.use('/api', galleryRoutes);
+app.use('/api', importentLogolinkRoutes);
+app.use('/api', facultyRoutes);
+app.use('/api', latestPostRoutes);
+app.use('/api', userRoutes);
+app.use('/api', createpageRoutes);
+app.use('/api', assignroleRoutes);
+app.use('/api', addStudentsRoutes);
+app.use('/api', paymentHandoverRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
-    res.send('Welcome to Kishan Kumar  from IIS server ');
+  res.send('Welcome to Kishan Kumar from IIS server');
 });
 
-// Use the notification router for all routes under `/notifications`
-app.use('/api/notifications', notificationRoutes);
-app.use('/api',bannerRoutes)
-app.use('/api',galleryRoutes)
-app.use('/api',importentLogolinkRoutes)
-app.use('/api',facultyRoutes)
-app.use('/api',latestPostRoutes)
-app.use('/api',userRoutes)
-app.use('/api',createpageRoutes)
-app.use('/api',assignroleRoutes)
-app.use('/api',addStudentsRoutes)
-app.use('/api',paymentHandoverRoutes)
+// Error-handling middleware to log errors to app-YYYY-MM-DD.log
+app.use((err, req, res, next) => {
+  const statusCode = 500;
 
-// Routes 
+  // Log the error to app-YYYY-MM-DD.log in the simplified format
+  errorLogger.error('Error occurred', {
+    error: err.message,
+    stack: err.stack,
+    status: statusCode,
+    method: req.method,
+    url: req.url,
+  });
 
-// Start the server
-// app.listen(PORT,  () => {
-//     console.log(`Server running on http://${PORT}`);
-// }); 
-// Start the server
-app.listen(PORT,  () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Server running on http://localhost:${PORT}/api/banners`);
+  // Send a response to the client
+  res.status(statusCode).json({
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'production' ? undefined : err.message,
+  });
 });
-// app.listen(PORT, HOST, () => console.log(`Server running on http://${HOST}:${PORT}`));
+
+// Start the server and connect to the database
+app.listen(PORT, async () => {
+  try {
+    await poolConnect; // Connect to the database using MSSQL pool
+    console.log('Database connected successfully');
+  } catch (error) {
+    // Do not log database connection errors to console or file as per requirement
+  }
+});

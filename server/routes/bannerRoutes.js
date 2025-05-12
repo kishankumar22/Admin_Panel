@@ -1,24 +1,24 @@
 const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinaryConfig');
-const { sql, executeQuery } = require('../config/db');
+const { sql, executeQuery } = require('../config/db'); // Correct import path
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-// 1. GET All Banners
-router.get('/banners', async (req, res) => {
+// 1. GET all banners
+router.get('/banners', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Banner ORDER BY bannerPosition ASC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Error:', err);
-    res.status(500).json({ success: false, message: 'Error fetching banners' });
+    // Propagate the error to the error-handling middleware
+    next(err);
   }
 });
 
 // 2. POST Upload Banner
-router.post('/banner/upload', upload.single('file'), async (req, res) => {
+router.post('/banner/upload', upload.single('file'), async (req, res, next) => {
   try {
     const { bannerName, created_by, bannerPosition } = req.body;
     const file = req.file;
@@ -59,20 +59,20 @@ router.post('/banner/upload', upload.single('file'), async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Banner uploaded successfully', banner: result.recordset[0] });
   } catch (err) {
-    console.error('Upload Error:', err);
-    res.status(500).json({ success: false, message: 'Error uploading banner' });
+    // Propagate the error to the error-handling middleware
+    next(err);
   }
 });
 
 // 3. PUT Update Banner
-router.put('/banner/update/:id', upload.single('file'), async (req, res) => {
+router.put('/banner/update/:id', upload.single('file'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { bannerName, modify_by, bannerPosition } = req.body;
     const file = req.file;
 
     const existing = await executeQuery(
-      `SELECT * FROM Banner WHERE id = @id`,
+      `SELECT * FROM Bann WHERE id = @id`,
       { id: { type: sql.Int, value: parseInt(id) } }
     );
 
@@ -126,13 +126,13 @@ router.put('/banner/update/:id', upload.single('file'), async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Banner updated successfully', banner: result.recordset[0] });
   } catch (err) {
-    console.error('Update Error:', err);
-    res.status(500).json({ success: false, message: 'Error updating banner' });
+    // Propagate the error to the error-handling middleware
+    next(err);
   }
 });
 
 // 4. DELETE Banner
-router.delete('/banner/delete/:id', async (req, res) => {
+router.delete('/banner/delete/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -148,11 +148,7 @@ router.delete('/banner/delete/:id', async (req, res) => {
     const publicId = result.recordset[0].publicId;
 
     if (publicId) {
-      try {
-        await cloudinary.uploader.destroy(publicId);
-      } catch (cloudinaryErr) {
-        console.error('Cloudinary Delete Error:', cloudinaryErr);
-      }
+      await cloudinary.uploader.destroy(publicId);
     }
 
     await executeQuery(
@@ -162,13 +158,13 @@ router.delete('/banner/delete/:id', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Banner deleted successfully' });
   } catch (err) {
-    console.error('Delete Error:', err);
-    res.status(500).json({ success: false, message: 'Error deleting banner' });
+    // Propagate the error to the error-handling middleware
+    next(err);
   }
 });
 
 // 5. PUT Toggle Banner Visibility
-router.put('/banner/toggle-visibility/:id', async (req, res) => {
+router.put('/banner/toggle-visibility/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -199,8 +195,8 @@ router.put('/banner/toggle-visibility/:id', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Banner visibility updated successfully', banner: result.recordset[0] });
   } catch (err) {
-    console.error('Toggle Visibility Error:', err);
-    res.status(500).json({ success: false, message: 'Error updating banner visibility' });
+    // Propagate the error to the error-handling middleware
+    next(err);
   }
 });
 

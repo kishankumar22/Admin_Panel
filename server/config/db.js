@@ -28,11 +28,10 @@ const pool = new sql.ConnectionPool(dbConfig);
 const poolConnect = pool
   .connect()
   .then(pool => {
-    console.log(':white_check_mark: Database connected successfully!');
     return pool;
   })
   .catch(err => {
-    console.error(':x: Database connection failed:', err.message);
+    // Do not log to console; let the caller handle the error
     throw err;
   });
 
@@ -55,7 +54,7 @@ module.exports = {
       const result = await request.query(query);
       return result;
     } catch (error) {
-      console.error('Query execution error:', error.message);
+      // Do not log to console; let the caller handle the error
       throw error;
     }
   },

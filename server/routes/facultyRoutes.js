@@ -7,12 +7,13 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. GET All Faculties
-router.get('/faculty', async (req, res) => {
+router.get('/faculty', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Faculty ORDER BY faculty_name ASC');
     res.status(200).json(result.recordset);
   } catch (err) {
     console.error('Fetch Error:', err);
+    next(err);
     res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
   }
 });
