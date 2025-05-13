@@ -7,18 +7,19 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. GET All Important Links
-router.get('/important-links/all', async (req, res) => {
+router.get('/important-links/all', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM ImportantLinks ORDER BY logoPosition ASC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Error:', err);
+    // console.error('Fetch Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error fetching links' });
   }
 });
 
 // 2. POST Upload Important Link
-router.post('/important-links/upload', upload.single('file'), async (req, res) => {
+router.post('/important-links/upload', upload.single('file'), async (req, res, next) => {
   try {
     const { logoName, linksUrl, created_by, logoPosition } = req.body;
     const file = req.file;
@@ -61,13 +62,14 @@ router.post('/important-links/upload', upload.single('file'), async (req, res) =
     console.log('Logo added:', result.recordset[0].logoName);
     res.status(201).json({ success: true, message: 'Important link uploaded successfully', link: result.recordset[0] });
   } catch (err) {
-    console.error('Upload Error:', err);
+    // console.error('Upload Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error uploading link' });
   }
 });
 
 // 3. PUT Update Important Link
-router.put('/important-links/update/:id', upload.single('file'), async (req, res) => {
+router.put('/important-links/update/:id', upload.single('file'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { logoName, linksUrl, modify_by, logoPosition } = req.body;
@@ -131,13 +133,14 @@ router.put('/important-links/update/:id', upload.single('file'), async (req, res
     console.log('Logo updated:', result.recordset[0].logoName);
     res.status(200).json({ success: true, message: 'Important link updated successfully', link: result.recordset[0] });
   } catch (err) {
-    console.error('Update Error:', err);
+    // console.error('Update Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error updating link' });
   }
 });
 
 // 4. DELETE Important Link
-router.delete('/important-links/delete/:id', async (req, res) => {
+router.delete('/important-links/delete/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -168,13 +171,14 @@ router.delete('/important-links/delete/:id', async (req, res) => {
     console.log('Logo deleted:', result.recordset[0].logoName);
     res.status(200).json({ success: true, message: 'Important link deleted successfully' });
   } catch (err) {
-    console.error('Delete Error:', err);
+    // console.error('Delete Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error deleting link' });
   }
 });
 
 // 5. PUT Toggle Important Link Visibility
-router.put('/important-links/toggle-visibility/:id', async (req, res) => {
+router.put('/important-links/toggle-visibility/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -206,7 +210,8 @@ router.put('/important-links/toggle-visibility/:id', async (req, res) => {
     console.log('Logo visibility toggled:', result.recordset[0].logoName);
     res.status(200).json({ success: true, message: 'Link visibility updated successfully', link: result.recordset[0] });
   } catch (err) {
-    console.error('Toggle Visibility Error:', err);
+    // console.error('Toggle Visibility Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error updating link visibility' });
   }
 });

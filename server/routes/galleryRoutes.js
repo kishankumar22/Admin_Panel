@@ -7,12 +7,13 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. GET All Galleries
-router.get('/gallery', async (req, res) => {
+router.get('/gallery', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Gallery ORDER BY galleryPosition ASC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Error:', err);
+    // console.error('Fetch Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error fetching galleries' });
   }
 });

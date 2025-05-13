@@ -77,12 +77,13 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
 });
 
 // 3. GET All Posts
-router.get('/all-posts', async (req, res) => {
+router.get('/all-posts', async (req, res, next) => {
   try {
-    const result = await executeQuery('SELECT * FROM LatestPost ORDER BY created_on DESC');
+    const result = await executeQuery('SELECT * FROM LatestPos ORDER BY created_on DESC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Posts Error:', err);
+    // console.error('Fetch Posts Error:', err); 
+     next(err);
     res.status(500).json({ success: false, message: 'Error fetching posts', error: err.message });
   }
 });

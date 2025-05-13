@@ -3,7 +3,7 @@ const nodemailer = require('nodemailer');
 const router = express.Router();
 
 // POST route to handle form submission
-router.post('/submit', async (req, res) => {
+router.post('/submit', async (req, res, next) => {
     const formData = req.body;
 
     // Validate if the required fields are present
@@ -74,7 +74,8 @@ router.post('/submit', async (req, res) => {
         // Respond to the client
         res.status(200).json({ message: 'Emails sent successfully!' });
     } catch (error) {
-        console.error('Error sending emails:', error);
+        // console.error('Error sending emails:', error);
+            next(err);
         res.status(500).json({ error: 'Failed to send emails!' });
     }
 });

@@ -5,7 +5,7 @@ const { sql, executeQuery } = require('../config/db');
 const router = express.Router();
 
 // Add a new user
-router.post('/users', async (req, res) => {
+router.post('/users', async (req, res, next) => {
   const { name, email, mobileNo, password, roleId, created_by } = req.body;
 
   try {
@@ -64,7 +64,7 @@ router.get('/getrole', async (req, res) => {
 });
 
 // Fetch a single user by ID
-router.get('/users/:id', async (req, res) => {
+router.get('/users/:id', async (req, res, next) => {
   const { id } = req.params;
 
   try {
@@ -79,13 +79,14 @@ router.get('/users/:id', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'User fetched successfully!', user: result.recordset[0] });
   } catch (error) {
-    console.error('Error fetching user:', error);
+    // console.error('Error fetching user:', error);
+        next(err);
     res.status(500).json({ success: false, message: 'Failed to fetch user', error: error.message });
   }
 });
 
 // Update a user
-router.put('/users/:id', async (req, res) => {
+router.put('/users/:id', async (req, res, next) => {
   const { id } = req.params;
   const { name, email, mobileNo, password, roleId } = req.body;
   const modifyBy = req.user?.name || 'admin';
@@ -136,7 +137,8 @@ router.put('/users/:id', async (req, res) => {
     console.log('User updated:', result.recordset[0].name);
     res.status(200).json({ success: true, message: 'User updated successfully!', user: result.recordset[0] });
   } catch (error) {
-    console.error('Error updating user:', error);
+    // console.error('Error updating user:', error);
+        next(err);
     if (error.number === 2627) { // Unique constraint violation
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
@@ -145,7 +147,7 @@ router.put('/users/:id', async (req, res) => {
 });
 
 // Delete a user
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', async (req, res, next) => {
   const { id } = req.params;
 
   try {
@@ -166,13 +168,14 @@ router.delete('/users/:id', async (req, res) => {
     console.log('User deleted:', result.recordset[0].name);
     res.status(200).json({ success: true, message: 'User deleted successfully!' });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    // console.error('Error deleting user:', error);
+        next(err);
     res.status(500).json({ success: false, message: 'Failed to delete user', error: error.message });
   }
 });
 
 // Change Password Route
-router.put('/change-password', async (req, res) => {
+router.put('/change-password', async (req, res, next) => {
   const { email, oldPassword, newPassword, confirmPassword } = req.body;
 
   try {
@@ -231,7 +234,8 @@ router.put('/change-password', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Password changed successfully!' });
   } catch (error) {
-    console.error('Error changing password:', error);
+    // console.error('Error changing password:', error);
+        next(err);
     res.status(500).json({ success: false, message: 'Failed to change password', error: error.message });
   }
 });

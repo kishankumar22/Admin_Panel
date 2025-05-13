@@ -7,7 +7,7 @@ const sql = require('mssql');
 const router = express.Router();
 
 // User Login Route
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   const { email, password } = req.body;
 
   // Validate input
@@ -54,7 +54,8 @@ router.post('/login', async (req, res) => {
       user: userDetails,
     });
   } catch (error) {
-    console.error('❌ Server error:', error.message);
+    // console.error('❌ Server error:', error.message);
+        next(err);
     res.status(500).json({ error: `Server error: ${error.message}` });
   }
 });

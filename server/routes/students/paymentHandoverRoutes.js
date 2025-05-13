@@ -4,7 +4,7 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 
 // Get all payments
-router.get('/amountType', async (req, res) => {
+router.get('/amountType', async (req, res, next) => {
   try {
     const query = `
       SELECT 
@@ -54,18 +54,19 @@ router.get('/amountType', async (req, res) => {
       success: true,
       data: payments,
     });
-  } catch (error) {
-    console.error('Error fetching payments:', error);
+  } catch (err) {
+    // console.error('Error fetching payments:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payments',
-      error: error.message,
+      error: err.message,
     });
   }
 });
 
 // Get unique approvedBy values for "Received By" dropdown
-router.get('/approved-by', async (req, res) => {
+router.get('/approved-by', async (req, res, next) => {
   try {
     const query = `
       SELECT DISTINCT approvedBy, receivedDate
@@ -81,18 +82,19 @@ router.get('/approved-by', async (req, res) => {
       success: true,
       data: approvedByList,
     });
-  } catch (error) {
-    console.error('Error fetching approvedBy list:', error);
+  } catch (err) {
+    // console.error('Error fetching approvedBy list:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Error fetching approvedBy list',
-      error: error.message,
+      error: err.message,
     });
   }
 });
 
 // Get payments by staff member (approvedBy) - Includes remaining amount
-router.get('/payments-by-staff/:staffName', async (req, res) => {
+router.get('/payments-by-staff/:staffName', async (req, res, next) => {
   try {
     const { staffName } = req.params;
     const query = `
@@ -231,18 +233,19 @@ router.get('/payments-by-staff/:staffName', async (req, res) => {
       success: true,
       data: processedPayments,
     });
-  } catch (error) {
-    console.error('Error fetching payments by staff:', error);
+  } catch (err) {
+    // console.error('Error fetching payments by staff:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payments by staff',
-      error: error.message,
+      error: err.message,
     });
   }
 });
 
 // Create a payment handover record - Updated for partial handovers
-router.post('/payment-handovers', async (req, res) => {
+router.post('/payment-handovers', async (req, res, next) => {
   try {
     const { paymentData, handedOverTo, handoverDate, remarks, createdBy } = req.body;
     const handovers = [];
@@ -316,8 +319,9 @@ router.post('/payment-handovers', async (req, res) => {
       success: true,
       data: handovers,
     });
-  } catch (error) {
-    console.error('Error creating payment handovers:', error);
+  } catch (err) {
+    // console.error('Error creating payment handovers:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Failed to create payment handovers',
@@ -327,7 +331,7 @@ router.post('/payment-handovers', async (req, res) => {
 });
 
 // Get all payment handovers
-router.get('/payment-handovers', async (req, res) => {
+router.get('/payment-handovers', async (req, res, next) => {
   try {
     const query = `
       SELECT 
@@ -456,8 +460,9 @@ router.get('/payment-handovers', async (req, res) => {
       success: true,
       data: handovers,
     });
-  } catch (error) {
-    console.error('Error fetching payment handovers:', error);
+  } catch (err) {
+    // console.error('Error fetching payment handovers:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch payment handovers',
@@ -467,7 +472,7 @@ router.get('/payment-handovers', async (req, res) => {
 });
 
 // Verify a payment handover (kept for backward compatibility)
-router.put('/payment-handovers/:id/verify', async (req, res) => {
+router.put('/payment-handovers/:id/verify', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { verifiedBy } = req.body;
@@ -490,8 +495,9 @@ router.put('/payment-handovers/:id/verify', async (req, res) => {
       success: true,
       data: result.recordset[0],
     });
-  } catch (error) {
-    console.error('Error verifying payment handover:', error);
+  } catch (err) {
+    // console.error('Error verifying payment handover:', error);
+        next(err);
     res.status(500).json({
       success: false,
       message: 'Failed to verify payment handover',
