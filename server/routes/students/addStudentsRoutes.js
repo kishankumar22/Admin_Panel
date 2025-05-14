@@ -12,7 +12,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // GET /colleges - Fetch all colleges
-router.get('/colleges', async (req, res, next) => {
+router.get('/colleges', async (req, res) => {
   try {
     const query = `
       SELECT id, collegeName
@@ -22,15 +22,14 @@ router.get('/colleges', async (req, res, next) => {
     `;
     const result = await executeQuery(query);
     res.status(200).json(result.recordset);
-  } catch (err) {
-    // console.error('Error fetching colleges:', error);
-        next(err);
-    res.status(500).json({ success: false, message: 'Error fetching colleges', error: err.message });
+  } catch (error) {
+    console.error('Error fetching colleges:', error);
+    res.status(500).json({ success: false, message: 'Error fetching colleges', error: error.message });
   }
 });
 
 // GET /courses - Fetch all courses
-  router.get('/courses', async (req, res, next) => {
+  router.get('/courses', async (req, res) => {
     try {
       const query = `
         SELECT id, courseName, courseDuration
@@ -40,9 +39,8 @@ router.get('/colleges', async (req, res, next) => {
       `;
       const result = await executeQuery(query);
       res.status(200).json(result.recordset);
-    } catch (err) {
-      // console.error('Error fetching courses:', error);
-          next(err);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
       res.status(500).json({ success: false, message: 'Error fetching courses', error: error.message });
     }
   });
@@ -58,7 +56,7 @@ router.post(
     { name: 'Residential' },
     { name: 'Income' },
   ]),
-  async (req, res, next) => {
+  async (req, res) => {
     try {
       const {
         RollNumber,
@@ -122,7 +120,7 @@ router.post(
         }
       }
 
-      // console.log('Parsed EMI Details:', emiDetails);
+      console.log('Parsed EMI Details:', emiDetails);
 
       // Validate CollegeId
       if (!CollegeId || CollegeId === '') {
@@ -391,10 +389,9 @@ router.post(
       }
 
       res.status(201).json({ success: true, student: newStudent });
-    } catch (err) {
-      // console.error('Erreur lors de la création de l\'étudiant:', err.stack);
-          next(err);
-      res.status(500).json({ success: false, message: err.message });
+    } catch (error) {
+      console.error('Erreur lors de la création de l\'étudiant:', error.stack);
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 );
@@ -411,7 +408,7 @@ router.put(
     { name: 'Residential' },
     { name: 'Income' },
   ]),
-  async (req, res, next) => {
+  async (req, res) => {
     try {
       const studentId = parseInt(req.params.id);
       const {
@@ -735,9 +732,8 @@ router.put(
       }
 
       res.status(200).json({ success: true, student: updatedStudent });
-    } catch (err) {
-      // console.error('Error updating student:', error);
-    next(err);
+    } catch (error) {
+      console.error('Error updating student:', error);
       res.status(500).json({ success: false, message: error.message });
     }
   }
@@ -745,7 +741,7 @@ router.put(
 
 
 // GET all students with related data
-router.get('/students', async (req, res, next) => {
+router.get('/students', async (req, res) => {
   try {
     // Fetch all students with college and course details
     const studentQuery = `
@@ -829,16 +825,15 @@ router.get('/students', async (req, res, next) => {
     }
 
     res.status(200).json(students);
-  } catch (err) {
-    // console.error('Error fetching students:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching students:', error);
     res.status(500).json({ success: false, message: 'Error fetching students', error: error.message });
   }
 });
 
 
 // GET /students - Fetch all students
-router.get('/students', async (req, res, next) => {
+router.get('/students', async (req, res) => {
   try {
     const query = `
       SELECT 
@@ -1000,15 +995,14 @@ router.get('/students', async (req, res, next) => {
 
     const students = Array.from(studentsMap.values());
     res.status(200).json(students);
-  } catch (err) {
-    // console.error('Error fetching students:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching students:', error);
     res.status(500).json({ success: false, message: 'Error fetching students', error: error.message });
   }
 });
 
 // GET /students/:id - Fetch single student with complete data
-router.get('/students/:id', async (req, res, next) => {
+router.get('/students/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const studentQuery = `
@@ -1087,15 +1081,14 @@ router.get('/students/:id', async (req, res, next) => {
     };
 
     res.status(200).json(formattedStudent);
-  } catch (err) {
-    // console.error('Error fetching student:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching student:', error);
     res.status(500).json({ success: false, message: 'Failed to load student data' });
   }
 });
 
 // GET /getAllStudents/:id - Fetch all details for a student
-router.get('/getAllStudents/:id', async (req, res, next) => {
+router.get('/getAllStudents/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     if (isNaN(studentId)) {
@@ -1228,15 +1221,14 @@ router.get('/getAllStudents/:id', async (req, res, next) => {
     formattedStudent.emiDetails = emiResult.recordset;
 
     res.status(200).json({ success: true, data: formattedStudent });
-  } catch (err) {
-    // console.error('Error fetching student:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching student:', error);
     res.status(500).json({ success: false, message: 'Failed to load student data' });
   }
 });
 
 // GET /students/:id/documents - Fetch student documents
-router.get('/students/:id/documents', async (req, res , next) => {
+router.get('/students/:id/documents', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const query = `
@@ -1257,15 +1249,14 @@ router.get('/students/:id/documents', async (req, res , next) => {
 
     res.status(200).json(formattedDocuments);
   } catch (error) {
-    // console.error('Error fetching documents:', error);
-        next(err);
+    console.error('Error fetching documents:', error);
     res.status(500).json({ success: false, message: 'Failed to load student documents' });
   }
 });
 
 
 // POST /students/:studentId/promote - Handle student promotion
-router.post('/students/:studentId/promote', async (req, res, next) => {
+router.post('/students/:studentId/promote', async (req, res) => {
   try {
     const { studentId } = req.params;
     const {
@@ -1649,13 +1640,12 @@ router.post('/students/:studentId/promote', async (req, res, next) => {
       console.error('Transaction error:', error.stack);
       throw error;
     }
-  } catch (err) {
-    // console.error('Error promoting/demoting student:', error.stack);
-        next(err);
+  } catch (error) {
+    console.error('Error promoting/demoting student:', error.stack);
     res.status(500).json({
       success: false,
-      message: err.message || 'An error occurred while promoting/demoting the student',
-      details: err.stack,
+      message: error.message || 'An error occurred while promoting/demoting the student',
+      details: error.stack,
     });
   }
 });
@@ -1954,7 +1944,7 @@ router.post('/students/:studentId/promote', async (req, res, next) => {
 
 
 // DELETE /students/:id - Delete a student and all related records
-router.delete('/students/:id', async (req, res, next) => {
+router.delete('/students/:id', async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
 
@@ -2062,10 +2052,9 @@ router.delete('/students/:id', async (req, res, next) => {
     }
 
     res.status(200).json({ success: true, message: 'Student and all related records deleted successfully' });
-  } catch (err) {
-    // console.error('Error deleting student:', error);
-        next(err);
-    res.status(500).json({ success: false, message: 'Failed to delete student', error: err.message });
+  } catch (error) {
+    console.error('Error deleting student:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete student', error: error.message });
   }
 });
 
@@ -2083,7 +2072,7 @@ async function deleteFromCloudinary(publicId) {
 }
 
 // GET academic details for a student
-router.get('/students/:studentId/academic-details', async (req, res, next) => {
+router.get('/students/:studentId/academic-details', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
 
@@ -2115,9 +2104,8 @@ router.get('/students/:studentId/academic-details', async (req, res, next) => {
       success: true,
       data: academicDetails,
     });
-  } catch (err) {
-    // console.error('Error fetching academic details:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching academic details:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch academic details',
@@ -2125,7 +2113,7 @@ router.get('/students/:studentId/academic-details', async (req, res, next) => {
   }
 });
 
-router.get('/students/:studentId/academic-details/latest', async (req, res, next) => {
+router.get('/students/:studentId/academic-details/latest', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
 
@@ -2173,8 +2161,7 @@ router.get('/students/:studentId/academic-details/latest', async (req, res, next
       data: responseData,
     });
   } catch (error) {
-    // console.error('Error fetching latest academic detail:', error.stack);
-        next(err);
+    console.error('Error fetching latest academic detail:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch latest academic details',
@@ -2184,7 +2171,7 @@ router.get('/students/:studentId/academic-details/latest', async (req, res, next
 });
 
 
-router.get('/students/:studentId/academic-details/:academicId/emi', async (req, res, next) => {
+router.get('/students/:studentId/academic-details/:academicId/emi', async (req, res) => {
   try {
     const studentId = parseInt(req.params.studentId);
     const academicId = parseInt(req.params.academicId);
@@ -2236,9 +2223,8 @@ router.get('/students/:studentId/academic-details/:academicId/emi', async (req, 
       success: true,
       data: emiDetails,
     });
-  } catch (err) {
-    // console.error('Error fetching EMI details:', error.stack);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching EMI details:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch EMI details',
@@ -2248,7 +2234,7 @@ router.get('/students/:studentId/academic-details/:academicId/emi', async (req, 
 });
 
 // Create new payment
-router.post('/studentPayment', upload.single('receipt'), async (req, res, next) => {
+router.post('/studentPayment', upload.single('receipt'), async (req, res) => {
   try {
     const {
       studentId,
@@ -2378,17 +2364,16 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
     } finally {
       // Do NOT close the global pool here; let it persist for other requests
     }
-    res.status(201).json({ success: true, data: newPayment });
-  } catch (err) {
-    // console.error('Payment creation error:', error.stack);
-    next(err);
 
-    res.status(500).json({ success: false, error: `Failed to create payment: ${err.message}` });
+    res.status(201).json({ success: true, data: newPayment });
+  } catch (error) {
+    console.error('Payment creation error:', error.stack);
+    res.status(500).json({ success: false, error: `Failed to create payment: ${error.message}` });
   }
 });
 
 // GET payments for a specific student by studentId
-router.get('/studentPayment/:studentId', async (req, res, next) => {
+router.get('/studentPayment/:studentId', async (req, res) => {
   try {
     const { studentId } = req.params;
 
@@ -2437,15 +2422,14 @@ router.get('/studentPayment/:studentId', async (req, res, next) => {
     }));
 
     res.status(200).json({ success: true, data: formattedPayments });
-  } catch (err) {
-    // console.error('Error fetching payments:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
 
 // Generate and download payment slip
-router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
+router.get('/studentPayment/:paymentId/slip', async (req, res) => {
   try {
     const { paymentId } = req.params;
 
@@ -2500,8 +2484,7 @@ router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
 
     // Handle errors in the PDF stream
     doc.on('error', (err) => {
-      // console.error('PDF stream error:', err);
-          next(err);
+      console.error('PDF stream error:', err);
       if (!res.headersSent) {
         res.status(500).json({ success: false, error: 'Failed to generate payment slip' });
       }
@@ -2621,9 +2604,8 @@ router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
 
     // End the PDF document
     doc.end();
-  } catch (err) {
-    // console.error('Error generating payment slip:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error generating payment slip:', error);
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: 'Internal server error while generating payment slip' });
     }
@@ -2631,7 +2613,7 @@ router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
 });
 
 // GET /amountType - Fetch all payments
-router.get('/amountType', async (req, res, next) => {
+router.get('/amountType', async (req, res) => {
   try {
     const paymentQuery = `
       SELECT 
@@ -2679,15 +2661,14 @@ router.get('/amountType', async (req, res, next) => {
     }));
 
     res.status(200).json({ success: true, data: formattedPayments });
-  } catch (err) {
-    // console.error('Error fetching payments:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching payments:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
   }
 });
 
 // POST route to handle registration form submission
-router.post('/register', async (req, res, next) => {
+router.post('/register', async (req, res) => {
   const { fullName, mobileNumber, email, course } = req.body;
   try {
       // Validate inputs
@@ -2756,15 +2737,14 @@ router.post('/register', async (req, res, next) => {
       }
       console.log('Student registration successful:', newRegistration);
       res.status(201).json({ message: 'Registration successful', data: newRegistration });
-  } catch (err) {
-      // console.error('Error registering student:', error.stack);
-          next(err);
+  } catch (error) {
+      console.error('Error registering student:', error.stack);
       res.status(500).json({ message: 'Error registering student', error: error.message });
   }
 });
 
 // GET /getCourseEnquiry - Fetch all course enquiries
-router.get('/getCourseEnquiry', async (req, res, next) => {
+router.get('/getCourseEnquiry', async (req, res) => {
   try {
     const enquiryQuery = `
       SELECT *
@@ -2775,15 +2755,14 @@ router.get('/getCourseEnquiry', async (req, res, next) => {
     const enquiries = enquiryResult.recordset;
 
     res.status(200).json({ message: 'Fetched enquiries successfully', data: enquiries });
-  } catch (err) {
-    // console.error('Error fetching course enquiries:', error);
-        next(err);
+  } catch (error) {
+    console.error('Error fetching course enquiries:', error);
     res.status(500).json({ message: 'Error fetching course enquiries' });
   }
 });
 
 // Update the enquiry status (e.g., mark as contacted
-router.post('/updateEnquiryStatus', async (req, res, next) => {
+router.post('/updateEnquiryStatus', async (req, res) => {
   const { id, isContacted, modifiedAt, modifiedby } = req.body;
 
   try {
@@ -2832,9 +2811,8 @@ router.post('/updateEnquiryStatus', async (req, res, next) => {
       message: 'Enquiry status updated successfully',
       data: updatedEnquiry,
     });
-  } catch (err) {
-    // console.error('Error updating enquiry status:', error.stack);
-        next(err);
+  } catch (error) {
+    console.error('Error updating enquiry status:', error.stack);
     res.status(500).json({ message: 'Error updating enquiry status', error: error.message });
   }
 });

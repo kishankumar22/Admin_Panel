@@ -22,7 +22,7 @@ router.get('/faculty', async (req, res, next) => {
 router.post('/faculty/add', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
-]), async (req, res, next) => {
+]), async (req, res) => {
   try {
     const { 
       faculty_name, 
@@ -107,8 +107,7 @@ router.post('/faculty/add', upload.fields([
       faculty: result.recordset[0] 
     });
   } catch (err) {
-    // console.error('Add Faculty Error:', err);
-        next(err);
+    console.error('Add Faculty Error:', err);
     res.status(500).json({ success: false, message: 'Error adding faculty', error: err.message });
   }
 });
@@ -117,7 +116,7 @@ router.post('/faculty/add', upload.fields([
 router.put('/faculty/update/:id', upload.fields([
   { name: 'profilePic', maxCount: 1 },
   { name: 'documents', maxCount: 5 }
-]), async (req, res, next) => {
+]), async (req, res) => {
   try {
     const { id } = req.params;
     const { 
@@ -215,14 +214,13 @@ router.put('/faculty/update/:id', upload.fields([
       faculty: result.recordset[0] 
     });
   } catch (err) {
-    // console.error('Update Faculty Error:', err);
-        next(err);
+    console.error('Update Faculty Error:', err);
     res.status(500).json({ success: false, message: 'Error updating faculty', error: err.message });
   }
 });
 
 // 4. DELETE Faculty
-router.delete('/faculty/delete/:id', async (req, res, next) => {
+router.delete('/faculty/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -243,14 +241,13 @@ router.delete('/faculty/delete/:id', async (req, res, next) => {
     console.log('Faculty deleted:', result.recordset[0].faculty_name);
     res.status(200).json({ success: true, message: 'Faculty deleted successfully' });
   } catch (err) {
-    // console.error('Delete Faculty Error:', err);
-        next(err);
+    console.error('Delete Faculty Error:', err);
     res.status(500).json({ success: false, message: 'Error deleting faculty', error: err.message });
   }
 });
 
 // 5. PUT Toggle Faculty Visibility
-router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
+router.put('/faculty/toggle-visibility/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -265,7 +262,7 @@ router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
     }
 
     const query = `
-      UPDATE d
+      UPDATE Faculty
       SET IsVisible = @isVisible,
           modify_by = @modifyBy,
           modify_on = GETDATE()
@@ -286,8 +283,7 @@ router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
       faculty: result.recordset[0] 
     });
   } catch (err) {
-    // console.error('Toggle Visibility Error:', err);
-        next(err);
+    console.error('Toggle Visibility Error:', err);
     res.status(500).json({ success: false, message: 'Error updating faculty visibility', error: err.message });
   }
 });

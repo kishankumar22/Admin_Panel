@@ -236,7 +236,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           }
                         >
                           < IoIosPersonAdd className="w-3.5 h-3.5" />
-                          Add Students
+                          Manage Students
                         </NavLink>
                       </li>
                       <li>
@@ -260,7 +260,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           }
                         >
                           <FaHandHoldingUsd className="w-4 h-4" />
-                          Payment Handover
+                          Manage Handover
                         </NavLink>
                       </li>
 
@@ -272,9 +272,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             }`
                           }
                         >
-                            <ClipboardList className="w-4 h-4 mr-2" />
+                            <ClipboardList className="w-4 h-4" />
 
-                          Course Queries
+                          Manage Queries
                         </NavLink>
                       </li>
 
@@ -341,7 +341,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 }
               >
                 <FaUserPlus className="w-4 h-4" />
-                Add User
+                Manage User
               </NavLink>
             </li>
 

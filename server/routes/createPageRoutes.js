@@ -4,7 +4,7 @@ const { sql, executeQuery } = require('../config/db');
 const router = express.Router();
 
 // 1. POST Create Page
-router.post('/createPage', async (req, res, next) => {
+router.post('/createPage', async (req, res) => {
   try {
     const { pageName, pageUrl, created_by } = req.body;
 
@@ -31,26 +31,24 @@ router.post('/createPage', async (req, res, next) => {
       page: result.recordset[0] 
     });
   } catch (err) {
-    // console.error('Create Page Error:', err);
-        next(err);
+    console.error('Create Page Error:', err);
     res.status(500).json({ success: false, message: 'Error creating page', error: err.message });
   }
 });
 
 // 2. GET All Pages
-router.get('/pages', async (req, res, next) => {
+router.get('/pages', async (req, res) => {
   try {
     const result = await executeQuery('SELECT * FROM Page');
     res.status(200).json(result.recordset);
   } catch (err) {
-    // console.error('Fetch Pages Error:', err);
-        next(err);
+    console.error('Fetch Pages Error:', err);
     res.status(500).json({ success: false, message: 'Error fetching pages', error: err.message });
   }
 });
 
 // 3. PUT Update Page
-router.put('/updatePage/:pageId', async (req, res, next) => {
+router.put('/updatePage/:pageId', async (req, res) => {
   try {
     const { pageId } = req.params;
     const { pageName, pageUrl, modify_by } = req.body;
@@ -89,14 +87,13 @@ router.put('/updatePage/:pageId', async (req, res, next) => {
       page: result.recordset[0] 
     });
   } catch (err) {
-    // console.error('Update Page Error:', err);
-        next(err);
+    console.error('Update Page Error:', err);
     res.status(500).json({ success: false, message: 'Error updating page', error: err.message });
   }
 });
 
 // 4. DELETE Page
-router.delete('/deletePage/:pageId', async (req, res, next) => {
+router.delete('/deletePage/:pageId', async (req, res) => {
   try {
     const { pageId } = req.params;
 
@@ -117,8 +114,7 @@ router.delete('/deletePage/:pageId', async (req, res, next) => {
     console.log('Page deleted:', result.recordset[0].pageName);
     res.status(200).json({ success: true, message: 'Page deleted successfully' });
   } catch (err) {
-    // console.error('Delete Page Error:', err);
-        next(err);
+    console.error('Delete Page Error:', err);
     res.status(500).json({ success: false, message: 'Error deleting page', error: err.message });
   }
 });

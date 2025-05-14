@@ -17,7 +17,7 @@ const assignroleRoutes = require('./routes/assignroleRoutes');
 const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
-const { poolConnect } = require('../server/config/db'); // Correct import path
+const { poolConnect } = require('./config/db'); // Correct import path
 
 dotenv.config();
 

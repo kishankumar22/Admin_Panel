@@ -14,6 +14,7 @@ interface User {
   roleId: string;
   created_by: string;
 }
+
 interface Role {
   name: string;
   role_id: number;
@@ -21,7 +22,8 @@ interface Role {
 
 const AddUser: React.FC = () => {
   const { user: loggedInUser } = useAuth();
-  const createdBy = loggedInUser?.name || 'admin';
+  const createdBy = loggedInUser?.email || 'admin';
+  console.log(createdBy)
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -36,7 +38,7 @@ const AddUser: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showPassword, setShowPassword] = useState(false); 
+  const [showPassword, setShowPassword] = useState(false);
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -46,83 +48,6 @@ const AddUser: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedMobile, setSelectedMobile] = useState('');
 
-  useEffect(() => {
-    // Check if passwords match whenever either password changes
-    if (user.password || userConfirmPassword) {
-      setPasswordsMatch(user.password === userConfirmPassword);
-    } else {
-      setPasswordsMatch(true); // If both are empty, consider them matching
-    }
-  }, [ userConfirmPassword]);
-
-  const handleOpenDeleteModal = (userId: number) => {
-    setUserIdToDelete(userId);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    try {
-      await axiosInstance.delete(`/users/${userIdToDelete}`);
-      toast.success('User deleted successfully!');
-      fetchUsers();
-    } catch (err) {
-      let errorMessage = 'Failed to delete user. Please try again.';
-      if (err instanceof Error) errorMessage = err.message;
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response: { data: { message?: string } } };
-        errorMessage = axiosError.response?.data?.message || errorMessage;
-      }
-      console.error('Error deleting user:', errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsDeleteModalOpen(false);
-      setUserIdToDelete(null);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setIsDeleteModalOpen(false);
-    setUserIdToDelete(null);
-  };
-
-  const handleChangePass = async (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    if (newPassword !== confirmPassword) {
-      toast.error('New password and confirm password do not match');
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const response = await axiosInstance.put('/change-password',
-        {
-          email: selectedEmail,
-          oldPassword,
-          newPassword,
-          confirmPassword,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
-      toast.success(response.data.message);
-      setIsChangePassModalOpen(false);
-      setOldPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setSelectedEmail('');
-    } catch (error) {
-      toast.error('Failed to change password');
-      console.error('Error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const [user, setUser] = useState({
     name: '',
     email: '',
@@ -131,6 +56,14 @@ const AddUser: React.FC = () => {
     roleId: '',
     created_by: createdBy,
   });
+
+  useEffect(() => {
+    if (user.password || userConfirmPassword) {
+      setPasswordsMatch(user.password === userConfirmPassword);
+    } else {
+      setPasswordsMatch(true);
+    }
+  }, [user.password, userConfirmPassword]);
 
   useEffect(() => {
     fetchUsers();
@@ -177,12 +110,12 @@ const AddUser: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!passwordsMatch) {
       toast.error('Password and confirm password do not match');
       return;
     }
-    
+
     setIsSubmitting(true);
 
     try {
@@ -248,20 +181,91 @@ const AddUser: React.FC = () => {
     setIsChangePassModalOpen(true);
   };
 
+  const handleCloseChangePassModal = () => {
+    setIsChangePassModalOpen(false);
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setSelectedEmail('');
+  };
+
+  const handleChangePass = async (e: { preventDefault: () => void }) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    if (newPassword !== confirmPassword) {
+      toast.error('New password and confirm password do not match');
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const response = await axiosInstance.put('/change-password',
+        {
+          email: selectedEmail,
+          oldPassword,
+          newPassword,
+          confirmPassword,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+          },
+        }
+      );
+      toast.success(response.data.message);
+      handleCloseChangePassModal();
+    } catch (error) {
+      toast.error('Failed to change password');
+      console.error('Error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenDeleteModal = (userId: number) => {
+    setUserIdToDelete(userId);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      await axiosInstance.delete(`/users/${userIdToDelete}`);
+      toast.success('User deleted successfully!');
+      fetchUsers();
+    } catch (err) {
+      let errorMessage = 'Failed to delete user. Please try again.';
+      if (err instanceof Error) errorMessage = err.message;
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosError = err as { response: { data: { message?: string } } };
+        errorMessage = axiosError.response?.data?.message || errorMessage;
+      }
+      console.error('Error deleting user:', errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsDeleteModalOpen(false);
+      setUserIdToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteModalOpen(false);
+    setUserIdToDelete(null);
+  };
+
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.mobileNo.includes(searchQuery);
-  
+
     const matchesRole = selectedRole ? user.roleId.toString() === selectedRole : true;
     const matchesEmail = selectedEmail ? user.email === selectedEmail : true;
     const matchesMobile = selectedMobile ? user.mobileNo === selectedMobile : true;
-  
+
     return matchesSearch && matchesRole && matchesEmail && matchesMobile;
   });
-  
-  // Function to Clear All Filters
+
   const clearFilters = () => {
     setSearchQuery('');
     setSelectedRole('');
@@ -269,9 +273,8 @@ const AddUser: React.FC = () => {
     setSelectedMobile('');
   };
 
-  // Function to get role color
   const getRoleColor = (roleName: string) => {
-    switch(roleName?.toLowerCase()) {
+    switch (roleName?.toLowerCase()) {
       case 'administrator':
         return 'bg-purple-600 text-white';
       case 'admin':
@@ -283,9 +286,85 @@ const AddUser: React.FC = () => {
     }
   };
 
+  // Determine if the Edit button should be enabled for a user
+  const canEditUser = (user: User) => {
+    const loggedInRoleId = Number(loggedInUser?.roleId);
+    const userRoleId = Number(user.roleId);
+
+    if (loggedInRoleId === 2) {
+      // Administrator can edit everyone
+      return true;
+    } else if (loggedInRoleId === 1) {
+      // Admin can edit themselves, other Admins, and Registered users, but not Administrators
+      return userRoleId !== 2;
+    } else if (loggedInRoleId === 3) {
+      // Registered user can only edit themselves
+      return user.email === loggedInUser?.email;
+    }
+    return false;
+  };
+
+  // Determine if the Password Change button should be enabled for a user
+  const canChangePassword = (user: User) => {
+    const loggedInRoleId = Number(loggedInUser?.roleId);
+    const userRoleId = Number(user.roleId);
+
+    if (loggedInRoleId === 2) {
+      // Administrator can change password for everyone
+      return true;
+    } else if (loggedInRoleId === 1) {
+      // Admin can change password for themselves, other Admins, and Registered users, but not Administrators
+      return userRoleId !== 2;
+    } else if (loggedInRoleId === 3) {
+      // Registered user can only change their own password
+      return user.email === loggedInUser?.email;
+    }
+    return false;
+  };
+
+  // Determine if the Delete button should be enabled for a user
+  const canDeleteUser = (user: User) => {
+    const loggedInRoleId = Number(loggedInUser?.roleId);
+    const userRoleId = Number(user.roleId);
+
+    // No user can delete themselves
+    if (user.email === loggedInUser?.email) {
+      return false;
+    }
+
+    if (loggedInRoleId === 2) {
+      // Administrator can delete everyone except themselves (already checked above)
+      return true;
+    } else if (loggedInRoleId === 1) {
+      // Admin can delete other Admins and Registered users, but not Administrators or themselves
+      return userRoleId !== 2;
+    } else if (loggedInRoleId === 3) {
+      // Registered user cannot delete anyone
+      return false;
+    }
+    return false;
+  };
+
+  // Determine if the role field should be editable in the Edit modal
+  const isRoleEditable = () => {
+    const loggedInRoleId = Number(loggedInUser?.roleId);
+    if (!editingUser) return false;
+
+    if (loggedInRoleId === 2) {
+      // Administrator cannot change their own role
+      return editingUser.email !== loggedInUser?.email;
+    } else if (loggedInRoleId === 1) {
+      // Admin can change roles for themselves and other Admin/Registered users
+      return true;
+    } else if (loggedInRoleId === 3) {
+      // Registered user cannot change their role
+      return false;
+    }
+    return false;
+  };
+
   return (
     <div className="bg-gray-50 text-black">
-      {/* Admin Panel Header */}
       <div className="bg-indigo-700 text-white p-3 rounded-lg shadow-lg flex items-center justify-between">
         <h1 className="text-xl font-bold flex items-center">
           <MdPerson className="mr-2" size={20} /> User Management
@@ -295,9 +374,7 @@ const AddUser: React.FC = () => {
         </div>
       </div>
 
-      {/* Search & Filter Section */}
       <div className="flex flex-wrap gap-2 my-3 p-2 bg-white rounded-lg shadow border border-gray-100">
-        {/* Search Input */}
         <div className="relative flex-grow">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
           <input
@@ -309,7 +386,6 @@ const AddUser: React.FC = () => {
           />
         </div>
 
-        {/* Role Filter */}
         <div className="relative w-32">
           <select
             className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
@@ -324,7 +400,6 @@ const AddUser: React.FC = () => {
           <FaFilter className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
         </div>
 
-        {/* Email Filter */}
         <div className="relative w-44">
           <select
             className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
@@ -338,7 +413,6 @@ const AddUser: React.FC = () => {
           </select>
         </div>
 
-        {/* Mobile Filter */}
         <div className="relative w-44">
           <select
             className="p-2 border border-gray-200 rounded text-sm w-full focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white appearance-none"
@@ -352,7 +426,6 @@ const AddUser: React.FC = () => {
           </select>
         </div>
 
-        {/* Clear Filters Button */}
         <button
           className="p-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded flex items-center"
           onClick={clearFilters}
@@ -360,8 +433,7 @@ const AddUser: React.FC = () => {
           <FaTimes size={12} className="mr-1" /> Clear Filters
         </button>
 
-        {/* Add User Button */}
-        {loggedInUser?.roleId !== Number('3') && (
+        {Number(loggedInUser?.roleId) !== 3 && (
           <button
             onClick={() => {
               resetModalForm();
@@ -374,7 +446,6 @@ const AddUser: React.FC = () => {
         )}
       </div>
 
-      {/* User List Table */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-md overflow-hidden">
         <div className="flex items-center px-4 py-2 border-b border-gray-100">
           <HiOutlineUserCircle className="mr-2 text-gray-500" size={18} />
@@ -383,89 +454,84 @@ const AddUser: React.FC = () => {
             {filteredUsers.length} users
           </span>
         </div>
-        
+
         <div className="overflow-x-auto rounded shadow">
-  {filteredUsers.length > 0 ? (
-    <table className="min-w-full text-sm text-center border border-gray-200">
-      <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-semibold">
-        <tr>
-          <th className="px-3 py-2">#</th>
-          <th className="px-3 py-2">Name</th>
-          <th className="px-3 py-2">Email</th>
-          <th className="px-3 py-2">Mobile</th>
-          <th className="px-3 py-2">Role</th>
-          <th className="px-3 py-2">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {filteredUsers.map((user, index) => (
-          <tr key={user.user_id} className="hover:bg-gray-50">
-            <td className="px-3 py-2">{index + 1}</td>
-            <td className="px-3 py-2">{user.name}</td>
-            <td className="px-3 py-2">
-              <div className="flex items-center ml-16 justify-start text-gray-800">
-                <MdEmail className="mr-2 text-gray-500" size={16} />
-                {user.email}
-              </div>
-            </td>
-            <td className="px-3 py-2">
-              <div className="flex items-center justify-center text-gray-700">
-                <MdSmartphone className="mr-1 text-gray-500" size={14} />
-                {user.mobileNo}
-              </div>
-            </td>
-            <td className="px-3 py-2">
-              <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(roles.find((role) => role.role_id === Number(user.roleId))?.name || '')}`}>
-                {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'N/A'}
-              </span>
-            </td>
-            <td className="px-3 py-2">
-              <div className="flex justify-center gap-1">
-                {/* Edit Button */}
-                <button
-                  onClick={() => handleEdit(user)}
-                  className={`bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded ${
-                    loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  disabled={loggedInUser?.roleId === 3}
-                >
-                  <FaEdit className="inline mr-1" size={10} /> Edit
-                </button>
+          {filteredUsers.length > 0 ? (
+            <table className="min-w-full text-sm text-center border border-gray-200">
+              <thead className="bg-gray-100 text-gray-700 uppercase text-xs font-semibold">
+                <tr>
+                  <th className="px-3 py-2">#</th>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Mobile</th>
+                  <th className="px-3 py-2">Role</th>
+                  <th className="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredUsers.map((user, index) => (
+                  <tr key={user.user_id} className="hover:bg-gray-50">
+                    <td className="px-3 py-2">{index + 1}</td>
+                    <td className="px-3 py-2">{user.name}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center ml-16 justify-start text-gray-800">
+                        <MdEmail className="mr-2 text-gray-500" size={16} />
+                        {user.email}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center text-gray-700">
+                        <MdSmartphone className="mr-1 text-gray-500" size={14} />
+                        {user.mobileNo}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(roles.find((role) => role.role_id === Number(user.roleId))?.name || '')}`}>
+                        {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-1 py-1">
+                      <div className="flex justify-stretch gap-1  ">
+                        {canEditUser(user) && (
+                          <button
+                            onClick={() => handleEdit(user)}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded"
+                          >
+                            <FaEdit className="inline mr-1" size={10} /> Edit
+                          </button>
+                        )}
 
-                {/* Delete Button */}
-                <button
-                  onClick={() => handleOpenDeleteModal(user.user_id)}
-                  className={`bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded ${
-                    loggedInUser?.roleId === 3 ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                  disabled={loggedInUser?.roleId === 3}
-                >
-                  <MdDelete className="inline mr-1" size={10} /> Delete
-                </button>
+                        {canDeleteUser(user) && (
+                          <button
+                            onClick={() => handleOpenDeleteModal(user.user_id)}
+                            className="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded"
+                          >
+                            <MdDelete className="inline mr-1" size={10} /> Delete
+                          </button>
+                        )}
 
-                {/* Password Button */}
-                <button
-                  onClick={() => handleOpenChangePassModal(user.email)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded"
-                >
-                  <FaKey className="inline mr-1" size={10} /> Password
-                </button>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <div className="text-gray-500 text-center py-4 text-sm">
-      No users found. Try adjusting your filters.
-    </div>
-  )}
-</div>
-
+                        {canChangePassword(user) && (
+                          <button
+                            onClick={() => handleOpenChangePassModal(user.email)}
+                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                          >
+                            <FaKey className="inline mr-1" size={10} /> Password
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="text-gray-500 text-center py-4 text-sm">
+              No users found. Try adjusting your filters.
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Add User Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-blue-100">
@@ -475,7 +541,6 @@ const AddUser: React.FC = () => {
               </h2>
             </div>
             <form onSubmit={handleSubmit} className="space-y-3">
-              {/* Name field */}
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="name">
                   Name
@@ -497,7 +562,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Email field */}
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="email">
                   Email
@@ -519,7 +583,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Mobile field */}
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="mobileNo">
                   Mobile No
@@ -541,7 +604,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Password field */}
               <div className="relative">
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="password">
                   Password
@@ -572,7 +634,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Confirm Password field */}
               <div className="relative">
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="confirmPassword">
                   Confirm Password
@@ -601,7 +662,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Role field */}
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="roleId">
                   Role
@@ -617,7 +677,7 @@ const AddUser: React.FC = () => {
                   <option value="">Select Role</option>
                   {roles && roles.length > 0 ? (
                     roles
-                      .filter((role) => role.role_id !== 2)
+                      .filter((role) => role.role_id !== 2) // Exclude Admin role from Add User options
                       .map((role) => (
                         <option key={role.role_id} value={role.role_id}>
                           {role.name}
@@ -634,7 +694,6 @@ const AddUser: React.FC = () => {
                 )}
               </div>
 
-              {/* Button group */}
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
@@ -659,7 +718,6 @@ const AddUser: React.FC = () => {
         </div>
       )}
 
-      {/* Edit User Modal */}
       {isEditModalOpen && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gradient-to-br from-yellow-50 to-amber-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-yellow-100">
@@ -718,29 +776,40 @@ const AddUser: React.FC = () => {
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="roleId">
                   Role
                 </label>
-                <select
-                  id="roleId"
-                  name="roleId"
-                  value={editingUser.roleId}
-                  onChange={(e) => setEditingUser({ ...editingUser, roleId: e.target.value })}
-                  required
-                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
-                >
-                  <option value="">Select Role</option>
-                  {roles && roles.length > 0 ? (
-                    roles
-                      .filter((role) => role.role_id !== 2)
-                      .map((role) => (
-                        <option key={role.role_id} value={role.role_id}>
-                          {role.name}
-                        </option>
-                      ))
-                  ) : (
-                    <option value="" disabled>
-                      No roles found.
-                    </option>
-                  )}
-                </select>
+                {isRoleEditable() ? (
+                  <select
+                    id="roleId"
+                    name="roleId"
+                    value={editingUser.roleId}
+                    onChange={(e) => setEditingUser({ ...editingUser, roleId: e.target.value })}
+                    required
+                    className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
+                  >
+                    <option value="">Select Role</option>
+                    {roles && roles.length > 0 ? (
+                      roles
+                        .filter((role) => role.role_id !== 2) // Exclude Admin role from options
+                        .map((role) => (
+                          <option key={role.role_id} value={role.role_id}>
+                            {role.name}
+                          </option>
+                        ))
+                    ) : (
+                      <option value="" disabled>
+                        No roles found .
+                      </option>
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    id="roleId"
+                    name="roleId"
+                    value={roles.find((role) => role.role_id === Number(editingUser.roleId))?.name || 'N/A'}
+                    disabled
+                    className="w-full p-2 text-sm border border-gray-300 rounded bg-gray-100 text-black"
+                  />
+                )}
               </div>
 
               <div className="flex justify-end gap-2 mt-4">
@@ -764,7 +833,6 @@ const AddUser: React.FC = () => {
         </div>
       )}
 
-      {/* Change Password Modal */}
       {isChangePassModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 rounded-lg shadow-lg w-full max-w-md border border-blue-100">
@@ -857,7 +925,7 @@ const AddUser: React.FC = () => {
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={() => setIsChangePassModalOpen(false)}
+                  onClick={handleCloseChangePassModal}
                   className="bg-gray-400 hover:bg-gray-500 text-white px-3 py-1.5 text-sm rounded flex items-center"
                 >
                   <FaTimes className="mr-1" size={12} /> Cancel
@@ -875,7 +943,6 @@ const AddUser: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center px-4 z-50">
           <div className="bg-gradient-to-br from-red-50 to-pink-50 p-4 rounded-lg shadow-lg w-full max-w-sm border border-red-100">

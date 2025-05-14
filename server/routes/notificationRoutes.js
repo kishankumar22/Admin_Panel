@@ -7,19 +7,18 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. GET All Notifications
-router.get('/all-notification', async (req, res ,next) => {
+router.get('/all-notification', async (req, res) => {
   try {
     const result = await executeQuery('SELECT * FROM Notification ORDER BY created_on DESC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    // console.error('Fetch Error:', err);
-        next(err);
+    console.error('Fetch Error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 // 2. POST Add Notification
-router.post('/add-notification', upload.single('file'), async (req, res, next) => {
+router.post('/add-notification', upload.single('file'), async (req, res) => {
   try {
     const { notification_message, user_id, created_by, url } = req.body;
     const file = req.file;
@@ -67,14 +66,13 @@ router.post('/add-notification', upload.single('file'), async (req, res, next) =
 
     res.status(201).json({ success: true, message: 'Notification added successfully!' });
   } catch (err) {
-    // console.error('Add Error:', err);
-        next(err);
+    console.error('Add Error:', err);
     res.status(500).json({ success: false, message: 'Error adding notification' });
   }
 });
 
 // 3. PUT Edit Notification
-router.put('/edit/:id', upload.single('file'), async (req, res, next) => {
+router.put('/edit/:id', upload.single('file'), async (req, res) => {
   try {
     const { id } = req.params;
     const { notification_message, url, modify_by } = req.body;
@@ -132,14 +130,13 @@ router.put('/edit/:id', upload.single('file'), async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Notification updated' });
   } catch (err) {
-    // console.error('Edit Error:', err);
-        next(err);
+    console.error('Edit Error:', err);
     res.status(500).json({ success: false, message: 'Error editing notification' });
   }
 });
 
 // 4. DELETE Notification
-router.delete('/delete/:id', async (req, res, next) => {
+router.delete('/delete/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -165,8 +162,7 @@ router.delete('/delete/:id', async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Notification deleted' });
   } catch (err) {
-    // console.error('Delete Error:', err);
-        next(err);
+    console.error('Delete Error:', err);
     res.status(500).json({ success: false, message: 'Error deleting notification' });
   }
 });
