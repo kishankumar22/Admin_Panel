@@ -132,8 +132,14 @@ const ManagePayment: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [courseFilter, setCourseFilter] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('');
-  const [sessionYearFilter, setSessionYearFilter] = useState('2025-2026');
-  const [statusFilter, setStatusFilter] = useState('Active');
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const sessionStartYear = month >= 6 ? year : year - 1;
+  const sessionEndYear = sessionStartYear + 1;
+  const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
+  const [sessionYearFilter, setSessionYearFilter] = useState(currentSessionYear);
+  const [statusFilter, setStatusFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('');
   const [feesFilter, setFeesFilter] = useState('Pending');
   const [amountTypeFilter, setAmountTypeFilter] = useState('');
@@ -169,7 +175,7 @@ const ManagePayment: React.FC = () => {
 
   useEffect(() => {
     fetchStudents();
-  }, [sessionYearFilter, courseFilter, yearFilter]);
+  }, []);
 
   // Function to calculate pending fees for a student's academic detail
   const calculatePendingFees = (studentId: number, academicId: number, totalFees: number): number => {
@@ -271,8 +277,6 @@ const ManagePayment: React.FC = () => {
 
       setStudents(formattedStudents);
       setPayments(formattedPayments);
-
-      calculateSummaryData(formattedStudents, formattedPayments);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch data');
       console.error('Fetch error:', err);
@@ -287,7 +291,7 @@ const ManagePayment: React.FC = () => {
     }
   };
 
-  const calculateSummaryData = (studentData: Student[], paymentData: StudentPayment[]) => {
+  const calculateSummaryData = (filteredStudents: Student[], paymentData: StudentPayment[]) => {
     let adminAmount = 0;
     let feesAmount = 0;
     let adminReceived = 0;
@@ -295,24 +299,22 @@ const ManagePayment: React.FC = () => {
     let totalFine = 0;
     let totalRefund = 0;
 
-    studentData.forEach((student) => {
+    filteredStudents.forEach((student) => {
       student.academicDetails.forEach((academic) => {
-        if (
-          (!sessionYearFilter || academic.sessionYear === sessionYearFilter) &&
-          (!yearFilter || academic.courseYear === yearFilter)
-        ) {
-          adminAmount += academic.adminAmount || 0;
-          feesAmount += academic.feesAmount || 0;
-        }
+        adminAmount += academic.adminAmount || 0;
+        feesAmount += academic.feesAmount || 0;
       });
     });
 
     paymentData.forEach((payment) => {
-      if (
-        (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
-        (!yearFilter || payment.courseYear === yearFilter) &&
-        (!amountTypeFilter || payment.amountType === amountTypeFilter)
-      ) {
+      // Only include payments for filtered students
+      const isStudentIncluded = filteredStudents.some(
+        (student) =>
+          student.id === payment.studentId &&
+          student.academicDetails.some((academic) => academic.id === payment.studentAcademic.id)
+      );
+
+      if (isStudentIncluded) {
         if (payment.amountType === 'adminAmount') {
           adminReceived += payment.amount || 0;
         } else if (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees') {
@@ -326,7 +328,7 @@ const ManagePayment: React.FC = () => {
     });
 
     setSummaryData({
-      totalStudents: studentData.length,
+      totalStudents: filteredStudents.length,
       adminAmount,
       adminReceived,
       adminPending: adminAmount - adminReceived,
@@ -381,7 +383,7 @@ const ManagePayment: React.FC = () => {
     setSearchQuery('');
     setCourseFilter('');
     setCollegeFilter('');
-    setSessionYearFilter('');
+    setSessionYearFilter(currentSessionYear);
     setStatusFilter('');
     setYearFilter('');
     setFeesFilter('Pending');
@@ -496,6 +498,11 @@ const ManagePayment: React.FC = () => {
 
       return matchesSearch && matchesCourse && matchesCollege && matchesStatus;
     });
+
+  // Calculate summary data based on filtered students
+  useEffect(() => {
+    calculateSummaryData(filteredStudents, payments);
+  }, [filteredStudents, payments]);
 
   const totalEntries = filteredStudents.length;
   const totalPages = Math.ceil(totalEntries / entriesPerPage);

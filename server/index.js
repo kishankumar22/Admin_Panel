@@ -23,6 +23,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+// const { createUser ,changeUserPassword} = require('./controllers/controller');
+// changeUserPassword("Kausar12@gmail.com","Kausar@1","Kishan Kumar")
 
 // Set up Winston logger for errors only with daily rotation
 const errorLogger = winston.createLogger({

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../config';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
@@ -21,15 +22,16 @@ interface Role {
 }
 
 const AddUser: React.FC = () => {
-  const { user: loggedInUser } = useAuth();
-  const createdBy = loggedInUser?.email || 'admin';
-  console.log(createdBy)
+  const { user: loggedInUser, logout } = useAuth();
+  const navigate = useNavigate();
+  const createdBy = loggedInUser?.name || 'admin';
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isChangePassModalOpen, setIsChangePassModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [originalEmail, setOriginalEmail] = useState<string>(''); // Store the original email
   const [selectedEmail, setSelectedEmail] = useState<string>('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -143,6 +145,7 @@ const AddUser: React.FC = () => {
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
+    setOriginalEmail(user.email); // Store the original email when opening the edit modal
     setIsEditModalOpen(true);
   };
 
@@ -157,8 +160,18 @@ const AddUser: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
       });
       toast.success('User updated successfully!');
-      setIsEditModalOpen(false);
-      fetchUsers();
+
+      // Check if the logged-in user changed their own email
+      if (
+        editingUser.email !== originalEmail &&
+        originalEmail === loggedInUser?.email
+      ) {
+        logout(); // Logout the user
+        navigate('/auth/signin'); // Redirect to sign-in page
+      } else {
+        setIsEditModalOpen(false);
+        fetchUsers();
+      }
     } catch (err) {
       let errorMessage = 'Failed to update user. Please try again.';
       if (err instanceof Error) errorMessage = err.message;
@@ -168,6 +181,7 @@ const AddUser: React.FC = () => {
       }
       console.error('Error updating user:', errorMessage);
       toast.error(errorMessage);
+      setIsEditModalOpen(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -178,7 +192,9 @@ const AddUser: React.FC = () => {
     setOldPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setIsChangePassModalOpen(true);
+    setIsChangePassModalOpen
+
+(true);
   };
 
   const handleCloseChangePassModal = () => {
@@ -350,14 +366,19 @@ const AddUser: React.FC = () => {
     const loggedInRoleId = Number(loggedInUser?.roleId);
     if (!editingUser) return false;
 
+    // Use the original email to check if the user is editing themselves
+    if (originalEmail === loggedInUser?.email) {
+      return false; // Disable role editing for self
+    }
+
     if (loggedInRoleId === 2) {
-      // Administrator cannot change their own role
-      return editingUser.email !== loggedInUser?.email;
+      // Administrator can change roles for others
+      return true;
     } else if (loggedInRoleId === 1) {
-      // Admin can change roles for themselves and other Admin/Registered users
+      // Admin can change roles for others
       return true;
     } else if (loggedInRoleId === 3) {
-      // Registered user cannot change their role
+      // Registered user cannot change their role (already handled by the self-edit check)
       return false;
     }
     return false;
@@ -491,7 +512,7 @@ const AddUser: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-1 py-1">
-                      <div className="flex justify-stretch gap-1  ">
+                      <div className="flex justify-stretch gap-1">
                         {canEditUser(user) && (
                           <button
                             onClick={() => handleEdit(user)}
@@ -567,7 +588,7 @@ const AddUser: React.FC = () => {
                   Email
                 </label>
                 <input
-                  type="email"
+                  type=" email"
                   id="email"
                   name="email"
                   value={user.email}
@@ -796,7 +817,7 @@ const AddUser: React.FC = () => {
                         ))
                     ) : (
                       <option value="" disabled>
-                        No roles found .
+                        No roles found
                       </option>
                     )}
                   </select>
@@ -807,7 +828,7 @@ const AddUser: React.FC = () => {
                     name="roleId"
                     value={roles.find((role) => role.role_id === Number(editingUser.roleId))?.name || 'N/A'}
                     disabled
-                    className="w-full p-2 text-sm border border-gray-300 rounded bg-gray-100 text-black"
+                    className="w-full p-2 text-sm border border-gray-300 rounded bg-gray-100 text-black cursor-not-allowed"
                   />
                 )}
               </div>

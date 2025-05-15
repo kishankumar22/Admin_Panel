@@ -204,10 +204,14 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
         setError('Admission date cannot be in the future');
         return;
       }
-      const admissionYear = admissionDate.getFullYear();
-      const nextYear = admissionYear + 1;
-      const sessionYear = `${admissionYear}-${nextYear}`;
-
+      // session year   
+        const year = admissionDate.getFullYear();
+        const month = admissionDate.getMonth();
+        const sessionStartYear = month >= 6 ? year : year - 1;
+        const sessionEndYear = sessionStartYear + 1;
+        const sessionYear = `${sessionStartYear}-${sessionEndYear}`;
+      console.log(sessionYear)
+      
       setStudent((prev) => ({
         ...prev,
         AdmissionDate: value,

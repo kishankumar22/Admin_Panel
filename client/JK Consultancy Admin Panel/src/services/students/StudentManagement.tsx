@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaSearch, FaTimes, FaSpinner, FaFileExport } from 'react-icons/fa'; // Added FaFileExport for export icon
+import { FaEdit, FaTrash, FaSearch, FaTimes, FaSpinner, FaFileExport } from 'react-icons/fa';
 import AddStudentModal from '../students/AddStudentModal';
 import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
 import StudentPaymentModal from '../students/StudentPaymentModal';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import PromoteStudentModal from './PromoteStudentModal';
-import * as XLSX from 'xlsx'; // Import xlsx library for Excel export
+import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 
 interface EmiDetail {
@@ -83,8 +83,7 @@ const StudentManagement: React.FC = () => {
   const [courseYearFilter, setCourseYearFilter] = useState('');
   const [collegeFilter, setCollegeFilter] = useState('');
   const [sessionYearFilter, setSessionYearFilter] = useState('');
-  const [emailFilter, setEmailFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [admissionModeFilter, setAdmissionModeFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -103,7 +102,6 @@ const StudentManagement: React.FC = () => {
     courseYears: new Set<string>(),
     colleges: new Set<string>(),
     sessionYears: new Set<string>(),
-    emails: new Set<string>(),
     categories: new Set<string>(),
     admissionModes: new Set<string>(),
   });
@@ -144,13 +142,11 @@ const StudentManagement: React.FC = () => {
       const courseYears = new Set<string>();
       const colleges = new Set<string>();
       const sessionYears = new Set<string>();
-      const emails = new Set<string>();
       const categories = new Set<string>();
       const admissionModes = new Set<string>();
 
       formattedStudents.forEach(student => {
         colleges.add(student.college.collegeName);
-        emails.add(student.email);
         categories.add(student.category);
         admissionModes.add(student.admissionMode);
         const latestAcademic = student.academicDetails
@@ -163,15 +159,22 @@ const StudentManagement: React.FC = () => {
         courseYears: new Set([...courseYears].sort()),
         colleges: new Set([...colleges].sort()),
         sessionYears: new Set([...sessionYears].sort()),
-        emails: new Set([...emails].sort()),
         categories: new Set([...categories].sort()),
         admissionModes: new Set([...admissionModes].sort()),
       });
 
       setStudents(formattedStudents);
 
-      const currentYear = new Date().getFullYear();
-      const currentSessionYear = `${currentYear}-${currentYear + 1}`;
+      // Set default session year to 2025-2026 based on current date (May 15, 2025)
+    // Current session year (1 July – 30 June format)
+const today = new Date();
+const year = today.getFullYear();
+const month = today.getMonth();        // 0 = Jan … 6 = Jul
+
+const sessionStartYear = month >= 6 ? year : year - 1;   // Jul – Dec ⇒ same year, Jan – Jun ⇒ previous year
+const sessionEndYear   = sessionStartYear + 1;
+
+const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
       setSessionYearFilter(currentSessionYear);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch students');
@@ -224,10 +227,9 @@ const StudentManagement: React.FC = () => {
     }
   };
 
-  // Function to export filtered students to Excel
   const exportToExcel = () => {
     if (filteredStudents.length === 0) {
-   toast.warning('No data to export');
+      toast.warning('No data to export');
       return;
     }
     const dataToExport = filteredStudents.map((student, index) => {
@@ -252,12 +254,9 @@ const StudentManagement: React.FC = () => {
       };
     });
 
-    // Create a worksheet from the data
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
-
-    // Generate Excel file and trigger download
     XLSX.writeFile(workbook, 'Student_List.xlsx');
   };
 
@@ -266,8 +265,7 @@ const StudentManagement: React.FC = () => {
     setCourseYearFilter('');
     setCollegeFilter('');
     setSessionYearFilter('');
-    setEmailFilter('');
-    setStatusFilter('');
+    setStatusFilter('All');
     setCategoryFilter('');
     setAdmissionModeFilter('');
     setCurrentPage(1);
@@ -288,20 +286,19 @@ const StudentManagement: React.FC = () => {
     const matchesCourseYear = !courseYearFilter || latestAcademic.courseYear === courseYearFilter;
     const matchesCollege = !collegeFilter || student.college.collegeName === collegeFilter;
     const matchesSessionYear = !sessionYearFilter || latestAcademic.sessionYear === sessionYearFilter;
-    const matchesEmail = !emailFilter || student.email.toLowerCase().includes(emailFilter.toLowerCase());
     const matchesCategory = !categoryFilter || student.category === categoryFilter;
     const matchesAdmissionMode = !admissionModeFilter || student.admissionMode === admissionModeFilter;
 
     const currentYear = new Date().getFullYear();
     const latestYearPrefix = `${currentYear}-${currentYear + 1}`;
-    const matchesStatus = !statusFilter || 
-      (statusFilter === 'Status' && student.status === true) ||
-      (statusFilter === 'StatusIn' && student.status === false) ||
+    const matchesStatus = statusFilter === 'All' || 
+      (statusFilter === 'Active' && student.status === true) ||
+      (statusFilter === 'Inactive' && student.status === false) ||
       (statusFilter === 'isDiscontinue' && student.isDiscontinue === true) ||
       (statusFilter === 'Fresh Student' && latestAcademic.sessionYear === latestYearPrefix);
 
     return matchesSearch && matchesCourseYear && matchesCollege && matchesSessionYear && 
-           matchesEmail && matchesStatus && matchesCategory && matchesAdmissionMode;
+           matchesStatus && matchesCategory && matchesAdmissionMode;
   });
 
   const totalEntries = filteredStudents.length;
@@ -338,7 +335,7 @@ const StudentManagement: React.FC = () => {
           <div className="mb-1">
             <div className="flex justify-between items-center text-blue-800 text-[14px]">
               <span className="flex items-center">
-                Total Students: <b className="text-base ml-0.5">{students.length}</b>
+                Filtered Students: <b className="text-base ml-0.5">{filteredStudents.length}</b>
               </span>
               <div className="flex items-center">
                 Status : 
@@ -347,9 +344,10 @@ const StudentManagement: React.FC = () => {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className="ml-0.5 border rounded-md p-1.5 text-[14px] bg-white focus:ring-2 focus:border-blue-500 w-28"
                 >
-                  <option value="">Active</option>
-                  <option value="StatusIn">Inactive</option>
-                  <option value="isDiscontinue">isDiscontinue</option>
+                  <option value="All">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="isDiscontinue">Discontinued</option>
                   <option value="Fresh Student">Fresh Student</option>
                 </select>
               </div>
@@ -357,7 +355,7 @@ const StudentManagement: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row justify-around items-center gap-1">
-            <div className="grid grid-cols-1 sm:grid-cols-5 md:grid-cols-10 gap-2 w-full sm:w-auto flex-wrap">
+            <div className="grid grid-cols-1 sm:grid-cols-5 md:grid-cols-9 gap-2 w-full sm:w-auto flex-wrap">
               <div className="relative col-span-1">
                 <input
                   type="text"
@@ -421,17 +419,6 @@ const StudentManagement: React.FC = () => {
                 <option value="">Admission Mode</option>
                 {[...filterOptions.admissionModes].map(mode => (
                   <option key={mode} value={mode}>{mode}</option>
-                ))}
-              </select>
-
-              <select
-                value={emailFilter}
-                onChange={(e) => setEmailFilter(e.target.value)}
-                className="border rounded-md p-0.5 text-[14px] w-full focus:ring-4 focus:border-blue-500 col-span-1"
-              >
-                <option value="">Email</option>
-                {[...filterOptions.emails].map(email => (
-                  <option key={email} value={email}>{email}</option>
                 ))}
               </select>
 

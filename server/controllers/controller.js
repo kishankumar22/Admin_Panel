@@ -47,4 +47,25 @@ async function createUser () {
   }
 }
 
-module.exports = { createUser  };
+async function changeUserPassword(email, newPassword, modifiedBy) {
+  try {
+    // Step 1: Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Step 2: Update user
+    const updatedUser = await prisma.user.update({
+      where: { email },
+      data: {
+        password: hashedPassword,
+        modify_on: new Date(),
+        modify_by: modifiedBy,
+      },
+    });
+
+    console.log('✅ Password updated for user:', updatedUser.email);
+  } catch (err) {
+    console.error('❌ Error updating password:', err.message);
+  }
+}
+
+module.exports = { createUser ,changeUserPassword };

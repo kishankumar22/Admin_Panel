@@ -15,12 +15,14 @@ const DropdownUser = () => {
    const { user } = useAuth();
    const username = user?.name || 'admin';
    const handleLogout = () => {
-    toast.success("Log out Successful", {
-      onClose: () => {
-        navigate('/auth/signin'); // Navigate to the signin page after the toast closes
-        logout(); // This should handle removing the token and updating the context state
-      },
-    });
+ toast.success("Log out Successful", {
+  autoClose: 1000, // 1 second = 1000 milliseconds
+  onClose: () => {
+    navigate('/auth/signin'); // Navigate to the signin page after the toast closes
+    logout(); // Remove token and update context state
+  },
+});
+
   };
   
 

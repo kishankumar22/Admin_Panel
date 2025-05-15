@@ -5,7 +5,7 @@ const { sql, executeQuery } = require('../config/db');
 const router = express.Router();
 
 // Add a new user
-router.post('/users', async (req, res) => {
+router.post('/users', async (req, res, next) => {
   const { name, email, mobileNo, password, roleId, created_by } = req.body;
 
   try {
@@ -32,39 +32,42 @@ router.post('/users', async (req, res) => {
 
     console.log('User added:', result.recordset[0].name);
     res.status(201).json({ success: true, message: 'User created successfully!', user: result.recordset[0] });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    if (error.number === 2627) { // SQL Server error code for unique constraint violation
+  } catch (err) {
+    // console.error('Error creating user:', error);
+        next(err);
+    if (err.number === 2627) { // SQL Server error code for unique constraint violation
       return res.status(400).json({ success: false, message: 'Failed to create user, please try another email' });
     }
-    res.status(500).json({ success: false, message: 'Failed to create user', error: error.message });
+    res.status(500).json({ success: false, message: 'Failed to create user', error: err.message });
   }
 });
 
 // Fetch all users
-router.get('/getusers', async (req, res) => {
+router.get('/getusers', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM [User]');
     res.status(200).json({ success: true, message: 'Users fetched successfully!', users: result.recordset });
-  } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch users', error: error.message });
+  } catch (err) {
+    // console.error('Error fetching users:', error);
+        next(err);
+    res.status(500).json({ success: false, message: 'Failed to fetch users', error: err.message });
   }
 });
 
 // Fetch all roles
-router.get('/getrole', async (req, res) => {
+router.get('/getrole', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Role');
     res.status(200).json({ success: true, message: 'Roles fetched successfully!', role: result.recordset });
-  } catch (error) {
-    console.error('Error fetching roles:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch roles', error: error.message });
+  } catch (err) {
+    // console.error('Error fetching roles:', error);
+        next(err);
+    res.status(500).json({ success: false, message: 'Failed to fetch roles', error: err.message });
   }
 });
 
 // Fetch a single user by ID
-router.get('/users/:id', async (req, res) => {
+router.get('/users/:id', async (req, res, next) => {
   const { id } = req.params;
 
   try {
@@ -78,17 +81,19 @@ router.get('/users/:id', async (req, res) => {
     }
 
     res.status(200).json({ success: true, message: 'User fetched successfully!', user: result.recordset[0] });
-  } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch user', error: error.message });
+  } catch (err) {
+    // console.error('Error fetching user:', error);
+        next(err);
+    res.status(500).json({ success: false, message: 'Failed to fetch user', error: err.message });
   }
 });
 
 // Update a user
-router.put('/users/:id', async (req, res) => {
+router.put('/users/:id', async (req, res, next) => {
   const { id } = req.params;
-  const { name, email, mobileNo, password, roleId } = req.body;
+  const { name, email, mobileNo,  roleId } = req.body;
   const modifyBy = req.user?.name || 'admin';
+  
 
   try {
     if (!name || !email || !mobileNo || !roleId) {
@@ -104,10 +109,8 @@ router.put('/users/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    let hashedPassword = existing.recordset[0].password;
-    if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
-    }
+
+   
 
     const query = `
       UPDATE [User]
@@ -115,7 +118,6 @@ router.put('/users/:id', async (req, res) => {
         name = @name,
         email = @email,
         mobileNo = @mobileNo,
-        password = @password,
         roleId = @roleId,
         modify_by = @modifyBy,
         modify_on = GETDATE()
@@ -128,24 +130,25 @@ router.put('/users/:id', async (req, res) => {
       name: { type: sql.NVarChar, value: name },
       email: { type: sql.NVarChar, value: email },
       mobileNo: { type: sql.NVarChar, value: mobileNo },
-      password: { type: sql.NVarChar, value: hashedPassword },
+     
       roleId: { type: sql.Int, value: parseInt(roleId) },
       modifyBy: { type: sql.NVarChar, value: modifyBy },
     });
 
     console.log('User updated:', result.recordset[0].name);
     res.status(200).json({ success: true, message: 'User updated successfully!', user: result.recordset[0] });
-  } catch (error) {
-    console.error('Error updating user:', error);
-    if (error.number === 2627) { // Unique constraint violation
+  } catch (err) {
+    // console.error('Error updating user:', error);
+        next(err);
+    if (err.number === 2627) { // Unique constraint violation
       return res.status(400).json({ success: false, message: 'Email already exists' });
     }
-    res.status(500).json({ success: false, message: 'Failed to update user', error: error.message });
+    res.status(500).json({ success: false, message: 'Failed to update user', error: err.message });
   }
 });
 
 // Delete a user
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', async (req, res, next) => {
   const { id } = req.params;
 
   try {
@@ -165,14 +168,15 @@ router.delete('/users/:id', async (req, res) => {
 
     console.log('User deleted:', result.recordset[0].name);
     res.status(200).json({ success: true, message: 'User deleted successfully!' });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete user', error: error.message });
+  } catch (err) {
+    // console.error('Error deleting user:', error);
+        next(err);
+    res.status(500).json({ success: false, message: 'Failed to delete user', error: err.message });
   }
 });
 
 // Change Password Route
-router.put('/change-password', async (req, res) => {
+router.put('/change-password', async (req, res, next) => {
   const { email, oldPassword, newPassword, confirmPassword } = req.body;
 
   try {
@@ -230,9 +234,10 @@ router.put('/change-password', async (req, res) => {
     );
 
     res.status(200).json({ success: true, message: 'Password changed successfully!' });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.status(500).json({ success: false, message: 'Failed to change password', error: error.message });
+  } catch (err) {
+    // console.error('Error changing password:', error);
+        next(err);
+    res.status(500).json({ success: false, message: 'Failed to change password', error: err.message });
   }
 });
 
