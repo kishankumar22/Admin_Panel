@@ -2,7 +2,6 @@ const express = require('express');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinaryConfig');
 const { sql, executeQuery } = require('../config/db'); // Correct import path
-
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -72,7 +71,7 @@ router.put('/banner/update/:id', upload.single('file'), async (req, res, next) =
     const file = req.file;
 
     const existing = await executeQuery(
-      `SELECT * FROM Banner WHERE id = @id`,
+      `SELECT * FROM Bann WHERE id = @id`,
       { id: { type: sql.Int, value: parseInt(id) } }
     );
 

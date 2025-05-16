@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
-import { FaEdit, FaTrash, FaSearch, FaTimes, FaSpinner, FaFileExport } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaSearch, FaTimes, FaSpinner, FaFileExport, FaToggleOn, FaToggleOff } from 'react-icons/fa';
 import AddStudentModal from '../students/AddStudentModal';
 import EditStudentModal from '../students/EditStudentModal';
 import DeleteConfirmationModal from '../students/DeleteConfirmationModal';
@@ -91,6 +91,7 @@ const StudentManagement: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isToggleStatusModalOpen, setIsToggleStatusModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [currentStudentId, setCurrentStudentId] = useState<number | null>(null);
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
@@ -165,16 +166,15 @@ const StudentManagement: React.FC = () => {
 
       setStudents(formattedStudents);
 
-      // Set default session year to 2025-2026 based on current date (May 15, 2025)
-    // Current session year (1 July – 30 June format)
-const today = new Date();
-const year = today.getFullYear();
-const month = today.getMonth();        // 0 = Jan … 6 = Jul
+      // Set default session year to 2025-2026 based on current date (May 16, 2025)
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth(); // 0 = Jan … 6 = Jul
 
-const sessionStartYear = month >= 6 ? year : year - 1;   // Jul – Dec ⇒ same year, Jan – Jun ⇒ previous year
-const sessionEndYear   = sessionStartYear + 1;
+      const sessionStartYear = month >= 6 ? year : year - 1; // Jul – Dec ⇒ same year, Jan – Jun ⇒ previous year
+      const sessionEndYear = sessionStartYear + 1;
 
-const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
+      const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
       setSessionYearFilter(currentSessionYear);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch students');
@@ -213,6 +213,15 @@ const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
     setIsDeleteModalOpen(true);
   };
 
+  const handleToggleStatusClick = (studentId: number) => {
+    if (isNaN(studentId)) {
+      setError('Invalid student ID.');
+      return;
+    }
+    setCurrentStudentId(studentId);
+    setIsToggleStatusModalOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!currentStudentId) return;
 
@@ -224,6 +233,26 @@ const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete student');
       console.error('Delete error:', err);
+    }
+  };
+
+  const handleToggleStatusConfirm = async () => {
+    if (!currentStudentId) return;
+
+    try {
+      const modifiedBy = user?.name || 'Admin';
+      const response = await axiosInstance.put(`/students/toggle-status/${currentStudentId}`, { modifiedBy });
+      
+      if (response.status === 200) {
+        toast.success('Student status updated successfully');
+        fetchStudents();
+        setIsToggleStatusModalOpen(false);
+        setError('');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update student status');
+      toast.error(err.response?.data?.message || 'Failed to update student status');
+      console.error('Toggle status error:', err);
     }
   };
 
@@ -312,6 +341,36 @@ const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  // Toggle Status Modal Component
+  const ToggleStatusModal: React.FC<{
+    onClose: () => void;
+    onConfirm: () => void;
+    message: string;
+  }> = ({ onClose, onConfirm, message }) => {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4 bg bg-yellow-500 rounded p-2">Change Status</h2>
+          <p className="text-gray-600 mb-6 text-ellipsis ">{message}</p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-200 text-green-800 rounded-md hover:bg-green-300 transition duration-150"
+            >
+              No
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150"
+            >
+              Yes
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading || showLoading) {
@@ -525,10 +584,22 @@ const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
                           </button>
                           <button
                             onClick={() => handleDeleteClick(student.id)}
-                            className="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150 flex items-center justify-center"
+                            className="p-1  hidden bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150  items-center justify-center"
                             title="Delete"
+                            
                           >
                             <FaTrash className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatusClick(student.id)}
+                            className={`p-1 rounded transition duration-150 flex items-center justify-center ${student.status ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                            title="Active/Inactive "
+                          >
+                            {student.status ? (
+                              <FaToggleOn className="w-3.5 h-3.5" />
+                            ) : (
+                              <FaToggleOff className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -635,6 +706,17 @@ const currentSessionYear = `${sessionStartYear}-${sessionEndYear}`;
             onClose={() => setIsDeleteModalOpen(false)}
             onConfirm={handleDeleteConfirm}
             message="Are you sure you want to delete this student? This action cannot be undone."
+          />
+        )}
+
+        {isToggleStatusModalOpen && (
+          <ToggleStatusModal
+            onClose={() => {
+              setIsToggleStatusModalOpen(false);
+              setCurrentStudentId(null);
+            }}
+            onConfirm={handleToggleStatusConfirm}
+            message="Are you sure you want to change  the status of this student?"
           />
         )}
 

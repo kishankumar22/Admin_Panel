@@ -28,6 +28,8 @@ import StudentManagement from './services/students/StudentManagement';
 import ManagePayment from './services/students/ManagePayment';
 import PaymentHandover from './services/students/PaymentHandover';
 import CourseEnquiry from './services/students/CourseEnquiry';
+import ManageSupplier from './suppliers/ManageSupplier';
+import SupplierPayment from './suppliers/SupplierPayment';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -153,6 +155,24 @@ const App: React.FC = () => {
       ),
     },
     {
+      path: '/managesupplier',
+      element: (
+        <>
+          <PageTitle title="Manage Supplier" />
+          <ManageSupplier />
+        </>
+      ),
+    },
+    {
+      path: '/supplierpayment',
+      element: (
+        <>
+          <PageTitle title="Supplier Payment" />
+          <SupplierPayment />
+        </>
+      ),
+    },
+    {
       path: '/paymenthandover',
       element: (
         <>
@@ -202,9 +222,11 @@ const App: React.FC = () => {
     '/settings',
     '/student',
     '/managePayment',
+    './managesupplier',
+    '/supplierpayment',
     '/paymenthandover',
     '/CourseEnquiry',
-    '/assign-page-to-role',
+    '/assign-page-to-role'
   ];
 
   // Filter routes based on user role

@@ -17,7 +17,7 @@ const slugify = (post_slug) => {
 };
 
 // 1. POST Add Post
-router.post('/add-post', async (req, res) => {
+router.post('/add-post', async (req, res, next) => {
   try {
     const { post_title, post_content, created_by, isVisible, post_slug } = req.body;
 
@@ -44,13 +44,14 @@ router.post('/add-post', async (req, res) => {
     console.log('Post added:', result.recordset[0].post_title);
     res.status(201).json({ success: true, message: 'Post added successfully', data: result.recordset[0] });
   } catch (err) {
-    console.error('Add Post Error:', err);
+    // console.error('Add Post Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error adding post', error: err.message });
   }
 });
 
 // 2. POST Upload File
-router.post('/upload-file', upload.single('file'), async (req, res) => {
+router.post('/upload-file', upload.single('file'), async (req, res, next) => {
   try {
     const file = req.file;
     if (!file) {
@@ -71,24 +72,26 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
     console.log('File uploaded to Cloudinary:', uploadResult.secure_url);
     res.status(200).json({ success: true, message: 'File uploaded successfully', link: uploadResult.secure_url });
   } catch (err) {
-    console.error('Upload File Error:', err);
+    // console.error('Upload File Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error uploading file', error: err.message });
   }
 });
 
 // 3. GET All Posts
-router.get('/all-posts', async (req, res) => {
+router.get('/all-posts', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM LatestPost ORDER BY created_on DESC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Posts Error:', err);
+    // console.error('Fetch Posts Error:', err); 
+     next(err);
     res.status(500).json({ success: false, message: 'Error fetching posts', error: err.message });
   }
 });
 
 // 4. GET Post by Slug
-router.get('/post/:slug', async (req, res) => {
+router.get('/post/:slug', async (req, res, next) => {
   try {
     const { slug } = req.params;
 
@@ -103,13 +106,14 @@ router.get('/post/:slug', async (req, res) => {
 
     res.status(200).json(result.recordset[0]);
   } catch (err) {
-    console.error('Fetch Post Error:', err);
+    // console.error('Fetch Post Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error fetching post', error: err.message });
   }
 });
 
 // 5. PUT Edit Post
-router.put('/edit/:id', async (req, res) => {
+router.put('/edit/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { post_title, post_slug, post_content, modify_by, isVisible } = req.body;
@@ -150,13 +154,14 @@ router.put('/edit/:id', async (req, res) => {
     console.log('Post updated:', result.recordset[0].post_title);
     res.status(200).json({ success: true, message: 'Post updated successfully', data: result.recordset[0] });
   } catch (err) {
-    console.error('Edit Post Error:', err);
+    // console.error('Edit Post Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error editing post', error: err.message });
   }
 });
 
 // 6. PUT Toggle Post Visibility
-router.put('/toggle-visibility/:id', async (req, res) => {
+router.put('/toggle-visibility/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -193,13 +198,14 @@ router.put('/toggle-visibility/:id', async (req, res) => {
       data: result.recordset[0] 
     });
   } catch (err) {
-    console.error('Toggle Visibility Error:', err);
+    // console.error('Toggle Visibility Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error updating visibility', error: err.message });
   }
 });
 
 // 7. DELETE Post
-router.delete('/delete/:id', async (req, res) => {
+router.delete('/delete/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -220,7 +226,8 @@ router.delete('/delete/:id', async (req, res) => {
     console.log('Post deleted:', result.recordset[0].post_title);
     res.status(200).json({ success: true, message: 'Post deleted successfully' });
   } catch (err) {
-    console.error('Delete Post Error:', err);
+    // console.error('Delete Post Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error deleting post', error: err.message });
   }
 });

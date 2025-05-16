@@ -91,9 +91,8 @@ router.get('/users/:id', async (req, res, next) => {
 // Update a user
 router.put('/users/:id', async (req, res, next) => {
   const { id } = req.params;
-  const { name, email, mobileNo,  roleId } = req.body;
+  const { name, email, mobileNo, password, roleId } = req.body;
   const modifyBy = req.user?.name || 'admin';
-  
 
   try {
     if (!name || !email || !mobileNo || !roleId) {
@@ -109,8 +108,10 @@ router.put('/users/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-
-   
+    let hashedPassword = existing.recordset[0].password;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
 
     const query = `
       UPDATE [User]
@@ -118,6 +119,7 @@ router.put('/users/:id', async (req, res, next) => {
         name = @name,
         email = @email,
         mobileNo = @mobileNo,
+        password = @password,
         roleId = @roleId,
         modify_by = @modifyBy,
         modify_on = GETDATE()
@@ -130,7 +132,7 @@ router.put('/users/:id', async (req, res, next) => {
       name: { type: sql.NVarChar, value: name },
       email: { type: sql.NVarChar, value: email },
       mobileNo: { type: sql.NVarChar, value: mobileNo },
-     
+      password: { type: sql.NVarChar, value: hashedPassword },
       roleId: { type: sql.Int, value: parseInt(roleId) },
       modifyBy: { type: sql.NVarChar, value: modifyBy },
     });

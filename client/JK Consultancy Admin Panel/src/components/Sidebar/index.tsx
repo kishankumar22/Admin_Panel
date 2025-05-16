@@ -218,7 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                     }}
                   >
                     <PiStudent className="w-4 h-4" />
-                    Students
+                    Manage Student
                     <IoIosArrowDown
                       className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
                     />
@@ -277,6 +277,58 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           Manage Queries
                         </NavLink>
                       </li>
+
+                    </ul>
+                  </div>
+                </>
+              )}
+            </SidebarLinkGroup>
+            {/* Manage Suppliers */}
+            <SidebarLinkGroup activeCondition={pathname === '/managesupplier' || pathname.includes('managesupplier')}>
+              {() => (
+                <>
+                  <NavLink
+                    to="#"
+                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleDropdownClick('managesupplier');
+                    }}
+                  >
+                    <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                    Manage Supplier
+                    <IoIosArrowDown
+                      className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
+                    />
+                  </NavLink>
+                  <div
+                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'managesupplier' ? 'max-h-96' : 'max-h-0'
+                      }`}
+                  >
+                    <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                      <li>
+                        <NavLink
+                          to="/managesupplier"
+                          className={({ isActive }) =>
+                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                          }
+                        >
+                          <MdOutlineMiscellaneousServices className="w-3.5 h-3.5" />
+                          Manage supplier
+                        </NavLink>
+                      </li>
+                      <li>
+                        <NavLink
+                          to="/supplierpayment"
+                          className={({ isActive }) =>
+                          `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                          }
+                        >
+                          <FaMoneyBill className="w-3.5 h-3.5" />
+                          Supplier Payment
+                        </NavLink>
+                      </li>
+                     
 
                     </ul>
                   </div>

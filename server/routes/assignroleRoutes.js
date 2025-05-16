@@ -3,7 +3,7 @@ const router = express.Router();
 const { sql, poolConnect, executeQuery } = require('../config/db');
 
 // Save permissions
-router.post('/save-permissions', async (req, res) => {
+router.post('/save-permissions', async (req, res, next) => {
   try {
     const { permissions } = req.body;
 
@@ -84,19 +84,21 @@ router.post('/save-permissions', async (req, res) => {
 
       await transaction.commit();
       res.status(200).json({ message: 'Permissions saved successfully!' });
-    } catch (error) {
+    } catch (err) {
       await transaction.rollback();
-      console.error('Transaction error in save-permissions:', error.stack);
-      throw error;
+      // console.error('Transaction error in save-permissions:', error.stack);
+          next(err);
+      throw err;
     }
-  } catch (error) {
-    console.error('Error saving permissions:', error.stack);
+  } catch (err) {
+    // console.error('Error saving permissions:', err.stack);
+        next(err);
     res.status(500).json({ message: 'Error saving permissions', error: error.message });
   }
 });
 
 // Fetch permissions
-router.get('/permissions', async (req, res) => {
+router.get('/permissions', async (req, res, next) => {
   try {
     const query = `
       SELECT permissionId, roleId, pageId, canCreate, canRead, canUpdate, canDelete,
@@ -105,9 +107,10 @@ router.get('/permissions', async (req, res) => {
     `;
     const result = await executeQuery(query);
     res.status(200).json(result.recordset);
-  } catch (error) {
-    console.error('Error fetching permissions:', error.stack);
-    res.status(500).json({ message: 'Error fetching permissions', error: error.message });
+  } catch (err) {
+    // console.error('Error fetching permissions:', error.stack);
+        next(err);
+    res.status(500).json({ message: 'Error fetching permissions', error: err.message });
   }
 });
 

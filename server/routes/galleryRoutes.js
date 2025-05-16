@@ -7,18 +7,19 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 1. GET All Galleries
-router.get('/gallery', async (req, res) => {
+router.get('/gallery', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Gallery ORDER BY galleryPosition ASC');
     res.status(200).json(result.recordset);
   } catch (err) {
-    console.error('Fetch Error:', err);
+    // console.error('Fetch Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error fetching galleries' });
   }
 });
 
 // 2. POST Upload Gallery
-router.post('/gallery/upload', upload.single('file'), async (req, res) => {
+router.post('/gallery/upload', upload.single('file'), async (req, res, next) => {
   try {
     const { galleryName, created_by, galleryPosition } = req.body;
     const file = req.file;
@@ -59,13 +60,14 @@ router.post('/gallery/upload', upload.single('file'), async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Gallery uploaded successfully', gallery: result.recordset[0] });
   } catch (err) {
-    console.error('Upload Error:', err);
+    // console.error('Upload Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error uploading gallery' });
   }
 });
 
 // 3. PUT Update Gallery
-router.put('/gallery/update/:id', upload.single('file'), async (req, res) => {
+router.put('/gallery/update/:id', upload.single('file'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { galleryName, modify_by, galleryPosition } = req.body;
@@ -126,13 +128,14 @@ router.put('/gallery/update/:id', upload.single('file'), async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Gallery updated successfully', gallery: result.recordset[0] });
   } catch (err) {
-    console.error('Update Error:', err);
+    // console.error('Update Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error updating gallery' });
   }
 });
 
 // 4. DELETE Gallery
-router.delete('/gallery/delete/:id', async (req, res) => {
+router.delete('/gallery/delete/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -162,13 +165,14 @@ router.delete('/gallery/delete/:id', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Gallery deleted successfully' });
   } catch (err) {
-    console.error('Delete Error:', err);
+    // console.error('Delete Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error deleting gallery' });
   }
 });
 
 // 5. PUT Toggle Gallery Visibility
-router.put('/gallery/toggle-visibility/:id', async (req, res) => {
+router.put('/gallery/toggle-visibility/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -199,7 +203,8 @@ router.put('/gallery/toggle-visibility/:id', async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Gallery visibility updated successfully', gallery: result.recordset[0] });
   } catch (err) {
-    console.error('Toggle Visibility Error:', err);
+    // console.error('Toggle Visibility Error:', err);
+        next(err);
     res.status(500).json({ success: false, message: 'Error updating gallery visibility' });
   }
 });

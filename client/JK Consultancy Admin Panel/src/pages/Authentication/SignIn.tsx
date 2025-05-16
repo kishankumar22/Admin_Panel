@@ -1,15 +1,19 @@
+// components/SignIn.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-toastify";
 import axiosInstance from "../../config";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+import OTPVerificationModal from "./OTPVerificationModal";
 
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showOTPModal, setShowOTPModal] = useState<boolean>(false);
+  const [loginData, setLoginData] = useState<{ token: string; user: any } | null>(null);
   const { isLoggedIn, login } = useAuth();
   const navigate = useNavigate();
 
@@ -23,11 +27,13 @@ const SignIn: React.FC = () => {
     try {
       const response = await axiosInstance.post("/login", { email, password });
       const data = response.data;
-      // console.log(data);
 
       if (response.status === 200) {
-        login(data.token, data.user);
-        navigate("/");
+        // Store login data but don't login yet
+        setLoginData(data);
+        // Show OTP modal
+        setShowOTPModal(true);
+        toast.info("OTP sent to your email");
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -41,6 +47,21 @@ const SignIn: React.FC = () => {
         setErrorMessage("An error occurred. Please try again later.");
         toast.error("An error occurred. Please try again later.");
       }
+    }
+  };
+
+  const handleResendOTP = async () => {
+    try {
+      await axiosInstance.post("/resend-otp", { email });
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleOTPVerificationSuccess = () => {
+    if (loginData) {
+      login(loginData.token, loginData.user);
+      navigate("/", { state: { loginSuccess: true } });
     }
   };
 
@@ -101,6 +122,15 @@ const SignIn: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {showOTPModal && (
+        <OTPVerificationModal
+          email={email}
+          onVerify={handleOTPVerificationSuccess}
+          onClose={() => setShowOTPModal(false)}
+          onResend={handleResendOTP}
+        />
+      )}
     </div>
   );
 };

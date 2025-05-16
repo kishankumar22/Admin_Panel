@@ -13,6 +13,7 @@ const userRoutes = require('./routes/userRoutes');
 const createpageRoutes = require('./routes/createPageRoutes');
 const addStudentsRoutes = require('./routes/students/addStudentsRoutes');
 const paymentHandoverRoutes = require('./routes/students/paymentHandoverRoutes');
+const addSuppliersRoutes = require('./routes/ManageSuppliers/addSuppliersRoutes');
 const assignroleRoutes = require('./routes/assignroleRoutes');
 const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
 const winston = require('winston');
@@ -68,6 +69,7 @@ app.use('/api', createpageRoutes);
 app.use('/api', assignroleRoutes);
 app.use('/api', addStudentsRoutes);
 app.use('/api', paymentHandoverRoutes);
+app.use('/api', addSuppliersRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
