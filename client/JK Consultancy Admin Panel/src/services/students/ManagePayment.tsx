@@ -1216,7 +1216,7 @@ const ManagePayment: React.FC = () => {
             setCurrentStudentId(null);
             setSelectedSessionYear(null);
             setSelectedCourseYear(null);
-            fetchStudents();
+            // fetchStudents();
           }}
         />
       )}

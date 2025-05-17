@@ -319,13 +319,13 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                       </li>
                       <li>
                         <NavLink
-                          to="/supplierpayment"
+                          to="/manageExpense"
                           className={({ isActive }) =>
                           `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                           }
                         >
                           <FaMoneyBill className="w-3.5 h-3.5" />
-                          Supplier Payment
+                          Manage Expense
                         </NavLink>
                       </li>
                      

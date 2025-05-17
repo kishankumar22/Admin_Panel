@@ -1,10 +1,30 @@
-import React, { useState, useEffect } from "react";
-import Breadcrumb from "../components/Breadcrumbs/Breadcrumb";
-import { FaUserPlus, FaSpinner, FaSearch, FaChevronLeft, FaChevronRight, FaEnvelope, FaPhone, FaBuilding, FaMoneyBillWave, FaCreditCard, FaComment, FaFileUpload, FaEye, FaDownload, FaTimes } from "react-icons/fa";
+import React, { useState, useEffect } from 'react';
+import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
+import {
+  FaUserPlus,
+  FaSpinner,
+  FaSearch,
+  FaChevronLeft,
+  FaChevronRight,
+  FaEnvelope,
+  FaPhone,
+  FaBuilding,
+  FaMoneyBillWave,
+  FaCreditCard,
+  FaComment,
+  FaFileUpload,
+  FaEye,
+  FaDownload,
+  FaTimes,
+  FaFileExcel,
+} from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
-import axiosInstance from "../config";
-import { toast } from "react-toastify";
+import axiosInstance from '../config';
+import { toast } from 'react-toastify';
 import axios from 'axios';
+import * as XLSX from 'xlsx';
+
+import SupplierPayment from './SupplierPayment';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -36,39 +56,43 @@ const ManageSupplier: React.FC = () => {
   const createdBy = user?.name || 'admin';
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
+  const [isViewDocumentModalOpen, setIsViewDocumentModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [viewDocumentUrl, setViewDocumentUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(5);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
   const [supplierDocuments, setSupplierDocuments] = useState<SupplierDocument[]>([]);
   const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phoneNo: "",
-    address: "",
-    amount: "",
-    bankName: "",
-    accountNo: "",
-    ifscCode: "",
-    comment: "",
+    name: '',
+    email: '',
+    phoneNo: '',
+    address: '',
+    amount: '',
+    bankName: '',
+    accountNo: '',
+    ifscCode: '',
+    comment: '',
     files: [] as File[],
   });
 
   const resetForm = () => {
     setFormData({
-      name: "",
-      email: "",
-      phoneNo: "",
-      address: "",
-      amount: "",
-      bankName: "",
-      accountNo: "",
-      ifscCode: "",
-      comment: "",
+      name: '',
+      email: '',
+      phoneNo: '',
+      address: '',
+      amount: '',
+      bankName: '',
+      accountNo: '',
+      ifscCode: '',
+      comment: '',
       files: [],
     });
     setErrors({});
@@ -100,7 +124,7 @@ const ManageSupplier: React.FC = () => {
 
   useEffect(() => {
     let filtered = suppliers;
-    
+
     if (searchTerm) {
       filtered = filtered.filter((supplier) =>
         [supplier.Name, supplier.Email, supplier.PhoneNo].some((field) =>
@@ -115,28 +139,44 @@ const ManageSupplier: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    if (!formData.name) newErrors.name = "Name is required";
-    if (!formData.email) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = "Invalid email format";
-    if (!formData.phoneNo) newErrors.phoneNo = "Phone number is required";
-    else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = "Phone number must be 10 digits";
-    if (!formData.address) newErrors.address = "Address is required";
-    if (!formData.amount) newErrors.amount = "Amount is required";
-    else if (parseFloat(formData.amount) <= 0) newErrors.amount = "Amount must be greater than 0";
-    if (!formData.bankName) newErrors.bankName = "Bank name is required";
-    if (!formData.accountNo) newErrors.accountNo = "Account number is required";
-    if (!formData.ifscCode) newErrors.ifscCode = "IFSC code is required";
-    else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode)) newErrors.ifscCode = "Invalid IFSC code format";
-    if (!formData.comment) newErrors.comment = "Comment is required";
+    if (!formData.name) newErrors.name = 'Name is required';
+    else if (
+      suppliers.some((supplier) => supplier.Name.toLowerCase() === formData.name.toLowerCase())
+    ) {
+      newErrors.name = 'This supplier already exists. Please try another name.';
+    }
+    if (!formData.email) newErrors.email = 'Email is required';
+    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email format';
+    if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
+    else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
+    if (!formData.address) newErrors.address = 'Address is required';
+    if (!formData.amount) newErrors.amount = 'Amount is required';
+    else if (parseFloat(formData.amount) <= 0) newErrors.amount = 'Amount must be greater than 0';
+    if (!formData.bankName) newErrors.bankName = 'Bank name is required';
+    if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
+    if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
+    else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
+      newErrors.ifscCode = 'Invalid IFSC code format';
+    if (!formData.comment) newErrors.comment = 'Comment is required';
 
-    setErrors(newErrors);
+    setErrors((prev) => ({ ...prev, ...newErrors }));
     return Object.keys(newErrors).length === 0;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+    setErrors((prev) => ({ ...prev, [name]: '' }));
+
+    if (name === 'name' && value) {
+      const exists = suppliers.some((supplier) => supplier.Name.toLowerCase() === value.toLowerCase());
+      if (exists) {
+        setErrors((prev) => ({
+          ...prev,
+          name: 'This supplier already exists. Please try another name.',
+        }));
+      }
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +185,7 @@ const ManageSupplier: React.FC = () => {
       ...prev,
       files: [...prev.files, ...files],
     }));
-    e.target.value = ''; // Reset file input
+    e.target.value = '';
   };
 
   const handleRemoveFile = (index: number) => {
@@ -207,26 +247,26 @@ const ManageSupplier: React.FC = () => {
     setIsDocumentsModalOpen(true);
   };
 
+  const handleViewDocument = (documentUrl: string) => {
+    setViewDocumentUrl(documentUrl);
+    setIsViewDocumentModalOpen(true);
+  };
+
   const handleDownloadFile = async (documentUrl: string, documentId: number) => {
     try {
-      // Fetch the file as a blob
       const response = await fetch(documentUrl, { mode: 'cors' });
       if (!response.ok) {
         throw new Error('Failed to fetch the file');
       }
       const blob = await response.blob();
-
-      // Create a temporary URL for the blob
       const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link element to trigger the download
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Supplier_Document_${documentId}${documentUrl.includes('.pdf') ? '.pdf' : documentUrl.includes('.jpg') ? '.jpg' : ''}`; // Guess extension
+      link.download = `Supplier_Document_${documentId}${
+        documentUrl.includes('.pdf') ? '.pdf' : documentUrl.includes('.jpg') ? '.jpg' : ''
+      }`;
       document.body.appendChild(link);
       link.click();
-
-      // Clean up
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
@@ -235,30 +275,93 @@ const ManageSupplier: React.FC = () => {
     }
   };
 
+  const handlePaySupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setIsPaymentModalOpen(true);
+  };
+
+  const handleExportToExcel = () => {
+    const exportData = filteredSuppliers.map((supplier, index) => ({
+      'Sr.': index + 1,
+      Name: supplier.Name,
+      Email: supplier.Email,
+      'Phone No.': supplier.PhoneNo,
+      Address: supplier.Address,
+      Amount: supplier.Amount,
+      'Bank Name': supplier.BankName,
+      'Account No.': supplier.AccountNo,
+      'IFSC Code': supplier.IFSCCode,
+      Comment: supplier.Comment,
+      'Created By': supplier.CreatedBy,
+      'Created On': new Date(supplier.CreatedOn).toLocaleString(),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Suppliers');
+    XLSX.writeFile(workbook, 'Suppliers_List.xlsx');
+  };
+
   const indexOfLastSupplier = currentPage * rowsPerPage;
   const indexOfFirstSupplier = indexOfLastSupplier - rowsPerPage;
   const currentSuppliers = filteredSuppliers.slice(indexOfFirstSupplier, indexOfLastSupplier);
   const totalPages = Math.ceil(filteredSuppliers.length / rowsPerPage);
+  const totalFilteredAmount = filteredSuppliers.reduce((sum, supplier) => {
+  return sum + (supplier.Amount || 0);
+}, 0);
 
   return (
     <>
       <Breadcrumb pageName="Manage Suppliers" />
-
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 mb-4 bg-gray-100 dark:bg-gray-800 rounded-lg shadow-md gap-2">
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-          <FaUserPlus className="text-indigo-600 w-5 h-5" />
-          <span>Suppliers List:</span>
-          <span className="font-medium text-indigo-700 dark:text-indigo-400">{filteredSuppliers.length}</span>
-        </h3>
-
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-1 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition duration-150 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <FaUserPlus className="w-4 h-4" />
-          Add Supplier
-        </button>
-      </div>
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+  {/* Left side - Title and counts */}
+  <div className="flex items-center flex-wrap gap-2 mb-2 sm:mb-0">
+    <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center">
+      <FaUserPlus className="text-indigo-600 w-4 h-4 mr-1.5" />
+      <span className="text-sm mr-1">Suppliers :</span>
+      <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
+        {filteredSuppliers.length}
+      </span>
+      <span className="text-sm mr-1">Total Amount:</span>
+      <span className="font-medium text-indigo-700 dark:text-indigo-400">
+        ₹{totalFilteredAmount}
+      </span>
+    </h3>
+  </div>
+  
+  {/* Right side - Search and buttons */}
+  <div className="flex items-center gap-2">
+    {/* Search input */}
+    <div className="relative flex-1 min-w-[200px]">
+      <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+      <input
+        type="text"
+        placeholder="Search by Name, Email, or Phone"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-8 pr-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+      />
+    </div>
+    
+    {/* Add Supplier button */}
+    <button
+      onClick={() => setIsModalOpen(true)}
+      className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+    >
+      <FaUserPlus className="w-3.5 h-3.5" />
+      Add Supplier
+    </button>
+    
+    {/* Export button */}
+    <button
+      onClick={handleExportToExcel}
+      className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
+    >
+      <FaFileExcel className="w-3.5 h-3.5" />
+      Export to Excel
+    </button>
+  </div>
+</div>
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
@@ -268,9 +371,9 @@ const ManageSupplier: React.FC = () => {
                 setIsModalOpen(false);
                 resetForm();
               }}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150"
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"
             >
-              <FaTimes className="w-5 h-5" />
+              <FaTimes className="w-6 h-6 mr-3 mt-2" />
             </button>
             <h2 className="text-lg font-semibold mb-3 bg-blue-300 p-1 rounded text-black dark:text-gray-100 flex items-center gap-1">
               <FaUserPlus className="text-indigo-600" />
@@ -288,7 +391,9 @@ const ManageSupplier: React.FC = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
                   {errors.name && <p className="text-red-500 text-xs mt-0.5">{errors.name}</p>}
@@ -303,7 +408,9 @@ const ManageSupplier: React.FC = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.email ? 'border-red-500' : 'border-gray-+.300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
                   {errors.email && <p className="text-red-500 text-xs mt-0.5">{errors.email}</p>}
@@ -318,10 +425,14 @@ const ManageSupplier: React.FC = () => {
                     name="phoneNo"
                     value={formData.phoneNo}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.phoneNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.phoneNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.phoneNo && <p className="text-red-500 text-xs mt-0.5">{errors.phoneNo}</p>}
+                  {errors.phoneNo && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.phoneNo}</p>
+                  )}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
@@ -333,10 +444,14 @@ const ManageSupplier: React.FC = () => {
                     name="address"
                     value={formData.address}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.address ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.address ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.address && <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>}
+                  {errors.address && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>
+                  )}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
@@ -348,14 +463,17 @@ const ManageSupplier: React.FC = () => {
                     name="amount"
                     value={formData.amount}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.amount && <p className="text-red-500 text-xs mt-0.5">{errors.amount}</p>}
+                  {errors.amount && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.amount}</p>
+                  )}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                    {/* <FaPiggyBank className="text-indigo-500" /> */}
                     Bank Name <RequiredAsterisk />
                   </label>
                   <input
@@ -363,10 +481,14 @@ const ManageSupplier: React.FC = () => {
                     name="bankName"
                     value={formData.bankName}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.bankName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.bankName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.bankName && <p className="text-red-500 text-xs mt-0.5">{errors.bankName}</p>}
+                  {errors.bankName && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.bankName}</p>
+                  )}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
@@ -378,10 +500,14 @@ const ManageSupplier: React.FC = () => {
                     name="accountNo"
                     value={formData.accountNo}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.accountNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.accountNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.accountNo && <p className="text-red-500 text-xs mt-0.5">{errors.accountNo}</p>}
+                  {errors.accountNo && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.accountNo}</p>
+                  )}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
@@ -393,10 +519,14 @@ const ManageSupplier: React.FC = () => {
                     name="ifscCode"
                     value={formData.ifscCode}
                     onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${errors.ifscCode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                    className={`w-full p-1 text-sm rounded-md border ${
+                      errors.ifscCode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                     required
                   />
-                  {errors.ifscCode && <p className="text-red-500 text-xs mt-0.5">{errors.ifscCode}</p>}
+                  {errors.ifscCode && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.ifscCode}</p>
+                  )}
                 </div>
               </div>
               <div className="mb-2">
@@ -408,16 +538,25 @@ const ManageSupplier: React.FC = () => {
                   name="comment"
                   value={formData.comment}
                   onChange={handleInputChange}
-                  className={`w-full p-1 text-sm rounded-md border ${errors.comment ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'} focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
+                  className={`w-full p-1 text-sm rounded-md border ${
+                    errors.comment ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                   rows={2}
                   required
                 />
-                {errors.comment && <p className="text-red-500 text-xs mt-0.5">{errors.comment}</p>}
+                {errors.comment && (
+                  <p className="text-red-500 text-xs mt-0.5">{errors.comment}</p>
+                )}
               </div>
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaFileUpload className="text-indigo-500" />
                   Upload Supplier Agreement Files
+                  {formData.files.length > 0 && (
+                    <span className="ml-2 text-xs text-indigo-600">
+                      ({formData.files.length} {formData.files.length === 1 ? 'file' : 'files'})
+                    </span>
+                  )}
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -430,22 +569,26 @@ const ManageSupplier: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => document.getElementById('file-upload')?.click()}
-                    className="px-3 py-1 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition duration-150 flex items-center gap-1"
+                    className="px-3 py-1 text-xs font-medium text-black bg-gray-300 rounded-md hover:bg-gray-400 transition duration-150 flex items-center gap-1"
                   >
                     <FaFileUpload className="w-4 h-4" />
                     Add Files
                   </button>
                 </div>
                 {formData.files.length > 0 && (
-                  <div className="mt-2">
-                    <ul className="list-disc pl-5 text-xs text-gray-700 dark:text-gray-300">
+                  <div className="mt-2 p-2 w-72 bg-gray-100 dark:bg-gray-800 rounded-md">
+                    <ul className="space-y-2">
                       {formData.files.map((file, index) => (
-                        <li key={index} className="flex items-center justify-between">
-                          <span>{file.name}</span>
+                        <li
+                          key={index}
+                          className="flex items-center justify-between gap-2 text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 p-2 rounded-md shadow-sm"
+                        >
+                          <span className="truncate">{index + 1}. </span>
+                          <span className="truncate">{file.name}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveFile(index)}
-                            className="text-red-500 hover:text-red-700 transition duration-150"
+                            className="text-red-500 hover:text-red-700 transition duration-150 flex-shrink-0"
                           >
                             <FaTimes className="w-4 h-4" />
                           </button>
@@ -470,8 +613,8 @@ const ManageSupplier: React.FC = () => {
               <button
                 type="submit"
                 onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="px-4 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150 flex items-center gap-1"
+                disabled={isSubmitting || !!errors.name}
+                className="px-4 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
@@ -479,7 +622,7 @@ const ManageSupplier: React.FC = () => {
                     Submitting...
                   </>
                 ) : (
-                  "Submit"
+                  'Submit'
                 )}
               </button>
             </div>
@@ -496,9 +639,9 @@ const ManageSupplier: React.FC = () => {
                 setSelectedSupplierId(null);
                 setSupplierDocuments([]);
               }}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150"
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"
             >
-              <FaTimes className="w-5 h-5" />
+              <FaTimes className="w-6 h-6 mr-3 mt-2" />
             </button>
             <h2 className="text-lg font-semibold mb-3 bg-blue-300 p-1 rounded text-black dark:text-gray-100 flex items-center gap-1">
               Supplier Documents
@@ -522,18 +665,20 @@ const ManageSupplier: React.FC = () => {
                           index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'
                         } hover:bg-indigo-100 dark:hover:bg-gray-700`}
                       >
-                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{index + 1}</td>
-                        <td className="py-2 px-3 text-xs text-blue-600 dark:text-blue-400 truncate max-w-[200px]">
+                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200 align-middle">
+                          {index + 1}
+                        </td>
+                        <td className="py-2 px-3 text-xs text-blue-600 dark:text-blue-400 align-middle">
                           <a href={doc.DocumentUrl} target="_blank" rel="noopener noreferrer">
-                            {doc.DocumentUrl}
+                            Open Link
                           </a>
                         </td>
-                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200">
+                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200 align-middle">
                           {new Date(doc.CreatedOn).toLocaleString()}
                         </td>
-                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200 flex gap-2">
+                        <td className="py-2 px-3 text-xs text-black dark:text-gray-200 align-middle flex gap-2">
                           <button
-                            onClick={() => window.open(doc.DocumentUrl, '_blank')}
+                            onClick={() => handleViewDocument(doc.DocumentUrl)}
                             className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition duration-150 flex items-center gap-1"
                           >
                             <FaEye className="w-3 h-3" />
@@ -573,36 +718,95 @@ const ManageSupplier: React.FC = () => {
         </div>
       )}
 
-      <div className="mt-3">
-        <div className="mb-2 flex flex-col sm:flex-row items-center gap-2">
-          <div className="relative flex-1 max-w-xs w-full">
-            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
-            <input
-              type="text"
-              placeholder="Search by Name, Email, or Phone"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150"
-            />
+      {isViewDocumentModalOpen && viewDocumentUrl && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-4xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
+            <button
+              onClick={() => {
+                setIsViewDocumentModalOpen(false);
+                setViewDocumentUrl(null);
+              }}
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"
+            >
+              <FaTimes className="w-6 h-6 mt-2 mr-3" />
+            </button>
+            <h2 className="text-lg font-semibold mb-3 bg-blue-300 p-1 rounded text-black dark:text-gray-100 flex items-center gap-1">
+              View Document
+            </h2>
+            <div className="max-h-[70vh] overflow-y-auto">
+              {viewDocumentUrl.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={viewDocumentUrl}
+                  className="w-full h-[60vh]"
+                  title="PDF Document"
+                />
+              ) : (
+                <img
+                  src={viewDocumentUrl}
+                  alt="Supplier Document"
+                  className="w-full h-auto max-h-[60vh] object-contain"
+                />
+              )}
+            </div>
+            <div className="flex justify-end mt-3">
+              <button
+                onClick={() => {
+                  setIsViewDocumentModalOpen(false);
+                  setViewDocumentUrl(null);
+                }}
+                className="px-4 py-1 text-sm font-medium text-black dark:text-gray-200 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-150"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {isPaymentModalOpen && selectedSupplier && (
+        <SupplierPayment
+          supplier={{
+            SupplierId: selectedSupplier.SupplierId!,
+            Name: selectedSupplier.Name,
+            Amount: selectedSupplier.Amount,
+          }}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedSupplier(null);
+          }}
+          onSuccess={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedSupplier(null);
+            fetchSuppliers(); // Refresh suppliers list
+          }}
+          createdBy={createdBy}
+        />
+      )}
+
+      <div className="mt-2">
         <div className="overflow-x-auto rounded-lg shadow-md">
-          <table className="min-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+          <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
             <thead>
               <tr className="bg-indigo-600 text-white">
-                <th className="py-2 px-3 text-left text-xs font-semibold">Sr.</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Name</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Email</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Phone No.</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Address</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Amount</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Bank Name</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Account No.</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">IFSC Code</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Comment</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Created By</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Created On</th>
-                <th className="py-2 px-3 text-left text-xs font-semibold">Action</th>
+                {[
+                  'Sr.',
+                  'Name',
+                  'Email',
+                  'Phone No.',
+                  'Address',
+                  'Amount',
+                  'Bank Name',
+                  'Account No.',
+                  'IFSC Code',
+                  'Comment',
+                  'Created By',
+                  'Created On',
+                  'Action',
+                ].map((title) => (
+                  <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
+                    {title}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -611,37 +815,70 @@ const ManageSupplier: React.FC = () => {
                   <tr
                     key={supplier.SupplierId || index}
                     className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
-                      index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'
+                      index % 2 === 0 ? 'bg-gray-100 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'
                     } hover:bg-indigo-100 dark:hover:bg-gray-700`}
                   >
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{indexOfFirstSupplier + index + 1}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.Name}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.Email}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.PhoneNo}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.Address}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.Amount}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.BankName}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.AccountNo}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.IFSCCode}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.Comment}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">{supplier.CreatedBy}</td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200">
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {indexOfFirstSupplier + index + 1}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Name}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Email}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.PhoneNo}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Address}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Amount}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.BankName}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.AccountNo}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.IFSCCode}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Comment}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.CreatedBy}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                       {new Date(supplier.CreatedOn).toLocaleString()}
                     </td>
-                    <td className="py-2 px-3 text-xs text-black dark:text-gray-200 flex gap-2">
+                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
                       <button
                         onClick={() => handleViewFiles(supplier.SupplierId!)}
-                        className="px-2 py-1 text-xs font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700 transition duration-150 flex items-center gap-1"
+                        className="inline-flex items-center px-2 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 transition text-[11px]"
                       >
-                        <FaEye className="w-3 h-3" />
-                        View Files
+                        <FaEye className="w-3 h-3 mr-1" />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handlePaySupplier(supplier)}
+                        className="inline-flex items-center px-2 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 transition text-[11px]"
+                        title="Payment"
+                      >
+                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                        Pay Supplier
                       </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={13} className="py-3 text-center text-gray-600 dark:text-gray-400 text-xs">
+                  <td
+                    colSpan={13}
+                    className="py-2 text-center text-gray-600 dark:text-gray-400 text-xs"
+                  >
                     No suppliers found
                   </td>
                 </tr>
@@ -649,9 +886,12 @@ const ManageSupplier: React.FC = () => {
             </tbody>
           </table>
         </div>
+
         <div className="flex items-center justify-between mt-2 px-3">
           <div className="text-xs text-gray-600 dark:text-gray-400">
-            Showing {indexOfFirstSupplier + 1} to {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of {filteredSuppliers.length} suppliers
+            Showing {indexOfFirstSupplier + 1} to{' '}
+            {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
+            {filteredSuppliers.length} suppliers
           </div>
           <div className="flex items-center gap-1">
             <button

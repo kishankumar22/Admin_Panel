@@ -30,6 +30,7 @@ import PaymentHandover from './services/students/PaymentHandover';
 import CourseEnquiry from './services/students/CourseEnquiry';
 import ManageSupplier from './suppliers/ManageSupplier';
 import SupplierPayment from './suppliers/SupplierPayment';
+import ManageExpense from './suppliers/ManageExpense';
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -164,11 +165,11 @@ const App: React.FC = () => {
       ),
     },
     {
-      path: '/supplierpayment',
+      path: '/manageExpense',
       element: (
         <>
-          <PageTitle title="Supplier Payment" />
-          <SupplierPayment />
+          <PageTitle title="Manage Expenses" />
+          <ManageExpense />
         </>
       ),
     },
@@ -221,7 +222,7 @@ const App: React.FC = () => {
     '/profile',
     '/settings',
     '/student',
-    '/managePayment',
+    '/manageExpense',
     './managesupplier',
     '/supplierpayment',
     '/paymenthandover',
