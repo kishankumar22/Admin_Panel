@@ -8,7 +8,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // GET all suppliers
 router.get('/suppliers', async (req, res, next) => {
   try {
-    const result = await executeQuery('SELECT * FROM Suppliers WHERE Deleted = 0');
+    const result = await executeQuery('SELECT * FROM Suppliers ');
     res.status(200).json(result.recordset);
   } catch (err) {
     next(err);
@@ -126,6 +126,159 @@ router.post('/supplier/add', upload.array('files', 10), async (req, res, next) =
   }
 });
 
+// PUT update supplier
+router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
+
+    console.log('Received PUT request body:', { id, name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy });
+
+    const supplierCheck = await executeQuery(
+      'SELECT * FROM Suppliers WHERE SupplierId = @SupplierId',
+      {
+        SupplierId: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    if (supplierCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    const currentSupplier = supplierCheck.recordset[0];
+
+    const updates = [];
+    const params = {
+      SupplierId: { type: sql.Int, value: parseInt(id) },
+      ModifiedBy: { type: sql.NVarChar, value: modifiedBy || 'admin' },
+      ModifiedOn: { type: sql.DateTime, value: new Date() },
+    };
+
+    if (name && name !== currentSupplier.Name) {
+      const nameCheck = await executeQuery(
+        'SELECT SupplierId FROM Suppliers WHERE Name = @Name AND SupplierId != @SupplierId AND Deleted = 0',
+        {
+          Name: { type: sql.NVarChar, value: name },
+          SupplierId: { type: sql.Int, value: parseInt(id) },
+        }
+      );
+      if (nameCheck.recordset.length > 0) {
+        return res.status(400).json({ message: 'Supplier with this name already exists' });
+      }
+      updates.push('Name = @Name');
+      params.Name = { type: sql.NVarChar, value: name };
+    }
+
+    if (email && email !== currentSupplier.Email) {
+      updates.push('Email = @Email');
+      params.Email = { type: sql.NVarChar, value: email };
+    }
+
+    if (phoneNo && phoneNo !== currentSupplier.PhoneNo) {
+      updates.push('PhoneNo = @PhoneNo');
+      params.PhoneNo = { type: sql.NVarChar, value: phoneNo };
+    }
+
+    if (address && address !== currentSupplier.Address) {
+      updates.push('Address = @Address');
+      params.Address = { type: sql.NVarChar, value: address };
+    }
+
+    if (amount && parseFloat(amount) !== currentSupplier.Amount) {
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        return res.status(400).json({ message: 'Amount must be a valid number greater than 0' });
+      }
+      updates.push('Amount = @Amount');
+      params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
+    }
+
+    if (bankName && bankName !== currentSupplier.BankName) {
+      updates.push('BankName = @BankName');
+      params.BankName = { type: sql.NVarChar, value: bankName };
+    }
+
+    if (accountNo && accountNo !== currentSupplier.AccountNo) {
+      updates.push('AccountNo = @AccountNo');
+      params.AccountNo = { type: sql.NVarChar, value: accountNo };
+    }
+
+    if (ifscCode && ifscCode !== currentSupplier.IFSCCode) {
+      updates.push('IFSCCode = @IFSCCode');
+      params.IFSCCode = { type: sql.NVarChar, value: ifscCode };
+    }
+
+    if (comment && comment !== currentSupplier.Comment) {
+      updates.push('Comment = @Comment');
+      params.Comment = { type: sql.NVarChar, value: comment };
+    }
+
+    if (updates.length === 0) {
+      return res.status(200).json({ message: 'No changes detected' });
+    }
+
+    const updateQuery = `
+      UPDATE Suppliers
+      SET ${updates.join(', ')}, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
+      WHERE SupplierId = @SupplierId AND Deleted = 0
+    `;
+    await executeQuery(updateQuery, params);
+
+    res.status(200).json({ message: 'Supplier updated successfully' });
+  } catch (err) {
+    console.error('Error updating supplier:', err);
+    res.status(500).json({ message: 'Failed to update supplier' });
+    next(err);
+  }
+});
+
+// PATCH toggle supplier deleted status
+router.patch('/supplier/:id/toggle', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { ModifiedBy } = req.body;
+
+    console.log('Received PATCH request:', { id, ModifiedBy });
+
+    if (!ModifiedBy) {
+      return res.status(400).json({ message: 'ModifiedBy is required' });
+    }
+
+    const supplierCheck = await executeQuery(
+      'SELECT Deleted FROM Suppliers WHERE SupplierId = @SupplierId',
+      {
+        SupplierId: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    if (supplierCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    const currentDeleted = supplierCheck.recordset[0].Deleted;
+    const newDeleted = !currentDeleted;
+
+    const updateResult = await executeQuery(
+      `UPDATE Suppliers
+       SET Deleted = @Deleted, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
+       WHERE SupplierId = @SupplierId`,
+      {
+        SupplierId: { type: sql.Int, value: parseInt(id) },
+        Deleted: { type: sql.Bit, value: newDeleted },
+        ModifiedBy: { type: sql.NVarChar, value: ModifiedBy },
+        ModifiedOn: { type: sql.DateTime, value: new Date() },
+      }
+    );
+
+    res.status(200).json({ message: `Supplier ${newDeleted ? 'deleted' : 'restored'} successfully`, newDeleted });
+  } catch (err) {
+    console.error('Error toggling supplier:', err);
+    res.status(500).json({ message: 'Failed to toggle supplier' });
+    next(err);
+  }
+});
+
+
 // POST Add Supplier Payment
 router.post('/supplier/payment', upload.single('file'), async (req, res, next) => {
   try {
@@ -232,4 +385,384 @@ router.post('/supplier/payment', upload.single('file'), async (req, res, next) =
   }
 });
 
-module.exports = router;
+// GET all expenses with supplier details
+router.get('/suppliers', async (req, res, next) => {
+  try {
+    const result = await executeQuery('SELECT * FROM Suppliers WHERE Deleted = 0', {});
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching suppliers:', err);
+    next(err);
+  }
+});
+
+// GET all expenses with supplier details
+router.get('/expenses', async (req, res, next) => {
+  try {
+    const result = await executeQuery(
+      `SELECT 
+        se.SuppliersExpenseID,
+        se.SupplierId,
+        s.Name AS SupplierName,
+        s.Email AS SupplierEmail,
+        s.PhoneNo AS SupplierPhone,
+        se.Reason,
+        se.Amount,
+        se.Deleted,
+        se.CreatedOn,
+        se.CreatedBy,
+        se.ModifiedBy,
+        se.ModifiedOn
+      FROM SupplierExpenses se
+      INNER JOIN Suppliers s ON se.SupplierId = s.SupplierId
+      WHERE s.Deleted = 0`,
+      {}
+    );
+    console.log('Fetched expenses:', result.recordset.length);
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching expenses:', err);
+    next(err);
+  }
+});
+
+// GET documents for an expense's SupplierId
+router.get('/expenses/:id/documents', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    console.log('Fetching documents for expense ID:', id);
+
+    // Get SupplierId from SupplierExpenses
+    const expenseCheck = await executeQuery(
+      'SELECT SupplierId FROM SupplierExpenses WHERE SuppliersExpenseID = @Id',
+      {
+        Id: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    if (expenseCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    const supplierId = expenseCheck.recordset[0].SupplierId;
+
+    // Fetch documents
+    const result = await executeQuery(
+      'SELECT DocumentId, DocumentUrl, PublicId, CreatedOn FROM SupplierDocuments WHERE SupplierId = @SupplierId',
+      {
+        SupplierId: { type: sql.Int, value: supplierId },
+      }
+    );
+
+    console.log('Fetched documents:', result.recordset);
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    console.error('Error fetching documents:', err);
+    next(err);
+  }
+});
+
+// POST expense
+router.post('/expenses', upload.array('files'), async (req, res, next) => {
+  try {
+    const { SupplierId, Reason, Amount, CreatedBy } = req.body;
+    const files = req.files || [];
+
+    console.log('Received POST request body:', { SupplierId, Reason, Amount, CreatedBy });
+    console.log('Received files:', files.length);
+
+    if (!SupplierId || !Reason || !Amount || !CreatedBy) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const supplierIdNum = parseInt(SupplierId);
+    if (isNaN(supplierIdNum)) {
+      return res.status(400).json({ message: 'SupplierId must be a valid number' });
+    }
+
+    const amountNum = parseFloat(Amount);
+    if (isNaN(amountNum)) {
+      return res.status(400).json({ message: 'Amount must be a valid number' });
+    }
+
+    const supplierCheck = await executeQuery(
+      'SELECT SupplierId FROM Suppliers WHERE SupplierId = @SupplierId AND Deleted = 0',
+      {
+        SupplierId: { type: sql.Int, value: supplierIdNum },
+      }
+    );
+
+    console.log('Supplier check result:', supplierCheck.recordset);
+
+    if (supplierCheck.recordset.length === 0) {
+      return res.status(400).json({ message: 'Invalid SupplierId' });
+    }
+
+    const currentDate = new Date();
+    const expenseResult = await executeQuery(
+      `INSERT INTO SupplierExpenses (SupplierId, Reason, Amount, Deleted, CreatedOn, CreatedBy)
+       OUTPUT INSERTED.SuppliersExpenseID
+       VALUES (@SupplierId, @Reason, @Amount, 0, @CreatedOn, @CreatedBy)`,
+      {
+        SupplierId: { type: sql.Int, value: supplierIdNum },
+        Reason: { type: sql.NVarChar, value: Reason },
+        Amount: { type: sql.Decimal(18, 2), value: amountNum },
+        CreatedOn: { type: sql.DateTime, value: currentDate },
+        CreatedBy: { type: sql.NVarChar, value: CreatedBy },
+      }
+    );
+
+    console.log('Expense insert result:', expenseResult.recordset);
+
+    const expenseId = expenseResult.recordset[0].SuppliersExpenseID;
+
+    const documentPromises = files.map(async (file) => {
+      try {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'suppliers', resource_type: 'auto' },
+          async (error, result) => {
+            if (error) {
+              console.error('Cloudinary upload error:', error);
+              throw new Error('Failed to upload file to Cloudinary');
+            }
+
+            console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
+
+            await executeQuery(
+              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn)
+               VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)`,
+              {
+                SupplierId: { type: sql.Int, value: supplierIdNum },
+                DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
+                PublicId: { type: sql.NVarChar, value: result.public_id },
+                CreatedOn: { type: sql.DateTime, value: currentDate },
+              }
+            );
+          }
+        );
+
+        const bufferStream = require('stream').Readable.from(file.buffer);
+        bufferStream.pipe(uploadStream);
+      } catch (err) {
+        console.error('Error processing file:', err);
+        throw err;
+      }
+    });
+
+    await Promise.all(documentPromises);
+
+    res.status(201).json({ message: 'Expense and documents saved successfully', expenseId });
+  } catch (err) {
+    console.error('Error saving expense:', err);
+    next(err);
+  }
+});
+
+// PUT expense (update specific fields)
+router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { SupplierId, Reason, Amount, ModifiedBy } = req.body;
+    const files = req.files || [];
+
+    console.log('Received PUT request body:', { id, SupplierId, Reason, Amount, ModifiedBy });
+    console.log('Received files:', files.length);
+
+    const expenseCheck = await executeQuery(
+      'SELECT SupplierId, Reason, Amount FROM SupplierExpenses WHERE SuppliersExpenseID = @Id AND Deleted = 0',
+      {
+        Id: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    if (expenseCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Expense not found or deleted' });
+    }
+
+    const currentExpense = expenseCheck.recordset[0];
+
+    const updates = [];
+    const params = {
+      Id: { type: sql.Int, value: parseInt(id) },
+      ModifiedOn: { type: sql.DateTime, value: new Date() },
+      ModifiedBy: { type: sql.NVarChar, value: ModifiedBy || 'admin' },
+    };
+
+    if (SupplierId && SupplierId !== currentExpense.SupplierId.toString()) {
+      const supplierIdNum = parseInt(SupplierId);
+      if (isNaN(supplierIdNum)) {
+        return res.status(400).json({ message: 'SupplierId must be a valid number' });
+      }
+      const supplierCheck = await executeQuery(
+        'SELECT SupplierId FROM Suppliers WHERE SupplierId = @SupplierId AND Deleted = 0',
+        {
+          SupplierId: { type: sql.Int, value: supplierIdNum },
+        }
+      );
+      if (supplierCheck.recordset.length === 0) {
+        return res.status(400).json({ message: 'Invalid SupplierId' });
+      }
+      updates.push('SupplierId = @SupplierId');
+      params.SupplierId = { type: sql.Int, value: supplierIdNum };
+    }
+
+    if (Reason && Reason !== currentExpense.Reason) {
+      updates.push('Reason = @Reason');
+      params.Reason = { type: sql.NVarChar, value: Reason };
+    }
+
+    if (Amount && parseFloat(Amount) !== currentExpense.Amount) {
+      const amountNum = parseFloat(Amount);
+      if (isNaN(amountNum)) {
+        return res.status(400).json({ message: 'Amount must be a valid number' });
+      }
+      updates.push('Amount = @Amount');
+      params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
+    }
+
+    if (updates.length === 0 && files.length === 0) {
+      return res.status(200).json({ message: 'No changes detected' });
+    }
+
+    if (updates.length > 0) {
+      const updateQuery = `
+        UPDATE SupplierExpenses
+        SET ${updates.join(', ')}, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
+        WHERE SuppliersExpenseID = @Id AND Deleted = 0
+      `;
+      await executeQuery(updateQuery, params);
+    }
+
+    const documentPromises = files.map(async (file) => {
+      try {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'suppliers', resource_type: 'auto' },
+          async (error, result) => {
+            if (error) {
+              console.error('Cloudinary upload error:', error);
+              throw new Error('Failed to upload file to Cloudinary');
+            }
+
+            console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
+
+            await executeQuery(
+              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn)
+               VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)`,
+              {
+                SupplierId: { type: sql.Int, value: parseInt(SupplierId || currentExpense.SupplierId) },
+                DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
+                PublicId: { type: sql.NVarChar, value: result.public_id },
+                CreatedOn: { type: sql.DateTime, value: new Date() },
+              }
+            );
+          }
+        );
+
+        const bufferStream = require('stream').Readable.from(file.buffer);
+        bufferStream.pipe(uploadStream);
+      } catch (err) {
+        console.error('Error processing file:', err);
+        throw err;
+      }
+    });
+
+    await Promise.all(documentPromises);
+
+    res.status(200).json({ message: 'Expense updated successfully' });
+  } catch (err) {
+    console.error('Error updating expense:', err);
+    next(err);
+  }
+});
+
+// PATCH expense to toggle Deleted status
+router.patch('/expenses/:id/toggle', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { ModifiedBy } = req.body;
+
+    console.log('Received PATCH request:', { id, ModifiedBy });
+
+    if (!ModifiedBy) {
+      return res.status(400).json({ message: 'ModifiedBy is required' });
+    }
+
+    const expenseCheck = await executeQuery(
+      'SELECT Deleted FROM SupplierExpenses WHERE SuppliersExpenseID = @Id',
+      {
+        Id: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    console.log('Expense check result:', expenseCheck.recordset);
+
+    if (expenseCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Expense not found' });
+    }
+
+    const currentDeleted = expenseCheck.recordset[0].Deleted;
+    const newDeleted = !currentDeleted;
+
+    console.log(`Toggling Deleted from ${currentDeleted} to ${newDeleted} for expense ID ${id}`);
+
+    const updateResult = await executeQuery(
+      `UPDATE SupplierExpenses
+       SET Deleted = @Deleted, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
+       WHERE SuppliersExpenseID = @Id`,
+      {
+        Id: { type: sql.Int, value: parseInt(id) },
+        Deleted: { type: sql.Bit, value: newDeleted },
+        ModifiedBy: { type: sql.NVarChar, value: ModifiedBy },
+        ModifiedOn: { type: sql.DateTime, value: new Date() },
+      }
+    );
+
+    console.log('Update result:', updateResult);
+
+    res.status(200).json({ message: `Expense ${newDeleted ? 'deleted' : 'restored'} successfully`, newDeleted });
+  } catch (err) {
+    console.error('Error toggling expense:', err);
+    next(err);
+  }
+});
+
+// DELETE document by PublicId
+router.delete('/documents/:publicId', async (req, res, next) => {
+  try {
+    const { publicId } = req.params;
+    console.log('Deleting document with PublicId:', publicId);
+
+    // Check if document exists
+    const documentCheck = await executeQuery(
+      'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
+      {
+        PublicId: { type: sql.NVarChar, value: publicId },
+      }
+    );
+
+    if (documentCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Delete from Cloudinary 
+    await cloudinary.uploader.destroy(publicId);
+
+    // Delete from SupplierDocuments
+    await executeQuery(
+      'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
+      {
+        PublicId: { type: sql.NVarChar, value: publicId },
+      }
+    );
+
+    console.log('Document deleted successfully');
+    res.status(200).json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting document:', err);
+    next(err);
+  }
+});
+
+
+
+  module.exports = router;

@@ -225,6 +225,40 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const remainingAdminAmount = (matchingAcademic?.adminAmount || 0) - totalPaidAdminAmount;
   const remainingFeesAmount = (matchingAcademic?.feesAmount || 0) - totalPaidFeesAmount;
 
+  // Calculate total fees and cumulative payments for EMI status
+  const totalFees = (matchingAcademic?.adminAmount || 0) + (matchingAcademic?.feesAmount || 0);
+  const cumulativePayments = payments
+    .filter(
+      (payment) =>
+        (payment.amountType === 'adminAmount' || payment.amountType === 'feesAmount') &&
+        payment.courseYear === matchingAcademic?.courseYear &&
+        payment.sessionYear === matchingAcademic?.sessionYear
+    )
+    .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
+  // Determine EMI status
+  const getEMIStatus = (emi: { emiNumber: number; amount: number; dueDate: string }) => {
+    let cumulativeAmount = cumulativePayments;
+    // Sort EMIs by emiNumber to process in order
+    const sortedEmis = student.emiDetails
+      ?.filter((e) => e.studentAcademicId === matchingAcademic?.id)
+      .sort((a, b) => a.emiNumber - b.emiNumber);
+
+    let emiSum = 0;
+    for (const e of sortedEmis || []) {
+      emiSum += e.amount;
+      if (e.emiNumber === emi.emiNumber) {
+        if (cumulativeAmount >= emiSum) {
+          return 'Paid';
+        }
+        const dueDate = new Date(emi.dueDate);
+        const today = new Date();
+        return dueDate < today ? 'Pending' : 'Upcoming';
+      }
+    }
+    return 'Upcoming'; // Default case
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
@@ -256,7 +290,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       'Payment Mode': formData.paymentMode,
       'Amount Type': formData.amountType,
       'Received Date': formData.receivedDate,
-       Password: formData.password,
+      Password: formData.password,
       'Approved By': formData.approvedBy,
     };
     const missingFields = Object.keys(requiredFields).filter((key) => !requiredFields[key]);
@@ -380,11 +414,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      toast.success(' download payment slip sucessfully', {
-        position: 'top-center', autoClose: 5000, hideProgressBar: true, closeOnClick: true, pauseOnHover: true, draggable: true
+      toast.success('Download payment slip successfully', {
+        position: 'top-center',
+        autoClose: 5000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
       });
-      
-
     } catch (err) {
       console.error('Error downloading slip:', err);
       toast.error('Failed to download payment slip', { autoClose: 3000 });
@@ -392,7 +429,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50  z-50">
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-99">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-md border border-gray-200">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-2 rounded-t-lg flex justify-between items-center">
@@ -455,237 +492,234 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           {/* Main Form Content */}
           <div className="space-y-3">
             {/* Payment Information Section */}
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-  <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
-    <h3 className="font-bold text-gray-700 flex items-center text-sm">
-      <FaMoneyBillWave className="mr-1 text-green-600 text-2xl" />
-      Payment Information
-    </h3>
-  </div>
-  <div className="p-2 bg-green-50">
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Amount Type <RequiredAsterisk />
-        </label>
-        <select
-          name="amountType"
-          value={formData.amountType}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-        >
-          <option value="" disabled>
-            Select Amount Type
-          </option>
-          <option value="adminAmount">Admin Fees</option>
-          <option value="feesAmount">Fees Amount</option>
-          <option value="fineAmount">Fine Amount</option>
-          <option value="refundAmount">Refund Amount</option>
-        </select>
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Payment Mode <RequiredAsterisk />
-        </label>
-        <select
-          name="paymentMode"
-          value={formData.paymentMode}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-        >
-          <option value="" disabled>
-            Select Payment Mode
-          </option>
-          <option value="cash">Cash</option>
-          <option value="check">Check</option>
-          <option value="bank transfer">Bank Transfer</option>
-          <option value="upi">UPI</option>
-        </select>
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Check/Transaction/Receipt #
-        </label>
-        <input
-          type="text"
-          name="transactionNumber"
-          value={formData.transactionNumber}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-        />
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Amount <RequiredAsterisk />
-        </label>
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
-            ₹
-          </span>
-          <input
-            type="number"
-            name="amount"
-            value={formData.amount}
-            onChange={handleInputChange}
-            className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-          />
-        </div>
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Received Date <RequiredAsterisk />
-        </label>
-        <div className="relative">
-          <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-          <input
-            type="date"
-            name="receivedDate"
-            value={formData.receivedDate}
-            onChange={handleInputChange}
-            className="w-full border border-gray-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-          />
-        </div>
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Received By <RequiredAsterisk />
-        </label>
-        <input
-          type="text"
-          name="approvedBy"
-          value={formData.approvedBy}
-          onChange={handleInputChange}
-          disabled
-          className="w-full border border-gray-300 rounded-md px-2 py-1 bg-gray-100 text-xs"
-        />
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Password <RequiredAsterisk />
-        </label>
-        <input
-          type="password"
-          placeholder="Enter password to verify"
-          name="password"
-          value={formData.password}
-          onChange={handleInputChange}
-          className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
-        />
-      </div>
-      <div className="space-y-0.5">
-        <label className="block text-xs font-medium text-gray-700">
-          Upload Student Payment File
-        </label>
-        <div className="relative">
-          <input
-            type="file"
-            className="hidden"
-            id="student-file"
-            onChange={handleFileChange}
-          />
-          <label
-            htmlFor="student-file"
-            className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
-          >
-            <FaUpload className="mr-1 text-gray-500 text-base" />
-            <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
-          </label>
-        </div>
-      </div>
-      <div className="flex gap-2">
-  <button
-    onClick={onClose}
-    className="flex-1 px-2  bg-red-400 text-black rounded-md hover:bg-red-500 transition duration-200 font-bold text-xs"
-  >
-    Cancel
-  </button>
-  <button
-    onClick={handleSubmit}
-    disabled={!matchingAcademic || isSubmitting}
-    className={`flex-1 px-3 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
-      matchingAcademic && !isSubmitting
-        ? 'bg-blue-600 text-white hover:bg-blue-700'
-        : 'bg-gray-400 text-gray-700 cursor-not-allowed'
-    }`}
-  >
-    {isSubmitting ? (
-      <>
-        <svg
-          className="animate-spin h-4 w-4 mr-2 text-white"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          ></circle>
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-        Saving...
-      </>
-    ) : (
-      'Save Payment'
-    )}
-  </button>
-</div>
-
-    </div>
-    {/* Action Buttons */}
-    
-    {/* Academic Details */}
-    <div className="mt-2">
-      <div className="border-l-4 border-blue-600 rounded-md p-2 bg-blue-100">
-        <p className="text-md font-bold text-blue-800 mb-1">Academic Details</p>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <div className="space-y-0.5">
-            <div className="flex justify-between">
-              <span className="text-black font-bold">Admin Amount:</span>
-              <span className="font-bold">₹{matchingAcademic?.adminAmount || '0'}</span>
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
+                <h3 className="font-bold text-gray-700 flex items-center text-sm">
+                  <FaMoneyBillWave className="mr-1 text-green-600 text-2xl" />
+                  Payment Information
+                </h3>
+              </div>
+              <div className="p-2 bg-green-50">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Amount Type <RequiredAsterisk />
+                    </label>
+                    <select
+                      name="amountType"
+                      value={formData.amountType}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                    >
+                      <option value="" disabled>
+                        Select Amount Type
+                      </option>
+                      <option value="adminAmount">Admin Fees</option>
+                      <option value="feesAmount">Fees Amount</option>
+                      <option value="fineAmount">Fine Amount</option>
+                      <option value="refundAmount">Refund Amount</option>
+                    </select>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Payment Mode <RequiredAsterisk />
+                    </label>
+                    <select
+                      name="paymentMode"
+                      value={formData.paymentMode}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                    >
+                      <option value="" disabled>
+                        Select Payment Mode
+                      </option>
+                      <option value="cash">Cash</option>
+                      <option value="check">Check</option>
+                      <option value="bank transfer">Bank Transfer</option>
+                      <option value="upi">UPI</option>
+                    </select>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Check/Transaction/Receipt #
+                    </label>
+                    <input
+                      type="text"
+                      name="transactionNumber"
+                      value={formData.transactionNumber}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Amount <RequiredAsterisk />
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
+                        ₹
+                      </span>
+                      <input
+                        type="number"
+                        name="amount"
+                        value={formData.amount}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-md pl-5 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Received Date <RequiredAsterisk />
+                    </label>
+                    <div className="relative">
+                      <FaCalendarAlt className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+                      <input
+                        type="date"
+                        name="receivedDate"
+                        value={formData.receivedDate}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-md pl-7 pr-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Received By <RequiredAsterisk />
+                    </label>
+                    <input
+                      type="text"
+                      name="approvedBy"
+                      value={formData.approvedBy}
+                      onChange={handleInputChange}
+                      disabled
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 bg-gray-100 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Password <RequiredAsterisk />
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Enter password to verify"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="block text-xs font-medium text-gray-700">
+                      Upload Student Payment File
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        className="hidden"
+                        id="student-file"
+                        onChange={handleFileChange}
+                      />
+                      <label
+                        htmlFor="student-file"
+                        className="cursor-pointer flex items-center justify-center w-full border border-gray-300 border-dashed rounded-md px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                      >
+                        <FaUpload className="mr-1 text-gray-500 text-base" />
+                        <span>{receiptFile ? receiptFile.name : 'Click to upload'}</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={onClose}
+                      className="flex-1 px-2 bg-red-400 text-black rounded-md hover:bg-red-500 transition duration-200 font-bold text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!matchingAcademic || isSubmitting}
+                      className={`flex-1 px-3 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
+                        matchingAcademic && !isSubmitting
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                      }`}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <svg
+                            className="animate-spin h-4 w-4 mr-2 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Payment'
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {/* Academic Details */}
+                <div className="mt-2">
+                  <div className="border-l-4 border-blue-600 rounded-md p-2 bg-blue-100">
+                    <p className="text-md font-bold text-blue-800 mb-1">Academic Details</p>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-black font-bold">Admin Amount:</span>
+                          <span className="font-bold">₹{matchingAcademic?.adminAmount || '0'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Remaining Admin Amount:</span>
+                          <span className="font-bold text-red-600">
+                            ₹{remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Paid Admin Amount:</span>
+                          <span className="font-bold text-green-600">₹{totalPaidAdminAmount}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <div className="flex justify-between">
+                          <span className="text-black font-bold">Fees Amount:</span>
+                          <span className="font-bold">₹{matchingAcademic?.feesAmount || '0'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Remaining Fees Amount:</span>
+                          <span className="font-bold text-red-600">
+                            ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Paid Fees Amount:</span>
+                          <span className="font-bold text-green-600">₹{totalPaidFeesAmount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Remaining Admin Amount:</span>
-              <span className="font-bold text-red-600">
-                ₹{remainingAdminAmount >= 0 ? remainingAdminAmount : '0'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Paid Admin Amount:</span>
-              <span className="font-bold text-green-600">₹{totalPaidAdminAmount}</span>
-            </div>
-          </div>
-          <div className="space-y-0.5">
-            <div className="flex justify-between">
-              <span className="text-black  font-bold">Fees Amount:</span>
-              <span className="font-bold">₹{matchingAcademic?.feesAmount || '0'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Remaining Fees Amount:</span>
-              <span className="font-bold text-red-600">
-                ₹{remainingFeesAmount >= 0 ? remainingFeesAmount : '0'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Paid Fees Amount:</span>
-              <span className="font-bold text-green-600">₹{totalPaidFeesAmount}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
             {/* EMI Details Section */}
-            {matchingAcademic?.paymentMode ==='EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
+            {matchingAcademic?.paymentMode === 'EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
                   <h3 className="font-semibold text-gray-700 text-xs">EMI Details</h3>
@@ -712,6 +746,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       <tbody className="bg-white divide-y divide-gray-200">
                         {student.emiDetails
                           .filter((emi) => emi.studentAcademicId === matchingAcademic.id)
+                          .sort((a, b) => a.emiNumber - b.emiNumber)
                           .map((emi, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                               <td className="px-3 py-1 whitespace-nowrap text-xs text-gray-900">
@@ -726,12 +761,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                               <td className="px-3 py-1 whitespace-nowrap">
                                 <span
                                   className={`px-1 inline-flex text-xs leading-4 font-semibold rounded-full ${
-                                    new Date(emi.dueDate) < new Date()
+                                    getEMIStatus(emi) === 'Paid'
+                                      ? 'bg-green-100 text-green-800'
+                                      : getEMIStatus(emi) === 'Pending'
                                       ? 'bg-red-100 text-red-800'
-                                      : 'bg-green-100 text-green-800'
+                                      : 'bg-yellow-100 text-yellow-800'
                                   }`}
                                 >
-                                  {new Date(emi.dueDate) < new Date() ? 'Pending' : 'Upcoming'}
+                                  {getEMIStatus(emi)}
                                 </span>
                               </td>
                             </tr>
@@ -865,9 +902,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               </div>
             </div>
           </div>
-
-         
-
         </div>
       </div>
     </div>

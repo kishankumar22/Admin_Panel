@@ -14,6 +14,7 @@ interface SupplierPaymentProps {
   onClose: () => void;
   onSuccess: () => void;
   createdBy: string;
+  searchInputRef?: React.RefObject<HTMLInputElement>;
 }
 
 interface PaymentHistory {
@@ -59,7 +60,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, footer 
 
 const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
-const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, onSuccess, createdBy }) => {
+const SupplierPayment: React.FC<SupplierPaymentProps> = ({
+  supplier,
+  onClose,
+  onSuccess,
+  createdBy,
+  searchInputRef,
+}) => {
   const { user } = useAuth();
   const modifiedBy = user?.name || 'admin';
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,8 +130,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
-    
-    // Check required fields
+
     if (!paymentData.paymentAmount) {
       newErrors.paymentAmount = 'Payment amount is required';
     } else if (parseFloat(paymentData.paymentAmount) <= 0) {
@@ -132,27 +138,26 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
     } else if (parseFloat(paymentData.paymentAmount) > remainingAmount) {
       newErrors.paymentAmount = 'Payment amount cannot exceed remaining amount';
     }
-    
+
     if (!paymentData.paymentDate) {
       newErrors.paymentDate = 'Payment date is required';
     }
-    
+
     if (!paymentData.paymentMethod) {
       newErrors.paymentMethod = 'Payment method is required';
     }
-    
+
     if (!paymentData.transactionNo) {
       newErrors.transactionNo = 'Cheque/Transaction number is required';
     } else {
-      // Check if transaction number already exists in payment history
       const isDuplicate = paymentHistory.some(
-        payment => payment.transactionNo === paymentData.transactionNo
+        (payment) => payment.transactionNo === paymentData.transactionNo
       );
       if (isDuplicate) {
         newErrors.transactionNo = 'This transaction number already exists';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -205,7 +210,6 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
         return;
       }
 
-      // Password verified successfully, proceed with form submission
       setIsPasswordVerified(true);
       setShowPasswordModal(false);
       setPassword('');
@@ -226,8 +230,8 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
       formData.append('paymentMode', paymentData.paymentMethod);
       formData.append('transactionId', paymentData.transactionNo);
       formData.append('paymentDate', paymentData.paymentDate);
-      formData.append('isApproved', 'true'); // Always true now
-      formData.append('approveBy', modifiedBy); // Set to current user
+      formData.append('isApproved', 'true');
+      formData.append('approveBy', modifiedBy);
       formData.append('comment', paymentData.comment || '');
       formData.append('createdBy', createdBy);
       if (paymentData.file) {
@@ -242,6 +246,10 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
 
       if (response.data.success) {
         toast.success(`Payment of ₹${paymentData.paymentAmount} processed for ${supplier.Name}`);
+        if (searchInputRef?.current) {
+          searchInputRef.current.blur();
+          searchInputRef.current.value = '';
+        }
         onSuccess();
         onClose();
       } else {
@@ -251,16 +259,23 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
       toast.error(error.response?.data?.message || 'Failed to process payment');
     } finally {
       setIsSubmitting(false);
+      if (searchInputRef?.current) {
+        searchInputRef.current.blur();
+        searchInputRef.current.value = '';
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
-    
-    // Show password verification modal
+
+    if (searchInputRef?.current) {
+      searchInputRef.current.blur();
+      searchInputRef.current.value = '';
+    }
+
     setShowPasswordModal(true);
-    
   };
 
   const isFormValid = () => {
@@ -364,192 +379,175 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
         >
           <FaTimes className="w-6 h-6 mr-3 mt-1" />
         </button>
-  <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4 px-3 py-1 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500 text-white dark:from-blue-700 dark:via-indigo-700 dark:to-indigo-800 shadow flex items-center gap-2">
-  <FaMoneyBillWave className="text-yellow-300 w-5 h-5" />
-  <span>Supplier Payment Details - {supplier.Name} ({supplier.SupplierId})</span>
-</h2>
+        <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4 px-3 py-1 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500 text-white dark:from-blue-700 dark:via-indigo-700 dark:to-indigo-800 shadow flex items-center gap-2">
+          <FaMoneyBillWave className="text-yellow-300 w-5 h-5" />
+          <span>Supplier Payment Details - {supplier.Name} ({supplier.SupplierId})</span>
+        </h2>
 
         <div className="max-h-[70vh] overflow-y-auto pr-1">
-          {/* Supplier Details */}
- <div className="mb-3">
-  <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm shadow-sm gap-2 sm:gap-4">
+          <div className="mb-3">
+            <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm shadow-sm gap-2 sm:gap-4">
+              <div className="text-gray-600 dark:text-gray-300">
+                <span className="font-medium">Total Amount:</span>{' '}
+                <span className="font-bold text-gray-900 dark:text-white">₹{totalAmount}</span>
+              </div>
+              <div className="text-gray-600 dark:text-gray-300">
+                <span className="font-medium">Paid Amount:</span>{' '}
+                <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalPaidAmount}</span>
+              </div>
+              <div className="text-gray-600 dark:text-gray-300">
+                <span className="font-medium">Remaining Amount:</span>{' '}
+                <span className="font-bold text-red-600 dark:text-red-400">₹{remainingAmount}</span>
+              </div>
+            </div>
+          </div>
 
-    <div className="text-gray-600 dark:text-gray-300">
-      <span className="font-medium">Total Amount:</span> <span className="font-bold text-gray-900 dark:text-white">₹{totalAmount}</span>
-    </div>
-
-    <div className="text-gray-600 dark:text-gray-300">
-      <span className="font-medium">Paid Amount:</span> <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalPaidAmount}</span>
-    </div>
-
-    <div className="text-gray-600 dark:text-gray-300">
-      <span className="font-medium">Remaining Amount:</span> <span className="font-bold text-red-600 dark:text-red-400">₹{remainingAmount}</span>
-    </div>
-
-  </div>
-</div>
-
-
-
-
-          {/* Payment Form */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-2">
-  <h3 className="text-md font-semibold bg-blue-100 p-1.5 rounded text-gray-800 dark:text-gray-100 mb-1">
-    Payment Information
-  </h3>
-  <form onSubmit={handleSubmit} className="text-xs">
-    <div className="grid grid-cols-2 gap-1.5">
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-          Payment Mode <span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <select
-          name="paymentMethod"
-          value={paymentData.paymentMethod}
-          onChange={handleInputChange}
-          className={`w-full p-1 text-xs rounded border ${
-            errors.paymentMethod
-              ? 'border-red-500'
-              : 'border-gray-300 dark:border-gray-600'
-          } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-          required
-        >
-          
-          <option value="">select payment mode</option>
-          <option value="Cash">Cash</option>
-          <option value="Cheque">Cheque</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          
-        </select>
-        {errors.paymentMethod && (
-          <p className="text-red-500 text-xs mt-0.5">{errors.paymentMethod}</p>
-        )}
-      </div>
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-          Transaction No. <span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          type="text"
-          name="transactionNo"
-          value={paymentData.transactionNo}
-          onChange={handleInputChange}
-          className={`w-full p-1 text-xs rounded border ${
-            errors.transactionNo
-              ? 'border-red-500'
-              : 'border-gray-300 dark:border-gray-600'
-          } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-          required
-        />
-        {errors.transactionNo && (
-          <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>
-        )}
-      </div>
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-          Amount <span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          type="number"
-          name="paymentAmount"
-          value={paymentData.paymentAmount}
-          onChange={handleInputChange}
-          className={`w-full p-1 text-xs rounded border ${
-            errors.paymentAmount
-              ? 'border-red-500'
-              : 'border-gray-300 dark:border-gray-600'
-          } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-          required
-        />
-        {errors.paymentAmount && (
-          <p className="text-red-500 text-xs mt-0.5">{errors.paymentAmount}</p>
-        )}
-      </div>
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-          Payment Date <span className="text-red-500 ml-0.5">*</span>
-        </label>
-        <input
-          type="date"
-          name="paymentDate"
-          value={paymentData.paymentDate}
-          onChange={handleInputChange}
-          className={`w-full p-1 text-xs rounded border ${
-            errors.paymentDate
-              ? 'border-red-500'
-              : 'border-gray-300 dark:border-gray-600'
-          } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-          required
-        />
-        {errors.paymentDate && (
-          <p className="text-red-500 text-xs mt-0.5">{errors.paymentDate}</p>
-        )}
-      </div>
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-          Comment
-        </label>
-        <textarea
-          name="comment"
-          value={paymentData.comment}
-          onChange={handleInputChange}
-          className="w-full p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
-          rows={1}
-        />
-      </div>
-      <div className="mb-1">
-        <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-             Upload Supplier Payment File
-          {paymentData.file && (
-            <span className="ml-1 text-xs text-indigo-600 truncate max-w-xs">
-              ({paymentData.file.name})
-            </span>
-          )}
-        </label>
-        <div className="flex items-center">
-          <input
-            type="file"
-            id="payment-file-upload"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => document.getElementById('payment-file-upload')?.click()}
-            className="px-2 py-0.5 text-xs text-black bg-gray-200 rounded hover:bg-gray-300"
-          >
-            Upload File
-          </button>
-        </div>
-      </div>
-    </div>
-    <div className="flex justify-end gap-1.5 mt-1.5">
-      <button
-        type="button"
-        onClick={onClose}
-        className="px-3 py-0.5 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600"
-      >
-        Cancel
-      </button>
-      <button
-        type="submit"
-        disabled={!isFormValid() || isSubmitting}
-        className="px-3 py-0.5 text-xs font-medium text-white bg-indigo-500 rounded hover:bg-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
-      >
-        {isSubmitting ? (
-          <>
-            <FaSpinner className="animate-spin w-3 h-3" />
-            Processing...
-          </>
-        ) : (
-          'Save Payment'
-        )}
-      </button>
-    </div>
-  </form>
-</div>
+            <h3 className="text-md font-semibold bg-blue-100 p-1.5 rounded text-gray-800 dark:text-gray-100 mb-1">
+              Payment Information
+            </h3>
+            <form onSubmit={handleSubmit} className="text-xs">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Payment Mode <span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <select
+                    name="paymentMethod"
+                    value={paymentData.paymentMethod}
+                    onChange={handleInputChange}
+                    className={`w-full p-1 text-xs rounded border ${
+                      errors.paymentMethod ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
+                    required
+                  >
+                    <option value="">select payment mode</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                  </select>
+                  {errors.paymentMethod && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.paymentMethod}</p>
+                  )}
+                </div>
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Transaction No. <span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="transactionNo"
+                    value={paymentData.transactionNo}
+                    onChange={handleInputChange}
+                    className={`w-full p-1 text-xs rounded border ${
+                      errors.transactionNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
+                    required
+                  />
+                  {errors.transactionNo && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>
+                  )}
+                </div>
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Amount <span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="paymentAmount"
+                    value={paymentData.paymentAmount}
+                    onChange={handleInputChange}
+                    className={`w-full p-1 text-xs rounded border ${
+                      errors.paymentAmount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
+                    required
+                  />
+                  {errors.paymentAmount && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.paymentAmount}</p>
+                  )}
+                </div>
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Payment Date <span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    name="paymentDate"
+                    value={paymentData.paymentDate}
+                    onChange={handleInputChange}
+                    className={`w-full p-1 text-xs rounded border ${
+                      errors.paymentDate ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
+                    required
+                  />
+                  {errors.paymentDate && (
+                    <p className="text-red-500 text-xs mt-0.5">{errors.paymentDate}</p>
+                  )}
+                </div>
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Comment
+                  </label>
+                  <textarea
+                    name="comment"
+                    value={paymentData.comment}
+                    onChange={handleInputChange}
+                    className="w-full p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+                    rows={1}
+                  />
+                </div>
+                <div className="mb-1">
+                  <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
+                    Upload Supplier Payment File
+                    {paymentData.file && (
+                      <span className="ml-1 text-xs text-indigo-600 truncate max-w-xs">
+                        ({paymentData.file.name})
+                      </span>
+                    )}
+                  </label>
+                  <div className="flex items-center">
+                    <input
+                      type="file"
+                      id="payment-file-upload"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('payment-file-upload')?.click()}
+                      className="px-2 py-0.5 text-xs text-black bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      Upload File
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-1.5 mt-1.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3 py-0.5 text-xs font-medium text-white bg-red-500 rounded hover:bg-red-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!isFormValid() || isSubmitting}
+                  className="px-3 py-0.5 text-xs font-medium text-white bg-indigo-500 rounded hover:bg-indigo-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <FaSpinner className="animate-spin w-3 h-3" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Save Payment'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
 
-          {/* Payment History */}
           <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">
               Payment History
@@ -646,7 +644,6 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({ supplier, onClose, on
         </div>
       </div>
 
-      {/* Password Verification Modal */}
       <PasswordVerificationModal />
     </div>
   );

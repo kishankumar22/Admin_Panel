@@ -6,7 +6,7 @@ const dbConfig = {
   password: 'Kishan',
   server: 'localhost',
   database: 'jkconsultancyadmindb',
-  port: 1433, // default SQL Server port
+  port: 1433,
   options: {
     trustServerCertificate: true,
     enableArithAbort: true,
@@ -28,10 +28,10 @@ const pool = new sql.ConnectionPool(dbConfig);
 const poolConnect = pool
   .connect()
   .then(pool => {
+    console.log('Database connected successfully');
     return pool;
   })
   .catch(err => {
-    // Do not log to console; let the caller handle the error
     throw err;
   });
 
@@ -48,13 +48,14 @@ module.exports = {
 
       // Add all parameters dynamically
       for (const [name, { type, value }] of Object.entries(params)) {
+        // console.log(`Binding parameter: ${name} = ${value} (Type: ${type ? type.name : 'undefined'})`);
         request.input(name, type, value);
       }
 
+      // console.log('Executing query:', query);
       const result = await request.query(query);
       return result;
     } catch (error) {
-      // Do not log to console; let the caller handle the error
       throw error;
     }
   },
