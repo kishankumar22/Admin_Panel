@@ -314,7 +314,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                           }
                         >
                           <MdOutlineMiscellaneousServices className="w-3.5 h-3.5" />
-                          Manage supplier
+                          Manage Supplier
                         </NavLink>
                       </li>
                       <li>

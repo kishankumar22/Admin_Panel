@@ -10,6 +10,7 @@ import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import PromoteStudentModal from './PromoteStudentModal';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
+import { FileSearch } from 'lucide-react';
 
 interface EmiDetail {
   id: number;
@@ -610,7 +611,15 @@ const StudentManagement: React.FC = () => {
                 <tr>
                   <td colSpan={15} className="py-4 text-center text-gray-500 bg-gray-50">
                     <div className="flex flex-col items-center justify-center">
-                      <p className="text-sm font-medium">No students found</p>
+                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <div className="mb-3">
+                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">No Students records found</p>
+                      <p className="text-xs text-gray-400 text-center px-4">
+                        Try adjusting your filters or check back later
+                      </p>
+                    </div>
                     </div>
                   </td>
                 </tr>

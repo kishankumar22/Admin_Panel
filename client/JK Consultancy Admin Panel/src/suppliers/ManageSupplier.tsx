@@ -25,6 +25,7 @@ import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import SupplierPayment from './SupplierPayment';
 import EditSupplierModal from './EditSupplierModal';
+import { FileSearch } from 'lucide-react';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -58,6 +59,8 @@ const ManageSupplier: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fromDate, setFromDate] = useState<string>(''); // State for from date
+  const [toDate, setToDate] = useState<string>(''); // State for to date
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(5);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -110,6 +113,7 @@ const ManageSupplier: React.FC = () => {
   useEffect(() => {
     let filtered = suppliers;
 
+    // Apply search term filter
     if (searchTerm) {
       filtered = filtered.filter((supplier) =>
         [supplier.Name, supplier.Email, supplier.PhoneNo].some((field) =>
@@ -118,9 +122,19 @@ const ManageSupplier: React.FC = () => {
       );
     }
 
+    // Apply date range filter
+    if (fromDate || toDate) {
+      filtered = filtered.filter((supplier) => {
+        const createdOnDate = new Date(supplier.CreatedOn).getTime();
+        const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : -Infinity;
+        const to = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : Infinity;
+        return createdOnDate >= from && createdOnDate <= to;
+      });
+    }
+
     setFilteredSuppliers(filtered);
-    setCurrentPage(1);
-  }, [searchTerm, suppliers]);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, fromDate, toDate, suppliers]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -252,7 +266,7 @@ const ManageSupplier: React.FC = () => {
   };
 
   const handleExportToExcel = () => {
-     if (filteredSuppliers.length === 0) {
+    if (filteredSuppliers.length === 0) {
       toast.warning('No data to export');
       return;
     }
@@ -277,6 +291,15 @@ const ManageSupplier: React.FC = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Suppliers');
     XLSX.writeFile(workbook, 'Suppliers_List.xlsx');
     toast.success('Exported to Excel successfully', { position: 'top-right', autoClose: 3000 });
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFromDate('');
+    setToDate('');
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+    }
   };
 
   const indexOfLastSupplier = currentPage * rowsPerPage;
@@ -304,7 +327,7 @@ const ManageSupplier: React.FC = () => {
             </span>
           </h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
             <input
@@ -317,6 +340,32 @@ const ManageSupplier: React.FC = () => {
               autoComplete="new-search"
               className="w-full pl-8 pr-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <label className="text-xs text-gray-600 dark:text-gray-400">From:</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <label className="text-xs text-gray-600 dark:text-gray-400">To:</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+              />
+            </div>
+            <button
+              onClick={handleClearFilters}
+              className="px-2 py-1 text-xs font-medium text-white bg-gray-600 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1"
+            >
+              Clear Filters
+            </button>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -732,7 +781,7 @@ const ManageSupplier: React.FC = () => {
                         title="Payment"
                       >
                         <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                        Pay Supplier
+                        Pay
                       </button>
                       <button
                         onClick={() => handleEditSupplier(supplier)}
@@ -761,9 +810,17 @@ const ManageSupplier: React.FC = () => {
                 <tr>
                   <td
                     colSpan={14}
-                    className="py-2 text-center text-gray-600 dark:text-gray-400 text-xs"
+                    className="text-center text-gray-600 dark:text-gray-400 text-xs"
                   >
-                    No suppliers found
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <div className="mb-3">
+                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
+                      <p className="text-xs text-gray-400 text-center px-4">
+                        Try adjusting your filters or check back later
+                      </p>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -802,4 +859,4 @@ const ManageSupplier: React.FC = () => {
   );
 };
 
-export default ManageSupplier;
+export default ManageSupplier;  

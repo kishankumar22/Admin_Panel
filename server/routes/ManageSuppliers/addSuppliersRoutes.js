@@ -8,7 +8,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // GET all suppliers
 router.get('/suppliers', async (req, res, next) => {
   try {
-    const result = await executeQuery('SELECT * FROM Suppliers ');
+    const result = await executeQuery('SELECT * FROM Suppliers');
     res.status(200).json(result.recordset);
   } catch (err) {
     next(err);
@@ -50,6 +50,180 @@ router.get('/supplier/:supplierId/payments', async (req, res, next) => {
     next(err);
   }
 });
+
+// DELETE document by PublicId
+router.delete('/documents/:publicId', async (req, res, next) => {
+  try {
+    const { publicId } = req.params;
+    console.log('Deleting document with PublicId:', publicId);
+
+    // Check if document exists
+    const documentCheck = await executeQuery(
+      'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
+      {
+        PublicId: { type: sql.NVarChar, value: publicId },
+      }
+    );
+
+    if (documentCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Document not found' });
+    }
+
+    // Delete from Cloudinary
+    await cloudinary.uploader.destroy(publicId);
+
+    // Delete from SupplierDocuments
+    await executeQuery(
+      'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
+      {
+        PublicId: { type: sql.NVarChar, value: publicId },
+      }
+    );
+
+    console.log('Document deleted successfully');
+    res.status(200).json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting document:', err);
+    next(err);
+  }
+});
+
+// PUT update supplier
+router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
+    const files = req.files; // Get uploaded files
+
+    console.log('Received PUT request body:', { id, name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy, files: files?.length });
+
+    const supplierCheck = await executeQuery(
+      'SELECT * FROM Suppliers WHERE SupplierId = @SupplierId',
+      {
+        SupplierId: { type: sql.Int, value: parseInt(id) },
+      }
+    );
+
+    if (supplierCheck.recordset.length === 0) {
+      return res.status(404).json({ message: 'Supplier not found' });
+    }
+
+    const currentSupplier = supplierCheck.recordset[0];
+
+    const updates = [];
+    const params = {
+      SupplierId: { type: sql.Int, value: parseInt(id) },
+      ModifiedBy: { type: sql.NVarChar, value: modifiedBy || 'admin' },
+      ModifiedOn: { type: sql.DateTime, value: new Date() },
+    };
+
+    // Check for changes in supplier fields
+    if (name && name !== currentSupplier.Name) {
+      const nameCheck = await executeQuery(
+        'SELECT SupplierId FROM Suppliers WHERE Name = @Name AND SupplierId != @SupplierId AND Deleted = 0',
+        {
+          Name: { type: sql.NVarChar, value: name },
+          SupplierId: { type: sql.Int, value: parseInt(id) },
+        }
+      );
+      if (nameCheck.recordset.length > 0) {
+        return res.status(400).json({ message: 'Supplier with this name already exists' });
+      }
+      updates.push('Name = @Name');
+      params.Name = { type: sql.NVarChar, value: name };
+    }
+
+    if (email && email !== currentSupplier.Email) {
+      updates.push('Email = @Email');
+      params.Email = { type: sql.NVarChar, value: email };
+    }
+
+    if (phoneNo && phoneNo !== currentSupplier.PhoneNo) {
+      updates.push('PhoneNo = @PhoneNo');
+      params.PhoneNo = { type: sql.NVarChar, value: phoneNo };
+    }
+
+    if (address && address !== currentSupplier.Address) {
+      updates.push('Address = @Address');
+      params.Address = { type: sql.NVarChar, value: address };
+    }
+
+    if (amount && parseFloat(amount) !== currentSupplier.Amount) {
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        return res.status(400).json({ message: 'Amount must be a valid number greater than 0' });
+      }
+      updates.push('Amount = @Amount');
+      params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
+    }
+
+    if (bankName && bankName !== currentSupplier.BankName) {
+      updates.push('BankName = @BankName');
+      params.BankName = { type: sql.NVarChar, value: bankName };
+    }
+
+    if (accountNo && accountNo !== currentSupplier.AccountNo) {
+      updates.push('AccountNo = @AccountNo');
+      params.AccountNo = { type: sql.NVarChar, value: accountNo };
+    }
+
+    if (ifscCode && ifscCode !== currentSupplier.IFSCCode) {
+      updates.push('IFSCCode = @IFSCCode');
+      params.IFSCCode = { type: sql.NVarChar, value: ifscCode };
+    }
+
+    if (comment && comment !== currentSupplier.Comment) {
+      updates.push('Comment = @Comment');
+      params.Comment = { type: sql.NVarChar, value: comment };
+    }
+
+ 
+    // Update supplier details if there are changes in the fields
+    if (updates.length > 0) {
+      const updateQuery = `
+        UPDATE Suppliers
+        SET ${updates.join(', ')}, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
+        WHERE SupplierId = @SupplierId AND Deleted = 0
+      `;
+      await executeQuery(updateQuery, params);
+    }
+
+    // Handle file uploads
+    if (files && files.length > 0) {
+      for (const file of files) {
+        // Upload to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { resource_type: 'auto' },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          );
+          stream.end(file.buffer);
+        });
+
+        // Insert into SupplierDocuments
+        await executeQuery(
+          'INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn) VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)',
+          {
+            SupplierId: { type: sql.Int, value: parseInt(id) },
+            DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
+            PublicId: { type: sql.NVarChar, value: result.public_id },
+            CreatedOn: { type: sql.DateTime, value: new Date() },
+          }
+        );
+      }
+    }
+
+    res.status(200).json({ message: 'Supplier updated successfully', success: true });
+  } catch (err) {
+    console.error('Error updating supplier:', err);
+    res.status(500).json({ message: 'Failed to update supplier' });
+    next(err);
+  }
+});
+
 
 // POST Add Supplier with multiple files
 router.post('/supplier/add', upload.array('files', 10), async (req, res, next) => {
@@ -126,111 +300,6 @@ router.post('/supplier/add', upload.array('files', 10), async (req, res, next) =
   }
 });
 
-// PUT update supplier
-router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
-
-    console.log('Received PUT request body:', { id, name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy });
-
-    const supplierCheck = await executeQuery(
-      'SELECT * FROM Suppliers WHERE SupplierId = @SupplierId',
-      {
-        SupplierId: { type: sql.Int, value: parseInt(id) },
-      }
-    );
-
-    if (supplierCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Supplier not found' });
-    }
-
-    const currentSupplier = supplierCheck.recordset[0];
-
-    const updates = [];
-    const params = {
-      SupplierId: { type: sql.Int, value: parseInt(id) },
-      ModifiedBy: { type: sql.NVarChar, value: modifiedBy || 'admin' },
-      ModifiedOn: { type: sql.DateTime, value: new Date() },
-    };
-
-    if (name && name !== currentSupplier.Name) {
-      const nameCheck = await executeQuery(
-        'SELECT SupplierId FROM Suppliers WHERE Name = @Name AND SupplierId != @SupplierId AND Deleted = 0',
-        {
-          Name: { type: sql.NVarChar, value: name },
-          SupplierId: { type: sql.Int, value: parseInt(id) },
-        }
-      );
-      if (nameCheck.recordset.length > 0) {
-        return res.status(400).json({ message: 'Supplier with this name already exists' });
-      }
-      updates.push('Name = @Name');
-      params.Name = { type: sql.NVarChar, value: name };
-    }
-
-    if (email && email !== currentSupplier.Email) {
-      updates.push('Email = @Email');
-      params.Email = { type: sql.NVarChar, value: email };
-    }
-
-    if (phoneNo && phoneNo !== currentSupplier.PhoneNo) {
-      updates.push('PhoneNo = @PhoneNo');
-      params.PhoneNo = { type: sql.NVarChar, value: phoneNo };
-    }
-
-    if (address && address !== currentSupplier.Address) {
-      updates.push('Address = @Address');
-      params.Address = { type: sql.NVarChar, value: address };
-    }
-
-    if (amount && parseFloat(amount) !== currentSupplier.Amount) {
-      const amountNum = parseFloat(amount);
-      if (isNaN(amountNum) || amountNum <= 0) {
-        return res.status(400).json({ message: 'Amount must be a valid number greater than 0' });
-      }
-      updates.push('Amount = @Amount');
-      params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
-    }
-
-    if (bankName && bankName !== currentSupplier.BankName) {
-      updates.push('BankName = @BankName');
-      params.BankName = { type: sql.NVarChar, value: bankName };
-    }
-
-    if (accountNo && accountNo !== currentSupplier.AccountNo) {
-      updates.push('AccountNo = @AccountNo');
-      params.AccountNo = { type: sql.NVarChar, value: accountNo };
-    }
-
-    if (ifscCode && ifscCode !== currentSupplier.IFSCCode) {
-      updates.push('IFSCCode = @IFSCCode');
-      params.IFSCCode = { type: sql.NVarChar, value: ifscCode };
-    }
-
-    if (comment && comment !== currentSupplier.Comment) {
-      updates.push('Comment = @Comment');
-      params.Comment = { type: sql.NVarChar, value: comment };
-    }
-
-    if (updates.length === 0) {
-      return res.status(200).json({ message: 'No changes detected' });
-    }
-
-    const updateQuery = `
-      UPDATE Suppliers
-      SET ${updates.join(', ')}, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
-      WHERE SupplierId = @SupplierId AND Deleted = 0
-    `;
-    await executeQuery(updateQuery, params);
-
-    res.status(200).json({ message: 'Supplier updated successfully' });
-  } catch (err) {
-    console.error('Error updating supplier:', err);
-    res.status(500).json({ message: 'Failed to update supplier' });
-    next(err);
-  }
-});
 
 // PATCH toggle supplier deleted status
 router.patch('/supplier/:id/toggle', async (req, res, next) => {
@@ -418,7 +487,7 @@ router.get('/expenses', async (req, res, next) => {
       WHERE s.Deleted = 0`,
       {}
     );
-    console.log('Fetched expenses:', result.recordset.length);
+    // console.log('Fetched expenses:', result.recordset.length);
     res.status(200).json(result.recordset);
   } catch (err) {
     console.error('Error fetching expenses:', err);
@@ -726,43 +795,134 @@ router.patch('/expenses/:id/toggle', async (req, res, next) => {
   }
 });
 
-// DELETE document by PublicId
-router.delete('/documents/:publicId', async (req, res, next) => {
+
+
+//// GET payment history for a specific supplier
+router.get('/expense/:supplierId/payments', async (req, res, next) => {
   try {
-    const { publicId } = req.params;
-    console.log('Deleting document with PublicId:', publicId);
+    const { supplierId } = req.params;
+    if (!supplierId || isNaN(parseInt(supplierId))) {
+      return res.status(400).json({ success: false, message: 'Invalid supplier ID' });
+    }
+    const query = `
+      SELECT ExpensePaymentID, PaidAmount, PaymentMode, TransactionId, PaymentDate, Comment, PaymentImage, PaymentPublicId, CreatedBy, CreatedOn
+      FROM ExpensePayment
+      WHERE SupplierId = @supplierId
+    `;
+    const result = await executeQuery(query, {
+      supplierId: { type: sql.Int, value: parseInt(supplierId) },
+    });
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    next(err);
+  }
+});
 
-    // Check if document exists
-    const documentCheck = await executeQuery(
-      'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
-      {
-        PublicId: { type: sql.NVarChar, value: publicId },
-      }
-    );
+// POST Add Expense Payment
+router.post('/expense/payment', upload.single('file'), async (req, res, next) => {
+  try {
+    const {
+      supplierId,
+      paidAmount,
+      paymentMode,
+      transactionId,
+      paymentDate,
+      isApproved,
+      approveBy,
+      comment,
+      createdBy,
+    } = req.body;
+    const file = req.file;
 
-    if (documentCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Document not found' });
+    // Validate required fields
+    if (!supplierId || !paidAmount || !paymentMode || !transactionId || !paymentDate || !createdBy) {
+      return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 
-    // Delete from Cloudinary 
-    await cloudinary.uploader.destroy(publicId);
+    // Fetch current supplier details
+    const supplierQuery = `
+      SELECT Amount
+      FROM Suppliers
+      WHERE SupplierId = @supplierId AND Deleted = 0
+    `;
+    const supplierResult = await executeQuery(supplierQuery, {
+      supplierId: { type: sql.Int, value: parseInt(supplierId) },
+    });
 
-    // Delete from SupplierDocuments
-    await executeQuery(
-      'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
-      {
-        PublicId: { type: sql.NVarChar, value: publicId },
-      }
-    );
+    if (!supplierResult.recordset.length) {
+      return res.status(404).json({ success: false, message: 'Supplier not found' });
+    }
 
-    console.log('Document deleted successfully');
-    res.status(200).json({ message: 'Document deleted successfully' });
+    const currentAmount = parseFloat(supplierResult.recordset[0].Amount);
+    const paymentAmount = parseFloat(paidAmount);
+
+    // Fetch total paid amount for this supplier to calculate remaining amount
+    const paymentHistoryQuery = `
+      SELECT SUM(PaidAmount) AS TotalPaidAmount
+      FROM ExpensePayment
+      WHERE SupplierId = @supplierId
+    `;
+    const paymentHistoryResult = await executeQuery(paymentHistoryQuery, {
+      supplierId: { type: sql.Int, value: parseInt(supplierId) },
+    });
+
+    const totalPaidAmount = parseFloat(paymentHistoryResult.recordset[0].TotalPaidAmount) || 0;
+    const remainingAmount = currentAmount - totalPaidAmount;
+
+    if (paymentAmount > remainingAmount) {
+      return res.status(400).json({ success: false, message: 'Payment amount exceeds remaining amount' });
+    }
+
+    // Upload file to Cloudinary if provided
+    let fileUrl = null;
+    let publicId = null;
+    if (file) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { resource_type: 'auto', folder: 'ExpensePayments' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+      fileUrl = uploadResult.secure_url;
+      publicId = uploadResult.public_id;
+    }
+
+    // Insert payment into ExpensePayment table
+    const paymentQuery = `
+      INSERT INTO ExpensePayment (
+        SupplierId, PaidAmount, PaymentMode, TransactionId, PaymentDate, 
+        IsApproved, ApproveBy, Comment, PaymentImage, PaymentPublicId, 
+        CreatedBy, CreatedOn
+      )
+      VALUES (
+        @supplierId, @paidAmount, @paymentMode, @transactionId, @paymentDate, 
+        @isApproved, @approveBy, @comment, @paymentImage, @paymentPublicId, 
+        @createdBy, GETDATE()
+      )
+    `;
+    await executeQuery(paymentQuery, {
+      supplierId: { type: sql.Int, value: parseInt(supplierId) },
+      paidAmount: { type: sql.Decimal(18, 2), value: paymentAmount },
+      paymentMode: { type: sql.NVarChar, value: paymentMode },
+      transactionId: { type: sql.NVarChar, value: transactionId },
+      paymentDate: { type: sql.Date, value: paymentDate },
+      isApproved: { type: sql.Bit, value: isApproved === 'true' ? 1 : 0 },
+      approveBy: { type: sql.NVarChar, value: approveBy || null },
+      comment: { type: sql.NVarChar, value: comment || null },
+      paymentImage: { type: sql.NVarChar, value: fileUrl || null },
+      paymentPublicId: { type: sql.NVarChar, value: publicId || null },
+      createdBy: { type: sql.NVarChar, value: createdBy },
+    });
+
+    res.status(201).json({ success: true, message: 'Payment processed successfully' });
   } catch (err) {
-    console.error('Error deleting document:', err);
     next(err);
   }
 });
 
 
-
-  module.exports = router;
+module.exports = router;

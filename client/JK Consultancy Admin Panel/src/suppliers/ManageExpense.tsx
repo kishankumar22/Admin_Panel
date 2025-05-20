@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
-import { FaFileExcel, FaSearch, FaUserPlus, FaTimes, FaMoneyBillWave, FaEdit, FaToggleOn, FaToggleOff, FaUpload, FaTrash } from 'react-icons/fa';
+import { FaFileExcel, FaSearch, FaUserPlus, FaTimes, FaMoneyBillWave, FaEdit, FaToggleOn, FaToggleOff, FaUpload, FaTrash, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../config';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import ExpensePayment from './ExpensePayment';
+import { FileSearch } from 'lucide-react';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
 interface Supplier {
   SupplierId: number;
   Name: string;
+  Amount: number;
 }
 
 interface Expense {
@@ -38,12 +41,18 @@ const ManageExpense: React.FC = () => {
   const { user } = useAuth();
   const createdBy = user?.name || 'admin';
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<{ SupplierId: number; SupplierName: string; Amount: number } | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fromDate, setFromDate] = useState<string>(''); // State for from date
+  const [toDate, setToDate] = useState<string>(''); // State for to date
+  const [currentPage, setCurrentPage] = useState(1); // State for pagination
+  const [rowsPerPage] = useState(10); // Number of rows per page
   const [formData, setFormData] = useState({
     SupplierId: '',
     Reason: '',
@@ -60,10 +69,12 @@ const ManageExpense: React.FC = () => {
     const fetchSuppliers = async () => {
       try {
         const response = await axiosInstance.get('/suppliers');
+        console.log('Fetched suppliers:', response.data);
         setSuppliers(response.data);
       } catch (err) {
         console.error('Error fetching suppliers:', err);
         setError('Failed to load suppliers');
+        toast.error('Failed to load suppliers');
       }
     };
 
@@ -76,6 +87,7 @@ const ManageExpense: React.FC = () => {
       } catch (err) {
         console.error('Error fetching expenses:', err);
         setError('Failed to load expenses');
+        toast.error('Failed to load expenses');
       }
     };
 
@@ -83,22 +95,44 @@ const ManageExpense: React.FC = () => {
     fetchExpenses();
   }, []);
 
-  // Handle search
+  // Handle search and date range filtering
   useEffect(() => {
-    const filtered = expenses.filter((expense) =>
-      [expense.SupplierName, expense.SupplierEmail, expense.SupplierPhone]
-        .some((field) => field?.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
-    setFilteredExpenses(filtered);
-  }, [searchTerm, expenses]);
+    let filtered = expenses;
 
-  // Calculate total amount
+    // Apply search term filter
+    if (searchTerm) {
+      filtered = filtered.filter((expense) =>
+        [expense.SupplierName, expense.SupplierEmail, expense.SupplierPhone]
+          .some((field) => field?.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Apply date range filter
+    if (fromDate || toDate) {
+      filtered = filtered.filter((expense) => {
+        const createdOnDate = new Date(expense.CreatedOn).getTime();
+        const from = fromDate ? new Date(fromDate).setHours(0, 0, 0, 0) : -Infinity;
+        const to = toDate ? new Date(toDate).setHours(23, 59, 59, 999) : Infinity;
+        return createdOnDate >= from && createdOnDate <= to;
+      });
+    }
+
+    setFilteredExpenses(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [searchTerm, fromDate, toDate, expenses]);
+
+  // Calculate total amount and pagination
   const totalFilteredAmount = filteredExpenses.reduce((sum, expense) => sum + expense.Amount, 0);
+  const indexOfLastExpense = currentPage * rowsPerPage;
+  const indexOfFirstExpense = indexOfLastExpense - rowsPerPage;
+  const currentExpenses = filteredExpenses.slice(indexOfFirstExpense, indexOfLastExpense);
+  const totalPages = Math.ceil(filteredExpenses.length / rowsPerPage);
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
   // Handle file selection
@@ -123,6 +157,7 @@ const ManageExpense: React.FC = () => {
 
   // Open edit modal
   const openEditModal = (expense: Expense) => {
+    console.log('Opening edit modal for expense:', expense);
     setEditingExpense(expense);
     setModalMode('edit');
     setFormData({
@@ -136,6 +171,22 @@ const ManageExpense: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // Open payment modal
+  const openPaymentModal = (expense: Expense) => {
+    const supplier = suppliers.find((s) => s.SupplierId === expense.SupplierId);
+    if (supplier) {
+      console.log('Opening payment modal for supplier:', supplier);
+      setSelectedSupplier({
+        SupplierId: supplier.SupplierId,
+        SupplierName: supplier.Name,
+        Amount: supplier.Amount,
+      });
+      setIsPaymentModalOpen(true);
+    } else {
+      toast.error('Supplier not found');
+    }
+  };
+
   // Handle form submission (add or edit)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +195,11 @@ const ManageExpense: React.FC = () => {
 
     if (!formData.SupplierId || !formData.Reason || !formData.Amount) {
       setError('Please fill all required fields');
+      return;
+    }
+
+    if (parseFloat(formData.Amount) <= 0) {
+      setError('Amount must be greater than 0');
       return;
     }
 
@@ -169,11 +225,12 @@ const ManageExpense: React.FC = () => {
         Reason: formData.Reason,
         Amount: formData.Amount,
         [modalMode === 'add' ? 'CreatedBy' : 'ModifiedBy']: userName,
-        files: files.map(f => f.file.name),
+        files: files.map((f) => f.file.name),
       });
 
       const url = modalMode === 'add' ? '/expenses' : `/expenses/${editingExpense?.SuppliersExpenseID}`;
       const method = modalMode === 'add' ? 'post' : 'put';
+
       const response = await axiosInstance[method](url, formDataToSend, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -193,14 +250,16 @@ const ManageExpense: React.FC = () => {
       setFilteredExpenses(expensesResponse.data);
     } catch (err: any) {
       console.error(`Error ${modalMode === 'add' ? 'adding' : 'updating'} expense:`, err);
-      setError(err.response?.data?.message || `Failed to ${modalMode === 'add' ? 'add' : 'update'} expense`);
+      const errorMessage = err.response?.data?.message || `Failed to ${modalMode === 'add' ? 'add' : 'update'} expense`;
+      setError(errorMessage);
+      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
     }
   };
 
   // Handle toggle deleted status
   const handleToggleDeleted = async (expense: Expense) => {
     try {
-      console.log('Toggling expense:', { id: expense.SuppliersExpenseID, ModifiedBy: createdBy });
+      console.log('Toggling expense:', { SuppliersExpenseID: expense.SuppliersExpenseID, ModifiedBy: createdBy });
       const response = await axiosInstance.patch(`/expenses/${expense.SuppliersExpenseID}/toggle`, {
         ModifiedBy: createdBy,
       });
@@ -214,10 +273,8 @@ const ManageExpense: React.FC = () => {
       setFilteredExpenses(expensesResponse.data);
     } catch (err: any) {
       console.error('Error toggling expense:', err);
-      toast.error(err.response?.data?.message || 'Failed to toggle expense', {
-        position: 'top-right',
-        autoClose: 3000,
-      });
+      const errorMessage = err.response?.data?.message || 'Failed to toggle expense';
+      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
     }
   };
 
@@ -245,6 +302,16 @@ const ManageExpense: React.FC = () => {
     toast.success('Expenses exported to Excel successfully', { position: 'top-right', autoClose: 3000 });
   };
 
+  // Clear filters
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setFromDate('');
+    setToDate('');
+    if (searchInputRef.current) {
+      searchInputRef.current.value = '';
+    }
+  };
+
   // Close modal and reset form
   const closeModal = () => {
     setIsModalOpen(false);
@@ -257,26 +324,41 @@ const ManageExpense: React.FC = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // Close payment modal
+  const closePaymentModal = () => {
+    setIsPaymentModalOpen(false);
+    setSelectedSupplier(null);
+    // Refresh expenses
+    axiosInstance.get('/expenses').then((response) => {
+      console.log('Refreshed expenses after payment:', response.data);
+      setExpenses(response.data);
+      setFilteredExpenses(response.data);
+    }).catch((err) => {
+      console.error('Error refreshing expenses after payment:', err);
+      toast.error('Failed to refresh expenses', { position: 'top-right', autoClose: 3000 });
+    });
+  };
+
   return (
     <>
       <Breadcrumb pageName="Manage Expenses" />
 
       {/* Header Section with Stats and Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 bg-gray-500 rounded-lg shadow-md">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 rounded-lg shadow-md">
         <div className="flex items-center flex-wrap gap-2 mb-2 sm:mb-0">
-          <h3 className="text-base font-semibold text-white flex items-center">
+          <h3 className="text-base font-semibold text-black flex items-center">
             <FaUserPlus className="w-4 h-4 mr-1.5" />
-            <span className="text-sm mr-1">Suppliers Expenses:</span>
-            <span className="font-medium text-yellow-200 mr-3">
+            <span className="text-sm mr-1 dark:text-white">Suppliers Expenses:</span>
+            <span className="font-medium text-indigo-700 mr-3">
               {filteredExpenses.length}
             </span>
-            <span className="text-sm mr-1">Total Amount:</span>
-            <span className="font-medium text-yellow-200">
+            <span className="text-sm mr-1 dark:text  dark:text-white">Total Amount:</span>
+            <span className="font-medium text-indigo-700">
               ₹{totalFilteredAmount.toFixed(2)}
             </span>
           </h3>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
             <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs" />
             <input
@@ -289,6 +371,32 @@ const ManageExpense: React.FC = () => {
               autoComplete="new-search"
               className="w-full pl-8 pr-3 py-1 text-sm rounded-md border border-purple-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-600"
             />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <label className="text-xs text-gray-600">From:</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-600"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <label className="text-xs text-gray-600">To:</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 focus:border-purple-600 focus:ring-1 focus:ring-purple-600"
+              />
+            </div>
+            <button
+              onClick={handleClearFilters}
+              className="px-2 py-1 text-xs font-medium text-white bg-gray-500 rounded hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+            >
+              Clear Filters
+            </button>
           </div>
           <button
             onClick={() => {
@@ -317,76 +425,110 @@ const ManageExpense: React.FC = () => {
           Expenses List
         </h3>
         {filteredExpenses.length === 0 ? (
-          <div className="text-center py-6 bg-gray-50 rounded-md">
-            <p className="text-gray-500">No expenses found.</p>
+          <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+            <div className="mb-3">
+              <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+            </div>
+            <p className="text-sm font-medium text-gray-600 mb-1">No Expense found</p>
+            <p className="text-xs text-gray-400 text-center px-4">
+              Try adjusting your filters or check back later
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-gray-700 border-collapse">
-              <thead className="text-xs uppercase bg-gray-400 text-white">
-                <tr>
-                  <th className="px-3 py-2 rounded-tl-md">Supplier Name</th>
-                  <th className="px-3 py-2">Email</th>
-                  <th className="px-3 py-2">Phone</th>
-                  <th className="px-3 py-2">Reason</th>
-                  <th className="px-3 py-2">Amount (₹)</th>
-                  <th className="px-3 py-2">Created On</th>
-                  <th className="px-3 py-2">Created By</th>
-                  <th className="px-3 py-2 rounded-tr-md">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredExpenses.map((expense, index) => (
-                  <tr
-                    key={expense.SuppliersExpenseID}
-                    className={`border-b hover:bg-gray-50 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
-                  >
-                    <td className="px-3 py-1.5">{expense.SupplierName}</td>
-                    <td className="px-3 py-1.5">{expense.SupplierEmail}</td>
-                    <td className="px-3 py-1.5">{expense.SupplierPhone}</td>
-                    <td className="px-3 py-1.5">{expense.Reason}</td>
-                    <td className="px-3 py-1.5 font-medium text-purple-700">₹{expense.Amount.toFixed(2)}</td>
-                    <td className="px-3 py-1.5">{new Date(expense.CreatedOn).toLocaleDateString()}</td>
-                    <td className="px-3 py-1.5">{expense.CreatedBy}</td>
-                    <td className="px-3 py-1.5 flex gap-1">
-                      <button
-                        onClick={() => alert('Payment functionality not implemented yet')}
-                        className="inline-flex items-center px-1.5 py-0.5 text-white bg-blue-500 rounded hover:bg-blue-600 transition text-[10px]"
-                        title="Payment"
-                      >
-                        <FaMoneyBillWave className="w-2.5 h-2.5 mr-0.5" />
-                        Pay
-                      </button>
-                      <button
-                        onClick={() => openEditModal(expense)}
-                        className="inline-flex items-center px-1.5 py-0.5 text-white bg-yellow-500 rounded hover:bg-yellow-600 transition text-[10px]"
-                        title="Edit"
-                      >
-                        <FaEdit className="w-2.5 h-2.5 mr-0.5" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleDeleted(expense)}
-                        className={`inline-flex items-center px-1.5 py-0.5 text-white rounded hover:opacity-90 transition text-[10px] ${expense.Deleted ? 'bg-green-500' : 'bg-red-500'}`}
-                        title={expense.Deleted ? 'Restore' : 'Delete'}
-                      >
-                        {expense.Deleted ? (
-                          <FaToggleOff className="w-2.5 h-2.5 mr-0.5" />
-                        ) : (
-                          <FaToggleOn className="w-2.5 h-2.5 mr-0.5" />
-                        )}
-                        {expense.Deleted ? 'Active' : 'Deactive'}
-                      </button>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-gray-700 border-collapse">
+                <thead className="text-xs uppercase bg-gray-400 text-white">
+                  <tr>
+                    <th className="px-3 py-2 rounded-tl-md">Supplier Name</th>
+                    <th className="px-3 py-2">Email</th>
+                    <th className="px-3 py-2">Phone</th>
+                    <th className="px-3 py-2">Reason</th>
+                    <th className="px-3 py-2">Amount (₹)</th>
+                    <th className="px-3 py-2">Created On</th>
+                    <th className="px-3 py-2">Created By</th>
+                    <th className="px-3 py-2 rounded-tr-md">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {currentExpenses.map((expense, index) => (
+                    <tr
+                      key={expense.SuppliersExpenseID}
+                      className={`border-b hover:bg-gray-50 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
+                    >
+                      <td className="px-3 py-1.5">{expense.SupplierName}</td>
+                      <td className="px-3 py-1.5">{expense.SupplierEmail}</td>
+                      <td className="px-3 py-1.5">{expense.SupplierPhone}</td>
+                      <td className="px-3 py-1.5">{expense.Reason}</td>
+                      <td className="px-3 py-1.5 font-medium text-purple-700">₹{expense.Amount.toFixed(2)}</td>
+                      <td className="px-3 py-1.5">{new Date(expense.CreatedOn).toLocaleDateString()}</td>
+                      <td className="px-3 py-1.5">{expense.CreatedBy}</td>
+                      <td className="px-3 py-1.5 flex gap-1">
+                        <button
+                          onClick={() => openPaymentModal(expense)}
+                          className="inline-flex items-center px-1.5 py-0.5 text-white bg-blue-500 rounded hover:bg-blue-600 transition text-[10px]"
+                          title="Payment"
+                        >
+                          <FaMoneyBillWave className="w-2.5 h-2.5 mr-0.5" />
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => openEditModal(expense)}
+                          className="inline-flex items-center px-1.5 py-0.5 text-white bg-yellow-500 rounded hover:bg-yellow-600 transition text-[10px]"
+                          title="Edit"
+                        >
+                          <FaEdit className="w-2.5 h-2.5 mr-0.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleDeleted(expense)}
+                          className={`inline-flex items-center px-1.5 py-0.5 text-white rounded hover:opacity-90 transition text-[10px] ${expense.Deleted ? 'bg-green-500' : 'bg-red-500'}`}
+                          title={expense.Deleted ? 'Restore' : 'Delete'}
+                        >
+                          {expense.Deleted ? (
+                            <FaToggleOff className="w-2.5 h-2.5 mr-0.5" />
+                          ) : (
+                            <FaToggleOn className="w-2.5 h-2.5 mr-0.5" />
+                          )}
+                          {expense.Deleted ? 'Active' : 'Deactive'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between mt-2 px-3">
+              <div className="text-xs text-gray-600">
+                Showing {indexOfFirstExpense + 1} to{' '}
+                {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
+                {filteredExpenses.length} expenses
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 text-xs font-medium text-white bg-purple-500 rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150"
+                >
+                  <FaChevronLeft />
+                </button>
+                <span className="text-xs text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-2 py-1 text-xs font-medium text-white bg-purple-500 rounded-md hover:bg-purple-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150"
+                >
+                  <FaChevronRight />
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Redesigned Modal */}
+      {/* Add/Edit Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-sm">
@@ -404,7 +546,7 @@ const ManageExpense: React.FC = () => {
                 <FaTimes size={16} />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -420,12 +562,12 @@ const ManageExpense: React.FC = () => {
                   <option value="">Select Supplier</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.SupplierId} value={supplier.SupplierId}>
-                      {supplier.Name}
+                      {supplier.Name}{supplier.Amount > 0 ? ` ( ₹${supplier.Amount.toFixed(2)} )` : ''}
                     </option>
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Reason <RequiredAsterisk />
@@ -439,7 +581,7 @@ const ManageExpense: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Amount <RequiredAsterisk />
@@ -458,10 +600,10 @@ const ManageExpense: React.FC = () => {
                   />
                 </div>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Upload Files {modalMode === 'add' && <RequiredAsterisk />}
+                  Upload Files
                 </label>
                 <div className="flex items-center space-x-2">
                   <label className="flex-1 flex items-center justify-center px-2.5 py-1.5 border border-gray-300 border-dashed rounded-md bg-gray-50 hover:bg-gray-100 cursor-pointer">
@@ -477,7 +619,7 @@ const ManageExpense: React.FC = () => {
                   </label>
                 </div>
               </div>
-              
+
               {files.length > 0 && (
                 <div className="bg-gray-50 p-2 rounded-md">
                   <h3 className="text-xs font-medium text-gray-700 mb-1.5">Selected Files:</h3>
@@ -499,19 +641,19 @@ const ManageExpense: React.FC = () => {
                   </ul>
                 </div>
               )}
-              
+
               {error && (
                 <div className="bg-red-50 border-l-4 border-red-500 p-2 rounded">
                   <p className="text-red-700 text-xs">{error}</p>
                 </div>
               )}
-              
+
               {success && (
                 <div className="bg-green-50 border-l-4 border-green-500 p-2 rounded">
                   <p className="text-green-700 text-xs">{success}</p>
                 </div>
               )}
-              
+
               <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                 <button
                   type="button"
@@ -530,6 +672,20 @@ const ManageExpense: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Payment Modal */}
+      {isPaymentModalOpen && selectedSupplier && (
+        <ExpensePayment
+          expense={selectedSupplier}
+          onClose={closePaymentModal}
+          onSuccess={() => {
+            closePaymentModal();
+            toast.success('Payment processed successfully', { position: 'top-right', autoClose: 3000 });
+          }}
+          createdBy={createdBy}
+          searchInputRef={searchInputRef}
+        />
       )}
     </>
   );
