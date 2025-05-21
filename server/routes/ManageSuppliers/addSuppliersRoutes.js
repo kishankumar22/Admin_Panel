@@ -365,8 +365,13 @@ router.post('/supplier/payment', upload.single('file'), async (req, res, next) =
     const file = req.file;
 
     // Validate required fields
-    if (!supplierId || !paidAmount || !paymentMode || !transactionId || !paymentDate || !createdBy) {
+    if (!supplierId || !paidAmount || !paymentMode || !paymentDate || !createdBy) {
       return res.status(400).json({ success: false, message: 'All required fields must be provided' });
+    }
+
+    // If payment mode is not Cash, transactionId is required
+    if (paymentMode !== 'Cash' && !transactionId) {
+      return res.status(400).json({ success: false, message: 'Transaction ID is required for non-cash payments' });
     }
 
     // Fetch current supplier details
@@ -438,7 +443,7 @@ router.post('/supplier/payment', upload.single('file'), async (req, res, next) =
       supplierId: { type: sql.Int, value: parseInt(supplierId) },
       paidAmount: { type: sql.Decimal(18, 2), value: paymentAmount },
       paymentMode: { type: sql.NVarChar, value: paymentMode },
-      transactionId: { type: sql.NVarChar, value: transactionId },
+      transactionId: { type: sql.NVarChar, value: paymentMode === 'Cash' ? null : transactionId },
       paymentDate: { type: sql.Date, value: paymentDate },
       isApproved: { type: sql.Bit, value: isApproved === 'true' ? 1 : 0 },
       approveBy: { type: sql.NVarChar, value: approveBy || null },
@@ -453,7 +458,6 @@ router.post('/supplier/payment', upload.single('file'), async (req, res, next) =
     next(err);
   }
 });
-
 // GET all expenses with supplier details
 router.get('/suppliers', async (req, res, next) => {
   try {
@@ -818,7 +822,8 @@ router.get('/expense/:supplierId/payments', async (req, res, next) => {
   }
 });
 
-// POST Add Expense Payment
+// POST expense payment
+// POST expense payment
 router.post('/expense/payment', upload.single('file'), async (req, res, next) => {
   try {
     const {
@@ -835,8 +840,13 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
     const file = req.file;
 
     // Validate required fields
-    if (!supplierId || !paidAmount || !paymentMode || !transactionId || !paymentDate || !createdBy) {
+    if (!supplierId || !paidAmount || !paymentMode || !paymentDate || !createdBy) {
       return res.status(400).json({ success: false, message: 'All required fields must be provided' });
+    }
+
+    // Require transactionId only for non-Cash payments
+    if (paymentMode !== 'Cash' && !transactionId) {
+      return res.status(400).json({ success: false, message: 'Transaction ID is required for non-cash payments' });
     }
 
     // Fetch current supplier details
@@ -908,7 +918,7 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
       supplierId: { type: sql.Int, value: parseInt(supplierId) },
       paidAmount: { type: sql.Decimal(18, 2), value: paymentAmount },
       paymentMode: { type: sql.NVarChar, value: paymentMode },
-      transactionId: { type: sql.NVarChar, value: transactionId },
+      transactionId: { type: sql.NVarChar, value: paymentMode === 'Cash' ? '' : transactionId },
       paymentDate: { type: sql.Date, value: paymentDate },
       isApproved: { type: sql.Bit, value: isApproved === 'true' ? 1 : 0 },
       approveBy: { type: sql.NVarChar, value: approveBy || null },
@@ -923,6 +933,5 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
     next(err);
   }
 });
-
 
 module.exports = router;

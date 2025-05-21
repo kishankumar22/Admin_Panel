@@ -45,6 +45,13 @@ interface Supplier {
   Deleted: boolean;
   ModifiedBy: string | null;
   ModifiedOn: string | null;
+  TotalPaidAmount?: number;
+  PendingAmount?: number;
+}
+
+interface PaymentHistory {
+  SPId: number;
+  PaidAmount: number;
 }
 
 const ManageSupplier: React.FC = () => {
@@ -59,10 +66,11 @@ const ManageSupplier: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fromDate, setFromDate] = useState<string>(''); // State for from date
-  const [toDate, setToDate] = useState<string>(''); // State for to date
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(5);
+  const [rowsPerPage] = useState(20);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +86,24 @@ const ManageSupplier: React.FC = () => {
     comment: '',
     files: [] as File[],
   });
+
+  // Set default dates: current date for toDate and one month prior for fromDate
+  useEffect(() => {
+    const today = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+
+    // Format dates as YYYY-MM-DD
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    setToDate(formatDate(today));
+    setFromDate(formatDate(oneMonthAgo));
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -98,11 +124,28 @@ const ManageSupplier: React.FC = () => {
   const fetchSuppliers = async () => {
     try {
       const response = await axiosInstance.get('/suppliers');
-      const data: Supplier[] = response.data;
+      let data: Supplier[] = response.data;
+
+      for (let supplier of data) {
+        const totalPaid = await fetchTotalPaidAmount(supplier.SupplierId!);
+        supplier.TotalPaidAmount = totalPaid;
+        supplier.PendingAmount = supplier.Amount - (totalPaid || 0);
+      }
+
       setSuppliers(data);
       setFilteredSuppliers(data);
     } catch (error) {
       toast.error('Failed to fetch suppliers', { position: 'top-right', autoClose: 3000 });
+    }
+  };
+
+  const fetchTotalPaidAmount = async (supplierId: number): Promise<number> => {
+    try {
+      const response = await axiosInstance.get(`/supplier/${supplierId}/payments`);
+      const payments: PaymentHistory[] = response.data;
+      return payments.reduce((sum, payment) => sum + payment.PaidAmount, 0);
+    } catch (error) {
+      return 0;
     }
   };
 
@@ -113,7 +156,6 @@ const ManageSupplier: React.FC = () => {
   useEffect(() => {
     let filtered = suppliers;
 
-    // Apply search term filter
     if (searchTerm) {
       filtered = filtered.filter((supplier) =>
         [supplier.Name, supplier.Email, supplier.PhoneNo].some((field) =>
@@ -122,7 +164,6 @@ const ManageSupplier: React.FC = () => {
       );
     }
 
-    // Apply date range filter
     if (fromDate || toDate) {
       filtered = filtered.filter((supplier) => {
         const createdOnDate = new Date(supplier.CreatedOn).getTime();
@@ -132,9 +173,21 @@ const ManageSupplier: React.FC = () => {
       });
     }
 
+    if (paymentStatus !== 'All') {
+      filtered = filtered.filter((supplier) => {
+        const totalPaid = supplier.TotalPaidAmount || 0;
+        if (paymentStatus === 'Paid') {
+          return supplier.Amount === totalPaid;
+        } else if (paymentStatus === 'Unpaid') {
+          return supplier.Amount > totalPaid;
+        }
+        return true;
+      });
+    }
+
     setFilteredSuppliers(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [searchTerm, fromDate, toDate, suppliers]);
+    setCurrentPage(1);
+  }, [searchTerm, fromDate, toDate, paymentStatus, suppliers]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -277,6 +330,7 @@ const ManageSupplier: React.FC = () => {
       'Phone No.': supplier.PhoneNo,
       Address: supplier.Address,
       Amount: supplier.Amount,
+      'Pending Amount': supplier.PendingAmount,
       'Bank Name': supplier.BankName,
       'Account No.': supplier.AccountNo,
       'IFSC Code': supplier.IFSCCode,
@@ -295,8 +349,18 @@ const ManageSupplier: React.FC = () => {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setFromDate('');
-    setToDate('');
+    const today = new Date();
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    setToDate(formatDate(today));
+    setFromDate(formatDate(oneMonthAgo));
+    setPaymentStatus('All');
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
     }
@@ -309,26 +373,38 @@ const ManageSupplier: React.FC = () => {
   const totalFilteredAmount = filteredSuppliers.reduce((sum, supplier) => {
     return sum + (supplier.Amount || 0);
   }, 0);
+  const totalFilteredPendingAmount = filteredSuppliers.reduce((sum, supplier) => {
+    return sum + (supplier.PendingAmount || 0);
+  }, 0);
 
   return (
     <>
       <Breadcrumb pageName="Manage Suppliers" />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center flex-wrap gap-2 mb-2 sm:mb-0">
-          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 flex items-center">
-            <FaUserPlus className="text-indigo-600 w-4 h-4 mr-1.5" />
-            <span className="text-sm mr-1">Suppliers:</span>
+      <div className="flex flex-row items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center">
+            <FaUserPlus className="text-indigo-600 dark:text-indigo-400 w-4 h-4 mr-1" />
+            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Suppliers:</span>
             <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
               {filteredSuppliers.length}
             </span>
-            <span className="text-sm mr-1">Total Amount:</span>
-            <span className="font-medium text-indigo-700 dark:text-indigo-400">
-              ₹{totalFilteredAmount}
+          </div>
+          <div className="flex items-center">
+            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Total Amount:</span>
+            <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
+              ₹{totalFilteredAmount.toLocaleString()}
             </span>
-          </h3>
+          </div>
+          <div className="flex items-center">
+            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Pending Amount:</span>
+            <span className="font-medium text-red-600 dark:text-red-400">
+              ₹{totalFilteredPendingAmount.toLocaleString()}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-[200px]">
+        
+        <div className="flex items-center gap-1">
+          <div className="relative">
             <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
             <input
               type="text"
@@ -338,52 +414,69 @@ const ManageSupplier: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               ref={searchInputRef}
               autoComplete="new-search"
-              className="w-full pl-8 pr-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+              className="w-full pl-7 pr-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1">
-              <label className="text-xs text-gray-600 dark:text-gray-400">From:</label>
+          
+          <div className="flex items-center gap-1">
+            <div className="flex items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">From:</span>
               <input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+                className="w-[110px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
-            <div className="flex items-center gap-1">
-              <label className="text-xs text-gray-600 dark:text-gray-400">To:</label>
+            <div className="flex items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">To:</span>
               <input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="w-[130px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
+                className="w-[110px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
               />
+            </div>
+            <div className="flex items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Status:</span>
+              <select
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
+                className="w-[90px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="All">All</option>
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+              </select>
             </div>
             <button
               onClick={handleClearFilters}
-              className="px-2 py-1 text-xs font-medium text-white bg-gray-600 rounded hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1"
+              className="p-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors focus:outline-none"
+              title="Clear Filters"
             >
-              Clear Filters
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <FaUserPlus className="w-3.5 h-3.5" />
+              <span>Add Supplier</span>
+            </button>
+            
+            <button
+              onClick={handleExportToExcel}
+              className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-1 focus:ring-green-500"
+            >
+              <FaFileExcel className="w-3.5 h-3.5" />
+              <span>Export</span>
             </button>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1 px-3 py-1 text-sm font-medium rounded text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
-          >
-            <FaUserPlus className="w-3.5 h-3.5" />
-            Add Supplier
-          </button>
-          <button
-            onClick={handleExportToExcel}
-            className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-white bg-green-600 rounded hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
-          >
-            <FaFileExcel className="w-3.5 h-3.5" />
-            Export to Excel
-          </button>
         </div>
       </div>
-
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
           <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-2xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
@@ -699,6 +792,7 @@ const ManageSupplier: React.FC = () => {
                   'Phone No.',
                   'Address',
                   'Amount',
+                  'Pending Amount',
                   'Bank Name',
                   'Account No.',
                   'IFSC Code',
@@ -743,7 +837,10 @@ const ManageSupplier: React.FC = () => {
                       {supplier.Address}
                     </td>
                     <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Amount}
+                      ₹{supplier.Amount.toLocaleString()}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      ₹{(supplier.PendingAmount || 0).toLocaleString()}
                     </td>
                     <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                       {supplier.BankName}
@@ -809,7 +906,7 @@ const ManageSupplier: React.FC = () => {
               ) : (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={15}
                     className="text-center text-gray-600 dark:text-gray-400 text-xs"
                   >
                     <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
@@ -859,4 +956,4 @@ const ManageSupplier: React.FC = () => {
   );
 };
 
-export default ManageSupplier;  
+export default ManageSupplier;

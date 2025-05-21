@@ -24,7 +24,6 @@ interface PaymentHistory {
   transactionNo: string;
   receivedDate: string;
   receivedBy: string;
-  amountType: string;
   createdBy: string;
   createdOn: string;
   paymentImage: string;
@@ -128,6 +127,17 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
     fetchPaymentHistory();
   }, [supplier.SupplierId]);
 
+  const getTransactionLabel = () => {
+    switch (paymentData.paymentMethod) {
+      case 'Cheque':
+        return 'Cheque Transaction No.';
+      case 'Bank Transfer':
+        return 'Bank Transaction No.';
+      default:
+        return 'Transaction No.';
+    }
+  };
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -147,9 +157,9 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
       newErrors.paymentMethod = 'Payment method is required';
     }
 
-    if (!paymentData.transactionNo) {
-      newErrors.transactionNo = 'Cheque/Transaction number is required';
-    } else {
+    if (paymentData.paymentMethod !== 'Cash' && !paymentData.transactionNo) {
+      newErrors.transactionNo = `${getTransactionLabel()} is required`;
+    } else if (paymentData.paymentMethod !== 'Cash' && paymentData.transactionNo) {
       const isDuplicate = paymentHistory.some(
         (payment) => payment.transactionNo === paymentData.transactionNo
       );
@@ -166,10 +176,18 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setPaymentData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === 'paymentMethod') {
+      setPaymentData((prev) => ({
+        ...prev,
+        paymentMethod: value,
+        transactionNo: value === 'Cash' ? '' : prev.transactionNo,
+      }));
+    } else {
+      setPaymentData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
@@ -228,7 +246,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
       formData.append('supplierId', supplier.SupplierId.toString());
       formData.append('paidAmount', paymentData.paymentAmount);
       formData.append('paymentMode', paymentData.paymentMethod);
-      formData.append('transactionId', paymentData.transactionNo);
+      formData.append('transactionId', paymentData.paymentMethod === 'Cash' ? '' : paymentData.transactionNo);
       formData.append('paymentDate', paymentData.paymentDate);
       formData.append('isApproved', 'true');
       formData.append('approveBy', modifiedBy);
@@ -238,7 +256,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
         formData.append('file', paymentData.file);
       }
 
-      const response = await axiosInstance.post('/supplier/payment', formData, {
+      const response = await axiosInstance.post('/expense/payment', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -284,8 +302,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
       parseFloat(paymentData.paymentAmount) > 0 &&
       paymentData.paymentDate &&
       paymentData.paymentMethod &&
-      paymentData.transactionNo &&
-      !errors.transactionNo
+      (paymentData.paymentMethod === 'Cash' || (paymentData.transactionNo && !errors.transactionNo))
     );
   };
 
@@ -389,15 +406,15 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
             <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm shadow-sm gap-2 sm:gap-4">
               <div className="text-gray-600 dark:text-gray-300">
                 <span className="font-medium">Total Amount:</span>{' '}
-                <span className="font-bold text-gray-900 dark:text-white">₹{totalAmount}</span>
+                <span className="font-bold text-gray-900 dark:text-white">₹{totalAmount.toLocaleString()}</span>
               </div>
               <div className="text-gray-600 dark:text-gray-300">
                 <span className="font-medium">Paid Amount:</span>{' '}
-                <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalPaidAmount}</span>
+                <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalPaidAmount.toLocaleString()}</span>
               </div>
               <div className="text-gray-600 dark:text-gray-300">
                 <span className="font-medium">Remaining Amount:</span>{' '}
-                <span className="font-bold text-red-600 dark:text-red-400">₹{remainingAmount}</span>
+                <span className="font-bold text-red-600 dark:text-red-400">₹{remainingAmount.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -410,7 +427,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Payment Mode <span className="text-red-500 ml-0.5">*</span>
+                    Payment Mode <RequiredAsterisk />
                   </label>
                   <select
                     name="paymentMethod"
@@ -421,7 +438,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                     } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
                     required
                   >
-                    <option value="">select payment mode</option>
+                    <option value="">Select payment mode</option>
                     <option value="Cash">Cash</option>
                     <option value="Cheque">Cheque</option>
                     <option value="Bank Transfer">Bank Transfer</option>
@@ -432,7 +449,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Transaction No. <span className="text-red-500 ml-0.5">*</span>
+                    {getTransactionLabel()} {paymentData.paymentMethod !== 'Cash' && <RequiredAsterisk />}
                   </label>
                   <input
                     type="text"
@@ -441,8 +458,12 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                     onChange={handleInputChange}
                     className={`w-full p-1 text-xs rounded border ${
                       errors.transactionNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-                    required
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white ${
+                      paymentData.paymentMethod === 'Cash' ? 'cursor-not-allowed bg-gray-200' : ''
+                    }`}
+                    disabled={paymentData.paymentMethod === 'Cash'}
+                    required={paymentData.paymentMethod !== 'Cash'}
+                      title={paymentData.paymentMethod === 'Cash' ? 'Cash does not need transaction no' : ''}
                   />
                   {errors.transactionNo && (
                     <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>
@@ -450,7 +471,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Amount <span className="text-red-500 ml-0.5">*</span>
+                    Amount <RequiredAsterisk />
                   </label>
                   <input
                     type="number"
@@ -468,7 +489,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Payment Date <span className="text-red-500 ml-0.5">*</span>
+                    Payment Date <RequiredAsterisk />
                   </label>
                   <input
                     type="date"
@@ -498,7 +519,7 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Upload Supplier Payment File
+                    Upload Payment File
                     {paymentData.file && (
                       <span className="ml-1 text-xs text-indigo-600 truncate max-w-xs">
                         ({paymentData.file.name})
@@ -588,13 +609,13 @@ const SupplierPayment: React.FC<SupplierPaymentProps> = ({
                         } hover:bg-indigo-100 dark:hover:bg-gray-700`}
                       >
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                          ₹{history.amount}
+                          ₹{history.amount.toLocaleString()}
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                           {history.mode}
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                          {history.transactionNo}
+                          {history.transactionNo || '-'}
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                           {history.receivedDate}

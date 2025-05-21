@@ -562,7 +562,7 @@ const ManageExpense: React.FC = () => {
                   <option value="">Select Supplier</option>
                   {suppliers.map((supplier) => (
                     <option key={supplier.SupplierId} value={supplier.SupplierId}>
-                      {supplier.Name}{supplier.Amount > 0 ? ` ( ₹${supplier.Amount.toFixed(2)} )` : ''}
+                      {supplier.Name}
                     </option>
                   ))}
                 </select>

@@ -1,5 +1,3 @@
-
-// src/components/ExpensePayment.tsx
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaMoneyBillWave, FaSpinner } from 'react-icons/fa';
 import { Eye, EyeOff, Lock } from 'lucide-react';
@@ -129,6 +127,17 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
     fetchPaymentHistory();
   }, [expense.SupplierId]);
 
+  const getTransactionLabel = () => {
+    switch (paymentData.paymentMethod) {
+      case 'Cheque':
+        return 'Cheque Transaction No.';
+      case 'Bank Transfer':
+        return 'Bank Transaction No.';
+      default:
+        return 'Transaction No.';
+    }
+  };
+
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
@@ -148,9 +157,9 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       newErrors.paymentMethod = 'Payment method is required';
     }
 
-    if (!paymentData.transactionNo) {
-      newErrors.transactionNo = 'Cheque/Transaction number is required';
-    } else {
+    if (paymentData.paymentMethod !== 'Cash' && !paymentData.transactionNo) {
+      newErrors.transactionNo = `${getTransactionLabel()} is required`;
+    } else if (paymentData.paymentMethod !== 'Cash' && paymentData.transactionNo) {
       const isDuplicate = paymentHistory.some(
         (payment) => payment.transactionNo === paymentData.transactionNo
       );
@@ -167,10 +176,18 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setPaymentData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === 'paymentMethod') {
+      setPaymentData((prev) => ({
+        ...prev,
+        paymentMethod: value,
+        transactionNo: value === 'Cash' ? '' : prev.transactionNo,
+      }));
+    } else {
+      setPaymentData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
@@ -229,7 +246,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       formData.append('supplierId', expense.SupplierId.toString());
       formData.append('paidAmount', paymentData.paymentAmount);
       formData.append('paymentMode', paymentData.paymentMethod);
-      formData.append('transactionId', paymentData.transactionNo);
+      formData.append('transactionId', paymentData.paymentMethod === 'Cash' ? '' : paymentData.transactionNo);
       formData.append('paymentDate', paymentData.paymentDate);
       formData.append('isApproved', 'true');
       formData.append('approveBy', modifiedBy);
@@ -285,8 +302,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       parseFloat(paymentData.paymentAmount) > 0 &&
       paymentData.paymentDate &&
       paymentData.paymentMethod &&
-      paymentData.transactionNo &&
-      !errors.transactionNo
+      (paymentData.paymentMethod === 'Cash' || (paymentData.transactionNo && !errors.transactionNo))
     );
   };
 
@@ -411,7 +427,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
               <div className="grid grid-cols-2 gap-1.5">
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Payment Mode <span className="text-red-500 ml-0.5">*</span>
+                    Payment Mode <RequiredAsterisk />
                   </label>
                   <select
                     name="paymentMethod"
@@ -433,7 +449,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Transaction No. <span className="text-red-500 ml-0.5">*</span>
+                    {getTransactionLabel()} {paymentData.paymentMethod !== 'Cash' && <RequiredAsterisk />}
                   </label>
                   <input
                     type="text"
@@ -442,8 +458,12 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                     onChange={handleInputChange}
                     className={`w-full p-1 text-xs rounded border ${
                       errors.transactionNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white`}
-                    required
+                    } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white ${
+                      paymentData.paymentMethod === 'Cash' ? 'cursor-not-allowed bg-gray-200' : ''
+                    }`}
+                    disabled={paymentData.paymentMethod === 'Cash'}
+                    required={paymentData.paymentMethod !== 'Cash'}
+                      title={paymentData.paymentMethod === 'Cash' ? 'Cash does not need transaction no' : ''}
                   />
                   {errors.transactionNo && (
                     <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>
@@ -451,7 +471,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Amount <span className="text-red-500 ml-0.5">*</span>
+                    Amount <RequiredAsterisk />
                   </label>
                   <input
                     type="number"
@@ -469,7 +489,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    Payment Date <span className="text-red-500 ml-0.5">*</span>
+                    Payment Date <RequiredAsterisk />
                   </label>
                   <input
                     type="date"
@@ -595,7 +615,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                           {history.mode}
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                          {history.transactionNo}
+                          {history.transactionNo || '-'}
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                           {history.receivedDate}

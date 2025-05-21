@@ -5,8 +5,18 @@ import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import { RequiredAsterisk } from './AddStudentModal';
-import * as XLSX from 'xlsx'; // Import xlsx library for Excel export
+import * as XLSX from 'xlsx';
 import { FaSpinner } from 'react-icons/fa';
+
+// User interface
+interface User {
+  user_id: number;
+  name: string;
+  email: string;
+  mobileNo: string;
+  roleId: string;
+  created_by: string;
+}
 
 // Pagination component
 interface PaginationProps {
@@ -187,11 +197,6 @@ interface CashHandover {
   payment?: Payment;
 }
 
-interface ApprovedBy {
-  approvedBy: string;
-  receivedDate: Date;
-}
-
 interface PaymentWithHandover extends Payment {
   handoverAmount: number;
   isPartial: boolean;
@@ -199,16 +204,15 @@ interface PaymentWithHandover extends Payment {
 
 const PaymentHandover: React.FC = () => {
   const [cashHandovers, setCashHandovers] = useState<CashHandover[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
-  const [approvedByList, setApprovedByList] = useState<ApprovedBy[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
   const { user } = useAuth();
-
- const [showLoading, setShowLoading] = useState(true);
 
   const [selectedPayments, setSelectedPayments] = useState<PaymentWithHandover[]>([]);
   const [formData, setFormData] = useState({
@@ -227,17 +231,22 @@ const PaymentHandover: React.FC = () => {
   const [selectedReceivedBy, setSelectedReceivedBy] = useState('');
   const [selectedHandedOverTo, setSelectedHandedOverTo] = useState('');
 
+  const fetchUsers = async () => {
+    try {
+      const response = await axiosInstance.get('/getusers');
+      setUsers(response.data.users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to fetch users');
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const approvedByRes = await axiosInstance.get('/approved-by');
-        if (approvedByRes.data.success) {
-          setApprovedByList(approvedByRes.data.data);
-        } else {
-          throw new Error('Failed to fetch approvedBy list');
-        }
+        await fetchUsers();
         const handoversRes = await axiosInstance.get('/payment-handovers');
         if (handoversRes.data.success) {
           setCashHandovers(handoversRes.data.data);
@@ -247,17 +256,11 @@ const PaymentHandover: React.FC = () => {
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError('Failed to load data. Please try again later.');
-      } 
-        finally {
-          setTimeout(() => {
-            setLoading(false);
-          }, 300); 
-            // Keep loading screen for at least 2 seconds
-        const minLoadingTime = setTimeout(() => {
+      } finally {
+        setTimeout(() => {
+          setLoading(false);
           setShowLoading(false);
-        },300);
-        
-        return () => clearTimeout(minLoadingTime);
+        }, 300);
       }
     };
     fetchData();
@@ -337,7 +340,6 @@ const PaymentHandover: React.FC = () => {
     return date ? new Date(date).toLocaleDateString('en-US') : '-';
   };
 
-  // Function to export filtered handovers to Excel
   const exportToExcel = () => {
     if (filteredHandovers.length === 0) {
       toast.warning('No data to export');
@@ -357,12 +359,9 @@ const PaymentHandover: React.FC = () => {
       'Receipt URL': handover.payment?.receiptUrl || '-',
     }));
 
-    // Create a worksheet from the data
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Payment Handovers');
-
-    // Generate Excel file and trigger download
     XLSX.writeFile(workbook, 'Payment_Handover_List.xlsx');
   };
 
@@ -644,14 +643,15 @@ const PaymentHandover: React.FC = () => {
       </Modal>
     );
   };
+
   if (loading || showLoading) {
     return (
-      <div className="flex justify-center   -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
-      <div className="flex flex-col items-center ">
-        <FaSpinner className="animate-spin text-4xl text-purple-600" />
-        <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+      <div className="flex justify-center -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+        <div className="flex flex-col items-center">
+          <FaSpinner className="animate-spin text-4xl text-purple-600" />
+          <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
+        </div>
       </div>
-    </div>
     );
   }
 
@@ -685,7 +685,6 @@ const PaymentHandover: React.FC = () => {
                 {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
                 {showAddForm ? 'Cancel' : 'New Handover'}
               </button>
-            
               <button
                 onClick={exportToExcel}
                 className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150"
@@ -717,11 +716,11 @@ const PaymentHandover: React.FC = () => {
                       className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
                     >
                       <option value="">Select Staff</option>
-                      {approvedByList
-                        .filter(item => item.approvedBy !== formData.handedOverTo)
+                      {users
+                        .filter(item => item.name !== user?.name && item.name !== formData.handedOverTo)
                         .map((item, index) => (
-                          <option key={index} value={item.approvedBy}>
-                            {item.approvedBy}
+                          <option key={index} value={item.name}>
+                            {item.name}
                           </option>
                         ))}
                     </select>
@@ -756,8 +755,8 @@ const PaymentHandover: React.FC = () => {
                     {loading ? (
                       <div className="text-gray-500 p-2 bg-gray-50 rounded-md text-xs">Loading payments...</div>
                     ) : Object.keys(paymentsByStudent).length === 0 ? (
-                      <div className="text-gray-500 p-2 bg-gray-50 rounded-md text-xs">
-                        No payments found for {formData.receivedBy}
+                      <div className="text-gray-500 p-2 text-xl bg-gray-50 rounded-md  text-center ">
+                        <span className='capitalize'> {formData.receivedBy}</span> has no payments to handover.
                       </div>
                     ) : (
                       <div className="border border-gray-200 rounded-md overflow-hidden">
@@ -937,7 +936,6 @@ const PaymentHandover: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {/* Header Section */}
                   <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white rounded-md px-4 py-2 flex items-center justify-between shadow-sm mb-2">
                     <h1 className="text-lg font-semibold text-white">Payment Handover List</h1>
                     <div className="flex items-center gap-4">
@@ -952,11 +950,13 @@ const PaymentHandover: React.FC = () => {
                           className="border border-gray-300 rounded-md px-2 py-1 text-xs text-black"
                         >
                           <option value="">All</option>
-                          {[...new Set(approvedByList.map(item => item.approvedBy))].map((name, index) => (
-                            <option key={index} value={name}>
-                              {name}
-                            </option>
-                          ))}
+                          {users
+                            .filter(item => item.name !== user?.name)
+                            .map((item, index) => (
+                              <option key={index} value={item.name}>
+                                {item.name}
+                              </option>
+                            ))}
                         </select>
                       </div>
                       <div className="flex items-center gap-2">
@@ -970,11 +970,13 @@ const PaymentHandover: React.FC = () => {
                           className="border border-gray-300 rounded-md px-2 py-1 text-xs text-black"
                         >
                           <option value="">All</option>
-                          {[...new Set(approvedByList.map(item => item.approvedBy))].map((name, index) => (
-                            <option key={index} value={name}>
-                              {name}
-                            </option>
-                          ))}
+                          {users
+                            .filter(item => item.name !== user?.name)
+                            .map((item, index) => (
+                              <option key={index} value={item.name}>
+                                {item.name}
+                              </option>
+                            ))}
                         </select>
                       </div>
                       <div className="flex items-center gap-2">
@@ -991,7 +993,6 @@ const PaymentHandover: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Conditional Content */}
                   {filteredHandovers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
                       <div className="mb-3">
@@ -1004,7 +1005,6 @@ const PaymentHandover: React.FC = () => {
                     </div>
                   ) : (
                     <>
-                      {/* Table Section */}
                       <table className="min-w-full divide-y divide-gray-200 text-xs">
                         <thead className="bg-gray-300">
                           <tr>
@@ -1087,8 +1087,6 @@ const PaymentHandover: React.FC = () => {
                           ))}
                         </tbody>
                       </table>
-
-                      {/* Pagination */}
                       {handoverTotalPages > 1 && (
                         <Pagination
                           currentPage={handoverCurrentPage}

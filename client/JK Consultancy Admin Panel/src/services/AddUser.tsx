@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axiosInstance from '../config';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'react-toastify';
 import { FaEdit, FaKey, FaEye, FaEyeSlash, FaUserPlus, FaFilter, FaSearch, FaTimes } from 'react-icons/fa';
 import { MdDelete, MdEmail, MdSmartphone, MdPerson } from 'react-icons/md';
 import { HiOutlineUserCircle } from 'react-icons/hi';
+
 
 interface User {
   user_id: number;
@@ -21,12 +22,33 @@ interface Role {
   role_id: number;
 }
 
+interface Page {
+  modify_by: string;
+  modify_on: any;
+  pageId: number;
+  pageName: string;
+  pageUrl: string;
+  created_by: string;
+  created_on: Date;
+}
+
+interface Permission {
+  roleId: number;
+  pageId: number;
+  canCreate: boolean;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+
 const AddUser: React.FC = () => {
   const { user: loggedInUser, logout } = useAuth();
   const navigate = useNavigate();
   const createdBy = loggedInUser?.name || 'admin';
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [pages, setPages] = useState<Page[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isChangePassModalOpen, setIsChangePassModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -70,7 +92,32 @@ const AddUser: React.FC = () => {
   useEffect(() => {
     fetchUsers();
     fetchroles();
+    fetchPages();
+    fetchPermissions();
+
   }, []);
+  
+  // Fetch Pages
+  const fetchPages = async () => {
+    try {
+      const response = await axiosInstance.get("/pages");
+      setPages(response.data);
+    } catch (err) {
+      toast.error("Error fetching pages");
+      console.error(err);
+    }
+  };
+
+  // Fetch Existing Permissions
+  const fetchPermissions = async () => {
+    try {
+      const response = await axiosInstance.get("/permissions");
+      setPermissions(response.data);
+    } catch (error) {
+      console.error("Error fetching permissions:", error);
+      toast.error("Error fetching permissions");
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -95,6 +142,29 @@ const AddUser: React.FC = () => {
     setUser((prevUser) => ({ ...prevUser, [name]: value }));
   };
 
+   // Use useLocation to get the current path
+    const location = useLocation();
+    const currentPageName = location.pathname.split('/').pop();
+    // console.log("currentPageName :", currentPageName);
+  console.log('Current role ID:', loggedInUser?.roleId);  
+  const loginUserRoleId = Number(loggedInUser?.roleId);
+    // Permissions and roles
+    // Prefixing currentPageName with '/' to match the database format
+    const prefixedPageUrl = `/${currentPageName}`;
+    const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
+    const roleId = roles.find(role => role.role_id === loginUserRoleId)?.role_id;
+    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === loginUserRoleId);
+    const canCreate = userPermissions?.canCreate ?? false;
+    const canUpdate = userPermissions?.canUpdate ?? false;
+    const canDelete = userPermissions?.canDelete ?? false;
+    const canRead = userPermissions?.canRead ?? false;
+  
+    console.log('User Role ID:', user?.roleId);
+    console.log('Page ID:', pageId);
+    console.log('Permissions:', permissions);
+    console.log('User Permissions:', userPermissions);
+    console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+  
   const resetModalForm = () => {
     setUser({
       name: '',
@@ -454,17 +524,23 @@ const AddUser: React.FC = () => {
           <FaTimes size={12} className="mr-1" /> Clear Filters
         </button>
 
-        {Number(loggedInUser?.roleId) !== 3 && (
-          <button
-            onClick={() => {
-              resetModalForm();
-              setIsModalOpen(true);
-            }}
-            className="p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center"
-          >
-            <FaUserPlus size={12} className="mr-1" /> Add User
-          </button>
-        )}
+    {Number(loggedInUser?.roleId) !== 3 && (
+  <button
+    className={`p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400
+      ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={() => {
+      if (!canCreate) {
+        toast.error('Access Denied: You do not have permission to add users.');
+        return;
+      }
+      resetModalForm();
+      setIsModalOpen(true);
+    }}
+  >
+    <FaUserPlus size={12} className="mr-1" /> Add User
+  </button>
+)}
+
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-md overflow-hidden">
@@ -513,32 +589,57 @@ const AddUser: React.FC = () => {
                     </td>
                     <td className="px-1 py-1">
                       <div className="flex justify-stretch gap-1">
-                        {canEditUser(user) && (
-                          <button
-                            onClick={() => handleEdit(user)}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded"
-                          >
-                            <FaEdit className="inline mr-1" size={10} /> Edit
-                          </button>
-                        )}
+                     {/* Edit Button */}
+{canEditUser(user) && (
+  <button
+    className={`bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded mr-1
+      ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={() => {
+      if (!canUpdate) {
+        toast.error('Access Denied: You do not have permission to edit users.');
+        return;
+      }
+      handleEdit(user);
+    }}
+  >
+    <FaEdit className="inline mr-1" size={10} /> Edit
+  </button>
+)}
 
-                        {canDeleteUser(user) && (
-                          <button
-                            onClick={() => handleOpenDeleteModal(user.user_id)}
-                            className="bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded"
-                          >
-                            <MdDelete className="inline mr-1" size={10} /> Delete
-                          </button>
-                        )}
+{/* Delete Button */}
+{canDeleteUser(user) && (
+  <button
+    className={`bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded mr-1
+      ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={() => {
+      if (!canDelete) {
+        toast.error('Access Denied: You do not have permission to delete users.');
+        return;
+      }
+      handleOpenDeleteModal(user.user_id);
+    }}
+  >
+    <MdDelete className="inline mr-1" size={10} /> Delete
+  </button>
+)}
 
-                        {canChangePassword(user) && (
-                          <button
-                            onClick={() => handleOpenChangePassModal(user.email)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded"
-                          >
-                            <FaKey className="inline mr-1" size={10} /> Password
-                          </button>
-                        )}
+{/* Password Button */}
+{canChangePassword(user) && (
+  <button
+    className={`bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded
+      ${!canRead ? 'opacity-50 cursor-not-allowed' : ''}`}
+    onClick={() => {
+      if (!canRead) {
+        toast.error('Access Denied: You do not have permission to change passwords.');
+        return;
+      }
+      handleOpenChangePassModal(user.email);
+    }}
+  >
+    <FaKey className="inline mr-1" size={10} /> Password
+  </button>
+)}
+
                       </div>
                     </td>
                   </tr>

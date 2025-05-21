@@ -28,7 +28,7 @@ const pool = new sql.ConnectionPool(dbConfig);
 const poolConnect = pool
   .connect()
   .then(pool => {
-    console.log('Database connected successfully');
+    // console.log('Database connected successfully');
     return pool;
   })
   .catch(err => {
@@ -51,7 +51,6 @@ module.exports = {
         // console.log(`Binding parameter: ${name} = ${value} (Type: ${type ? type.name : 'undefined'})`);
         request.input(name, type, value);
       }
-
       // console.log('Executing query:', query);
       const result = await request.query(query);
       return result;

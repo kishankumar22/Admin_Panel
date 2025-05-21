@@ -63,11 +63,11 @@ const AddBanner: React.FC = () => {
   const canDelete = userPermissions?.canDelete ?? false;
   const canRead = userPermissions?.canRead ?? false;
 
-  // console.log('User Role ID:', user?.roleId);
-  // console.log('Page ID:', pageId);
-  // console.log('Permissions:', permissions);
-  // console.log('User Permissions:', userPermissions);
-  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+  console.log('User Role ID:', user?.roleId);
+  console.log('Page ID:', pageId);
+  console.log('Permissions:', permissions);
+  console.log('User Permissions:', userPermissions);
+  console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
   // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

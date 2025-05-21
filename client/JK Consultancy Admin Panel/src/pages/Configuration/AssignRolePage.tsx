@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Breadcrumb from "../../components/Breadcrumbs/Breadcrumb";
 import { usePermissions } from "../../context/PermissionsContext";
 import { useAuth } from "../../context/AuthContext";
@@ -14,9 +14,19 @@ const AssignRolePage: React.FC = () => {
     selectedActions,
     handleActionChange,
     savePermissions,
-  } = usePermissions();
+    fetchPermissions,
+  fetchRoles,fetchPages  } = usePermissions();
 //  console.log(roles)
 //  console.log(pages)
+ useEffect(() => {
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
+    fetchData();
+  }, []);
+  
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [dropdownOpen, setDropdownOpen] = useState<{ [key: number]: { [key: number]: boolean } }>({});
