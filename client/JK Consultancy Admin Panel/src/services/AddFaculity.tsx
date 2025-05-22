@@ -74,13 +74,17 @@ const AddFaculty: React.FC = () => {
   const currentPageName = location.pathname.split("/").pop();
   const prefixedPageUrl = `/${currentPageName}`;
   const pageId = pages.find((page) => page.pageUrl === prefixedPageUrl)?.pageId;
-  const roleId = roles.find((role) => role.role_id === user?.roleId)?.role_id;
-  const userPermissions = permissions.find((perm) => perm.pageId === pageId && roleId === user?.roleId);
+   // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === user?.roleId);
+ const loggedroleId = user?.roleId;
+// Set default permissions based on role ID
+const defaultPermission = loggedroleId === 2;
 
-  const canCreate = userPermissions?.canCreate ?? false;
-  const canUpdate = userPermissions?.canUpdate ?? false;
-  const canDelete = userPermissions?.canDelete ?? false;
-  const canRead = userPermissions?.canRead ?? false;
+// Use provided permissions if available, otherwise fall back to defaultPermission
+const canCreate = userPermissions?.canCreate ?? defaultPermission;
+const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+const canDelete = userPermissions?.canDelete ?? defaultPermission;
+const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

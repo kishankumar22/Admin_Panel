@@ -1,10 +1,9 @@
-// App.tsx
 import { useEffect, useState } from 'react';
 import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import 'react-toastify/dist/ReactToastify.css';
 import 'froala-editor/css/froala_editor.pkgd.min.css';
 import 'froala-editor/css/froala_style.min.css';
-import {Loader} from './common/Loader/index';
+import { Loader } from './common/Loader/index';
 import PageTitle from './components/PageTitle';
 import SignIn from './pages/Authentication/SignIn';
 import SignUp from './pages/Authentication/SignUp';
@@ -29,7 +28,6 @@ import ManagePayment from './services/students/ManagePayment';
 import PaymentHandover from './services/students/PaymentHandover';
 import CourseEnquiry from './services/students/CourseEnquiry';
 import ManageSupplier from './suppliers/ManageSupplier';
-import SupplierPayment from './suppliers/SupplierPayment';
 import ManageExpense from './suppliers/ManageExpense';
 
 const App: React.FC = () => {
@@ -51,7 +49,7 @@ const App: React.FC = () => {
       path: '/',
       element: (
         <>
-          <PageTitle title="Admin Panel JK Website " />
+          <PageTitle title="Admin Panel JK Website" />
           <ECommerce />
         </>
       ),
@@ -78,7 +76,7 @@ const App: React.FC = () => {
       path: '/addpicingallery',
       element: (
         <>
-          <PageTitle title="Add Pic in gallery" />
+          <PageTitle title="Add Pic in Gallery" />
           <AddPicInGallery />
         </>
       ),
@@ -87,7 +85,7 @@ const App: React.FC = () => {
       path: '/addimportentlinks',
       element: (
         <>
-          <PageTitle title="Add Important links" />
+          <PageTitle title="Add Important Links" />
           <AddImportantLinks />
         </>
       ),
@@ -96,7 +94,7 @@ const App: React.FC = () => {
       path: '/addfaculity',
       element: (
         <>
-          <PageTitle title="Add Faculity" />
+          <PageTitle title="Add Faculty" />
           <AddFaculity />
         </>
       ),
@@ -105,7 +103,7 @@ const App: React.FC = () => {
       path: '/latestpost',
       element: (
         <>
-          <PageTitle title="Add latestpost" />
+          <PageTitle title="Add Latest Post" />
           <LatestPost />
         </>
       ),
@@ -150,7 +148,7 @@ const App: React.FC = () => {
       path: '/managePayment',
       element: (
         <>
-          <PageTitle title="Manage Payement" />
+          <PageTitle title="Manage Payment" />
           <ManagePayment />
         </>
       ),
@@ -177,7 +175,7 @@ const App: React.FC = () => {
       path: '/paymenthandover',
       element: (
         <>
-          <PageTitle title="payment Handover" />
+          <PageTitle title="Payment Handover" />
           <PaymentHandover />
         </>
       ),
@@ -204,43 +202,16 @@ const App: React.FC = () => {
       path: '/page-management',
       element: (
         <>
-          <PageTitle title="Page management" />
+          <PageTitle title="Page Management" />
           <CreatePage />
         </>
       ),
     },
   ];
 
-  // Define routes to hide for Role ID 3
-  const restrictedPathsForRole3 = [
-    '/addnotifications',
-    '/addbanner',
-    '/addpicingallery',
-    '/addimportentlinks',
-    '/addfaculity',
-    '/latestpost',
-    '/profile',
-    '/settings',
-    '/student',
-    '/manageExpense',
-    './managesupplier',
-    '/supplierpayment',
-    '/paymenthandover',
-    '/CourseEnquiry',
-    '/assign-page-to-role'
-  ];
-
-  // Filter routes based on user role
+  // Return all routes for all authenticated users
   const getAllowedRoutes = () => {
-    if (!user) return [];
-
-    if (user.roleId === 1 || user.roleId === 2) {
-      return allRoutes; // Full access for Role ID 1 and 2
-    } else if (user.roleId === 3) {
-      // Only allow Dashboard and Add User for Role ID 3
-      return allRoutes.filter(route => !restrictedPathsForRole3.includes(route.path));
-    }
-    return [];
+    return allRoutes;
   };
 
   return loading ? (
@@ -275,7 +246,6 @@ const App: React.FC = () => {
           </>
         }
       />
-
 
       {/* Protected Routes */}
       <Route

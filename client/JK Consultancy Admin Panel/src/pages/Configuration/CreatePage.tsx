@@ -102,11 +102,17 @@ const CreatePage: React.FC = () => {
   const currentPageName = location.pathname.split('/').pop();
   const prefixedPageUrl = `/${currentPageName}`;
   const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
-  const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-  const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
-  const canCreate = userPermissions?.canCreate ?? false;
-  const canUpdate = userPermissions?.canUpdate ?? false;
-  const canDelete = userPermissions?.canDelete ?? false;
+  // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === user?.roleId);
+  const loggedroleId = user?.roleId;
+// Set default permissions based on role ID
+const defaultPermission = loggedroleId === 2;
+
+// Use provided permissions if available, otherwise fall back to defaultPermission
+const canCreate = userPermissions?.canCreate ?? defaultPermission;
+const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+const canDelete = userPermissions?.canDelete ?? defaultPermission;
+// const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   const handleCreatePage = async () => {
     if (!pageName.trim() || !pageUrl.trim()) {
@@ -194,6 +200,7 @@ const CreatePage: React.FC = () => {
       
       {/* Header with search and actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+        
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <FaSearch className="text-gray-400 text-xs" />
@@ -206,6 +213,9 @@ const CreatePage: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
+          {/* <span className='bg-gray-300 p-2 rounded ml-3  text-black-2'>Pages :{filteredPages.length}</span> */}
+
+
         </div>
         
         <div className="flex items-center space-x-2 self-end md:self-auto">
@@ -215,7 +225,7 @@ const CreatePage: React.FC = () => {
             onClick={canCreate ? () => setIsModalOpen(true) : () => toast.error('Access Denied: You do not have permission to create pages.')}
           >
             <FaPlus className="mr-1.5" />
-            <span>Create Page</span>
+            <span>Create Page </span>
           </button>
           <Link to="/assign-page-to-role">
             <button className="bg-orange-500 text-white px-3 py-2 rounded text-xs hover:bg-orange-600 

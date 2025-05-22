@@ -49,7 +49,9 @@
     const { user } = useAuth();
     const { addNotification: addNotificationContext, editNotification, deleteNotification, searchNotifications } = useNotifications();
 
-    const userId = user?.user_id;
+
+
+     const userId = user?.user_id;
     const createdBy = user?.name || 'admin';
     const modify_by = user?.name; // Get modify_by from user context
 
@@ -215,13 +217,20 @@
     const prefixedPageUrl = `/${currentPageName}`;
     const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
 
-    const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-    // console.log(roleId)
-    const userPermissions = permissions.find(perm => perm.pageId === pageId && roleId === user?.roleId);
-    const canCreate = userPermissions?.canCreate ?? false;
-    const canUpdate = userPermissions?.canUpdate ?? false;
-    const canDelete = userPermissions?.canDelete ?? false;
-    // const canRead = userPermissions?.canRead ?? false;   
+   // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === user?.roleId);
+
+ const loggedroleId = user?.roleId;
+// Set default permissions based on role ID
+const defaultPermission = loggedroleId === 2;
+
+// Use provided permissions if available, otherwise fall back to defaultPermission
+const canCreate = userPermissions?.canCreate ?? defaultPermission;
+const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+const canDelete = userPermissions?.canDelete ?? defaultPermission;
+// const canRead   = userPermissions?.canRead   ?? defaultPermission;
+
+
     // console.log('User Role ID:', user?.roleId);
     // console.log('Page ID:', pageId);
     // console.log('Permissions:', permissions);

@@ -31,6 +31,13 @@ router.post('/save-permissions', async (req, res, next) => {
         const checkResult = await executeQuery(checkQuery, checkParams, transaction);
         const exists = checkResult.recordset.length > 0;
 
+        const now = new Date();
+        const createdOn = perm.created_on ? new Date(perm.created_on) : now;
+        
+        if (isNaN(createdOn.getTime())) {
+          throw new Error(`Invalid created_on date: ${perm.created_on}`);
+        }
+
         if (exists) {
           // Update existing permission
           const updateQuery = `
@@ -51,7 +58,7 @@ router.post('/save-permissions', async (req, res, next) => {
             canUpdate: { type: sql.Bit, value: perm.canUpdate },
             canDelete: { type: sql.Bit, value: perm.canDelete },
             modify_by: { type: sql.NVarChar, value: perm.modify_by || 'System' },
-            modify_on: { type: sql.DateTime, value: new Date() },
+            modify_on: { type: sql.DateTime, value: now },
           };
           await executeQuery(updateQuery, updateParams, transaction);
         } else {
@@ -74,9 +81,9 @@ router.post('/save-permissions', async (req, res, next) => {
             canUpdate: { type: sql.Bit, value: perm.canUpdate },
             canDelete: { type: sql.Bit, value: perm.canDelete },
             created_by: { type: sql.NVarChar, value: perm.created_by || 'System' },
-            created_on: { type: sql.DateTime, value: new Date(perm.created_on) || new Date() },
+            created_on: { type: sql.DateTime, value: createdOn },
             modify_by: { type: sql.NVarChar, value: perm.modify_by || 'System' },
-            modify_on: { type: sql.DateTime, value: new Date() },
+            modify_on: { type: sql.DateTime, value: now },
           };
           await executeQuery(insertQuery, insertParams, transaction);
         }
@@ -86,14 +93,10 @@ router.post('/save-permissions', async (req, res, next) => {
       res.status(200).json({ message: 'Permissions saved successfully!' });
     } catch (err) {
       await transaction.rollback();
-      // console.error('Transaction error in save-permissions:', error.stack);
-          next(err);
-      throw err;
+      next(err);
     }
   } catch (err) {
-    // console.error('Error saving permissions:', err.stack);
-        next(err);
-    res.status(500).json({ message: 'Error saving permissions', error: error.message });
+    next(err);
   }
 });
 
@@ -110,7 +113,7 @@ router.get('/permissions', async (req, res, next) => {
   } catch (err) {
     // console.error('Error fetching permissions:', error.stack);
         next(err);
-    res.status(500).json({ message: 'Error fetching permissions', error: err.message });
+    res.status(500).json({ message: 'Error fetching permissions', err: err.message });
   }
 });
 

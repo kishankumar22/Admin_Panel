@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usePermissions } from '../context/PermissionsContext';
 
 interface User {
   user_id: number;
@@ -25,13 +26,9 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const { isLoggedIn, user } = useAuth() as AuthContextType;
-  const location = useLocation(); // To get the current path
-
-  // console.log('ProtectedRoute Debug:');
-  // console.log('isLoggedIn:', isLoggedIn);
-  // console.log('user:', user);
-  // console.log('user.roleId:', user?.roleId);
-  // console.log('current path:', location.pathname);
+  const { permissions, pages } = usePermissions();
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   // If user is not logged in, redirect to signin
   if (!isLoggedIn || !user) {
@@ -39,37 +36,31 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/auth/signin" replace />;
   }
 
-  // Define allowed paths for Role ID 3
-  const allowedPathsForRole3 = ['/', '/adduser'];
-
-  // Define JK Management paths that should be restricted for Role ID 3
-  const jkManagementPaths = [
-    '/addnotifications',
-    '/addbanner',
-    '/addpicingallery',
-    '/addimportentlinks',
-    '/addfaculity',
-    '/latestpost',
-  ];
-
-  // Check if user has Role ID 3 and is trying to access a restricted page
-  if (user.roleId === 3) {
-    const isTryingToAccessRestrictedPath = !allowedPathsForRole3.includes(location.pathname);
-    const isTryingToAccessJKManagement = jkManagementPaths.includes(location.pathname);
-
-    if (isTryingToAccessRestrictedPath) {
-      console.log(`Redirecting to /unauthorized because roleId 3 user is trying to access ${location.pathname}`);
-      return <Navigate to="/unauthorized" replace />;
-    }
-
-    // If trying to access JK Management paths, redirect to unauthorized
-    if (isTryingToAccessJKManagement) {
-      console.log(`Redirecting to /unauthorized because roleId 3 user is trying to access JK Management path: ${location.pathname}`);
-      return <Navigate to="/unauthorized" replace />;
-    }
+  // Always allow access to Dashboard
+  if (currentPath === '/') {
+    return <>{children}</>;
   }
 
-  // console.log('Access granted');
+  // Administrators (roleId === 2) have access to all pages
+  if (user.roleId === 2) {
+    return <>{children}</>;
+  }
+
+  // Find the page by matching pageUrl with currentPath
+  const page = pages.find(p => p.pageUrl === currentPath);
+  if (!page) {
+    console.log(`Redirecting to /unauthorized because page not found for path: ${currentPath}`);
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Find permissions for the page and user's role
+  const permission = permissions.find(p => p.pageId === page.pageId && p.roleId === user.roleId);
+  if (!permission || !(permission.canCreate || permission.canRead || permission.canUpdate || permission.canDelete)) {
+    console.log(`Redirecting to /unauthorized because user (roleId: ${user.roleId}) has no permissions for path: ${currentPath}`);
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Access granted if permissions exist
   return <>{children}</>;
 };
 

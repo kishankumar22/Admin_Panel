@@ -15,7 +15,8 @@ const AssignRolePage: React.FC = () => {
     handleActionChange,
     savePermissions,
     fetchPermissions,
-  fetchRoles,fetchPages  } = usePermissions();
+    fetchRoles,
+    fetchPages  } = usePermissions();
 //  console.log(roles)
 //  console.log(pages)
  useEffect(() => {

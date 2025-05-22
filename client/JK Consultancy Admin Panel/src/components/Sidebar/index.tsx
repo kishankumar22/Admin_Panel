@@ -15,6 +15,7 @@ import { FaHandHoldingUsd, FaMoneyBill, FaUserPlus } from "react-icons/fa";
 import { PiStudent } from "react-icons/pi";
 import { IoIosPersonAdd } from "react-icons/io";
 import { ClipboardList } from 'lucide-react';
+import { usePermissions } from '../../context/PermissionsContext';
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -32,7 +33,12 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const [sidebarExpanded, setSidebarExpanded] = useState(
     storedSidebarExpanded === null ? false : storedSidebarExpanded === 'true'
   );
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null); // Track which dropdown is open
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+
+  const { user } = useAuth();
+  const { permissions, pages } = usePermissions();
+  const roleId = user?.roleId ;
+   // Default to 1 (Admin) if roleId is undefined
 
   useEffect(() => {
     const clickHandler = (event: MouseEvent) => {
@@ -45,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     };
     document.addEventListener('click', clickHandler);
     return () => document.removeEventListener('click', clickHandler);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, setSidebarOpen]);
 
   useEffect(() => {
     const keyHandler = ({ keyCode }: KeyboardEvent) => {
@@ -54,20 +60,60 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     };
     document.addEventListener('keydown', keyHandler);
     return () => document.removeEventListener('keydown', keyHandler);
-  }, [sidebarOpen]);
+  }, [sidebarOpen, setSidebarOpen]);
 
   useEffect(() => {
     localStorage.setItem('sidebar-expanded', sidebarExpanded.toString());
     document.querySelector('body')?.classList.toggle('sidebar-expanded', sidebarExpanded);
   }, [sidebarExpanded]);
 
-  const { user } = useAuth();
-  const role = user?.roleId || 'admin';
-
   const handleDropdownClick = (dropdownId: string) => {
     setOpenDropdown(openDropdown === dropdownId ? null : dropdownId);
     if (!sidebarExpanded) setSidebarExpanded(true);
   };
+
+  // Helper function to check if a page should be visible based on permissions
+  const hasPagePermission = (pageUrl: string): boolean => {
+    if (roleId === 2) return true; // Administrators see all pages
+    const page = pages.find(p => p.pageUrl === pageUrl);
+    if (!page) return false;
+    const permission = permissions.find(p => p.pageId === page.pageId && p.roleId === roleId);
+    if (!permission) return false;
+    return permission.canCreate || permission.canRead || permission.canUpdate || permission.canDelete;
+  };
+
+  // Helper function to check if a dropdown group should be visible
+  const hasGroupPermission = (pageUrls: string[]): boolean => {
+    if (roleId === 2) return true; // Administrators see all groups
+    return pageUrls.some(url => hasPagePermission(url));
+  };
+
+  // Define page URLs for each dropdown group
+  const jkManagementPages = [
+    '/addnotifications',
+    '/addbanner',
+    '/addpicingallery',
+    '/addimportentlinks',
+    '/addfaculity',
+    '/latestpost'
+  ];
+
+  const studentManagementPages = [
+    '/student',
+    '/managePayment',
+    '/paymenthandover',
+    '/CourseQueries'
+  ];
+
+  const supplierManagementPages = [
+    '/managesupplier',
+    '/manageExpense'
+  ];
+
+  const configurationPages = [
+    '/assign-page-to-role',
+    '/page-management'
+  ];
 
   return (
     <aside
@@ -75,8 +121,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       className={`absolute left-0 top-0 z-9999 flex h-screen w-52 flex-col overflow-y-hidden bg-black duration-300 ease-linear dark:bg-boxdark lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
     >
       <div className="flex items-center justify-between gap-2 px-3 py-3">
-        <NavLink to="/" >
-          <h1 className="text-sm font-bold text-blue-400 ml-8 ">ADMIN PANEL</h1>
+        <NavLink to="/">
+          <h1 className="text-sm font-bold text-blue-400 ml-8">ADMIN PANEL</h1>
         </NavLink>
         <button
           ref={trigger}
@@ -97,6 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
       <div className="no-scrollbar flex flex-col overflow-y-auto duration-300 ease-linear">
         <nav className="px-2">
           <ul className="flex flex-col gap-0.5">
+            {/* Dashboard is always visible */}
             <li>
               <NavLink
                 to="/"
@@ -109,7 +156,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </NavLink>
             </li>
 
-            {role !== 3 && (
+            {/* JK Management Dropdown */}
+            {hasGroupPermission(jkManagementPages) && (
               <SidebarLinkGroup activeCondition={pathname === '/forms' || pathname.includes('forms')}>
                 {() => (
                   <>
@@ -128,76 +176,87 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                       />
                     </NavLink>
                     <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${openDropdown === 'jk-management' ? 'max-h-96' : 'max-h-0'
-                        }`}
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${openDropdown === 'jk-management' ? 'max-h-96' : 'max-h-0'}`}
                     >
-                      <ul className="mt-1 flex flex-col gap-0.5 pl-4 ">
-                        <li >
-                          <NavLink
-                            to="/addnotifications"
-                            className={({ isActive }) =>
-                              `group flex items-center  rounded-md  gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <MdOutlineNotificationAdd className="w-3.5 h-3.5" />
-                            Add Notification
-                          </NavLink>
-                        </li>
-                        <li>
-                          <NavLink
-                            to="/addbanner"
-                            className={({ isActive }) =>
-                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <RiImageAddFill className="w-3.5 h-3.5" />
-                            Update Banner
-                          </NavLink>
-                        </li>
-                        <li>
-                          <NavLink
-                            to="/addpicingallery"
-                            className={({ isActive }) =>
-                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <BiSolidImageAdd className="w-3.5 h-3.5" />
-                            Update Gallery
-                          </NavLink>
-                        </li>
-                        <li>
-                          <NavLink
-                            to="/addimportentlinks"
-                            className={({ isActive }) =>
-                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <BiImageAdd className="w-3.5 h-3.5" />
-                            Update Logo
-                          </NavLink>
-                        </li>
-                        <li>
-                          <NavLink
-                            to="/addfaculity"
-                            className={({ isActive }) =>
-                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <CgProfile className="w-3.5 h-3.5" />
-                            Add Faculty
-                          </NavLink>
-                        </li>
-                        <li>
-                          <NavLink
-                            to="/latestpost"
-                            className={({ isActive }) =>
-                              `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                            }
-                          >
-                            <MdOutlinePostAdd className="w-3.5 h-3.5" />
-                            Add Latest Post
-                          </NavLink>
-                        </li>
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                        {hasPagePermission('/addnotifications') && (
+                          <li>
+                            <NavLink
+                              to="/addnotifications"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdOutlineNotificationAdd className="w-3.5 h-3.5" />
+                              Add Notification
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/addbanner') && (
+                          <li>
+                            <NavLink
+                              to="/addbanner"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <RiImageAddFill className="w-3.5 h-3.5" />
+                              Update Banner
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/addpicingallery') && (
+                          <li>
+                            <NavLink
+                              to="/addpicingallery"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <BiSolidImageAdd className="w-3.5 h-3.5" />
+                              Update Gallery
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/addimportentlinks') && (
+                          <li>
+                            <NavLink
+                              to="/addimportentlinks"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <BiImageAdd className="w-3.5 h-3.5" />
+                              Update Logo
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/addfaculity') && (
+                          <li>
+                            <NavLink
+                              to="/addfaculity"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <CgProfile className="w-3.5 h-3.5" />
+                              Add Faculty
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/latestpost') && (
+                          <li>
+                            <NavLink
+                              to="/latestpost"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdOutlinePostAdd className="w-3.5 h-3.5" />
+                              Add Latest Post
+                            </NavLink>
+                          </li>
+                        )}
                       </ul>
                     </div>
                   </>
@@ -205,198 +264,214 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
               </SidebarLinkGroup>
             )}
 
+            {/* Manage Student Dropdown */}
+            {hasGroupPermission(studentManagementPages) && (
+              <SidebarLinkGroup activeCondition={pathname === '/students' || pathname.includes('students')}>
+                {() => (
+                  <>
+                    <NavLink
+                      to="#"
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDropdownClick('students');
+                      }}
+                    >
+                      <PiStudent className="w-4 h-4" />
+                      Manage Student
+                      <IoIosArrowDown
+                        className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
+                      />
+                    </NavLink>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'students' ? 'max-h-96' : 'max-h-0'}`}
+                    >
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                        {hasPagePermission('/student') && (
+                          <li>
+                            <NavLink
+                              to="/student"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <IoIosPersonAdd className="w-3.5 h-3.5" />
+                              Manage Students
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/managePayment') && (
+                          <li>
+                            <NavLink
+                              to="/managePayment"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <FaMoneyBill className="w-3.5 h-3.5" />
+                              Manage Payment
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/paymenthandover') && (
+                          <li>
+                            <NavLink
+                              to="/paymenthandover"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <FaHandHoldingUsd className="w-4 h-4" />
+                              Manage Handover
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/CourseQueries') && (
+                          <li>
+                            <NavLink
+                              to="/CourseQueries"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <ClipboardList className="w-4 h-4" />
+                              Manage Queries
+                            </NavLink>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </SidebarLinkGroup>
+            )}
 
-            <SidebarLinkGroup activeCondition={pathname === '/students' || pathname.includes('students')}>
-              {() => (
-                <>
-                  <NavLink
-                    to="#"
-                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDropdownClick('students');
-                    }}
-                  >
-                    <PiStudent className="w-4 h-4" />
-                    Manage Student
-                    <IoIosArrowDown
-                      className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
-                    />
-                  </NavLink>
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'students' ? 'max-h-96' : 'max-h-0'
-                      }`}
-                  >
-                    <ul className="mt-1 flex flex-col gap-0.5 pl-4">
-                      <li>
-                        <NavLink
-                          to="/student"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                          }
-                        >
-                          < IoIosPersonAdd className="w-3.5 h-3.5" />
-                          Manage Students
-                        </NavLink>
-                      </li>
-                      <li>
-                        <NavLink
-                          to="/managePayment"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                          }
-                        >
-                          < FaMoneyBill className="w-3.5 h-3.5" />
-                          Manage Payment
-                        </NavLink>
-                      </li>
+            {/* Manage Supplier Dropdown */}
+            {hasGroupPermission(supplierManagementPages) && (
+              <SidebarLinkGroup activeCondition={pathname === '/managesupplier' || pathname.includes('managesupplier')}>
+                {() => (
+                  <>
+                    <NavLink
+                      to="#"
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDropdownClick('managesupplier');
+                      }}
+                    >
+                      <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                      Manage Supplier
+                      <IoIosArrowDown
+                        className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'managesupplier' && 'rotate-180'}`}
+                      />
+                    </NavLink>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'managesupplier' ? 'max-h-96' : 'max-h-0'}`}
+                    >
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                        {hasPagePermission('/managesupplier') && (
+                          <li>
+                            <NavLink
+                              to="/managesupplier"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdOutlineMiscellaneousServices className="w-3.5 h-3.5" />
+                              Manage Supplier
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/manageExpense') && (
+                          <li>
+                            <NavLink
+                              to="/manageExpense"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <FaMoneyBill className="w-3.5 h-3.5" />
+                              Manage Expense
+                            </NavLink>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </SidebarLinkGroup>
+            )}
 
-                      <li>
-                        <NavLink
-                          to="/paymenthandover"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'
-                            }`
-                          }
-                        >
-                          <FaHandHoldingUsd className="w-4 h-4" />
-                          Manage Handover
-                        </NavLink>
-                      </li>
+            {/* Configuration Dropdown */}
+            {hasGroupPermission(configurationPages) && (
+              <SidebarLinkGroup activeCondition={pathname === '/configuration' || pathname.includes('configuration')}>
+                {() => (
+                  <>
+                    <NavLink
+                      to="#"
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDropdownClick('configuration');
+                      }}
+                    >
+                      <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                      Configuration
+                      <IoIosArrowDown
+                        className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'configuration' && 'rotate-180'}`}
+                      />
+                    </NavLink>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'configuration' ? 'max-h-96' : 'max-h-0'}`}
+                    >
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                        {hasPagePermission('/assign-page-to-role') && (
+                          <li>
+                            <NavLink
+                              to="/assign-page-to-role"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdOutlineAssignmentTurnedIn className="w-3.5 h-3.5" />
+                              Assign Page to Role
+                            </NavLink>
+                          </li>
+                        )}
+                        {hasPagePermission('/page-management') && (
+                          <li>
+                            <NavLink
+                              to="/page-management"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdCreateNewFolder className="w-3.5 h-3.5" />
+                              Create Page
+                            </NavLink>
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </SidebarLinkGroup>
+            )}
 
-                      <li>
-                        <NavLink
-                          to="/CourseQueries"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'
-                            }`
-                          }
-                        >
-                            <ClipboardList className="w-4 h-4" />
-
-                          Manage Queries
-                        </NavLink>
-                      </li>
-
-                    </ul>
-                  </div>
-                </>
-              )}
-            </SidebarLinkGroup>
-            {/* Manage Suppliers */}
-            <SidebarLinkGroup activeCondition={pathname === '/managesupplier' || pathname.includes('managesupplier')}>
-              {() => (
-                <>
-                  <NavLink
-                    to="#"
-                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDropdownClick('managesupplier');
-                    }}
-                  >
-                    <MdOutlineMiscellaneousServices className="w-4 h-4" />
-                    Manage Supplier
-                    <IoIosArrowDown
-                      className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'students' && 'rotate-180'}`}
-                    />
-                  </NavLink>
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'managesupplier' ? 'max-h-96' : 'max-h-0'
-                      }`}
-                  >
-                    <ul className="mt-1 flex flex-col gap-0.5 pl-4">
-                      <li>
-                        <NavLink
-                          to="/managesupplier"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                          }
-                        >
-                          <MdOutlineMiscellaneousServices className="w-3.5 h-3.5" />
-                          Manage Supplier
-                        </NavLink>
-                      </li>
-                      <li>
-                        <NavLink
-                          to="/manageExpense"
-                          className={({ isActive }) =>
-                          `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                          }
-                        >
-                          <FaMoneyBill className="w-3.5 h-3.5" />
-                          Manage Expense
-                        </NavLink>
-                      </li>
-                     
-
-                    </ul>
-                  </div>
-                </>
-              )}
-            </SidebarLinkGroup>
-
-            <SidebarLinkGroup activeCondition={pathname === '/configuration' || pathname.includes('configuration')}>
-              {() => (
-                <>
-                  <NavLink
-                    to="#"
-                    className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4 `}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDropdownClick('configuration');
-                    }}
-                  >
-                    <MdOutlineMiscellaneousServices className="w-4 h-4 " />
-                    Configuration
-                    <IoIosArrowDown
-                      className={`absolute  right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'configuration' && 'rotate-180 '}`}
-                    />
-                  </NavLink>
-                  <div
-                    className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'configuration' ? 'max-h-96' : 'max-h-0'
-                      }`}
-                  >
-                    <ul className="mt-1 flex flex-col gap-0.5 pl-4">
-                      <li>
-                        <NavLink
-                          to="/assign-page-to-role"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
-                          }
-                        >
-                          <MdOutlineAssignmentTurnedIn className="w-3.5 h-3.5" />
-                          Assign Page to Role
-                        </NavLink>
-                      </li>
-                      <li>
-                        <NavLink
-                          to="/page-management"
-                          className={({ isActive }) =>
-                            `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg bg-gray-500'}`
-                          }
-                        >
-                          <MdCreateNewFolder className="w-3.5 h-3.5" />
-                          Create Page
-                        </NavLink>
-                      </li>
-                    </ul>
-                  </div>
-                </>
-              )}
-            </SidebarLinkGroup>
-            <li>
-              <NavLink
-                to="/adduser"
-                className={({ isActive }) =>
-                  `group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white  bg-gray-500'}`
-                }
-              >
-                <FaUserPlus className="w-4 h-4" />
-                Manage User
-              </NavLink>
-            </li>
-
+            {/* Manage User */}
+            {hasPagePermission('/adduser') && (
+              <li>
+                <NavLink
+                  to="/adduser"
+                  className={({ isActive }) =>
+                    `group flex items-center gap-2 px-3 py-1.5 rounded-md text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                  }
+                >
+                  <FaUserPlus className="w-4 h-4" />
+                  Manage User
+                </NavLink>
+              </li>
+            )}
           </ul>
         </nav>
       </div>

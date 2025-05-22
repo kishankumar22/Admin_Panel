@@ -78,7 +78,7 @@ router.put('/updatePage/:pageId', async (req, res, next) => {
     const result = await executeQuery(query, {
       pageId: { type: sql.Int, value: parseInt(pageId) },
       pageName: { type: sql.NVarChar, value: pageName || existing.recordset[0].pageName },
-      pageUrl: { type: sql.NVarChar, value: pageUrl ? `/${pageUrl}` : existing.recordset[0].pageUrl },
+      pageUrl: { type: sql.NVarChar, value: pageUrl ? `${pageUrl}` : existing.recordset[0].pageUrl },
       modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 

@@ -26,6 +26,7 @@ interface Permission {
   canRead: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  pageUrl: string;
 }
 
 type ActionSelection = {
