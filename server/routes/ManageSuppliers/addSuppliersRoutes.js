@@ -20,7 +20,7 @@ router.get('/supplier/:supplierId/documents', async (req, res, next) => {
   try {
     const { supplierId } = req.params;
     const query = `
-      SELECT DocumentId, SupplierId, DocumentUrl, PublicId, CreatedOn
+      SELECT DocumentId, SupplierId, DocumentUrl, PublicId, DocumentType,CreatedOn
       FROM SupplierDocuments
       WHERE SupplierId = @supplierId
     `;
@@ -93,31 +93,36 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
   try {
     const { id } = req.params;
     const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
-    const files = req.files; // Get uploaded files
+    const files = req.files;
 
-    console.log('Received PUT request body:', { id, name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy, files: files?.length });
+    // Validate required fields
+    if (!modifiedBy) {
+      return res.status(400).json({ success: false, message: 'ModifiedBy field is required' });
+    }
 
+    // Check if supplier exists
     const supplierCheck = await executeQuery(
-      'SELECT * FROM Suppliers WHERE SupplierId = @SupplierId',
+      'SELECT * FROM Suppliers WHERE SupplierId = @SupplierId AND Deleted = 0',
       {
         SupplierId: { type: sql.Int, value: parseInt(id) },
       }
     );
 
     if (supplierCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Supplier not found' });
+      return res.status(404).json({ success: false, message: 'Supplier not found' });
     }
 
     const currentSupplier = supplierCheck.recordset[0];
 
+    // Prepare dynamic updates
     const updates = [];
     const params = {
       SupplierId: { type: sql.Int, value: parseInt(id) },
-      ModifiedBy: { type: sql.NVarChar, value: modifiedBy || 'admin' },
+      ModifiedBy: { type: sql.NVarChar, value: modifiedBy },
       ModifiedOn: { type: sql.DateTime, value: new Date() },
     };
 
-    // Check for changes in supplier fields
+    // Field validation and update preparation
     if (name && name !== currentSupplier.Name) {
       const nameCheck = await executeQuery(
         'SELECT SupplierId FROM Suppliers WHERE Name = @Name AND SupplierId != @SupplierId AND Deleted = 0',
@@ -127,18 +132,24 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
         }
       );
       if (nameCheck.recordset.length > 0) {
-        return res.status(400).json({ message: 'Supplier with this name already exists' });
+        return res.status(400).json({ success: false, message: 'Supplier with this name already exists' });
       }
       updates.push('Name = @Name');
       params.Name = { type: sql.NVarChar, value: name };
     }
 
     if (email && email !== currentSupplier.Email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ success: false, message: 'Invalid email format' });
+      }
       updates.push('Email = @Email');
       params.Email = { type: sql.NVarChar, value: email };
     }
 
     if (phoneNo && phoneNo !== currentSupplier.PhoneNo) {
+      if (!/^[0-9]{10,15}$/.test(phoneNo)) {
+        return res.status(400).json({ success: false, message: 'Invalid phone number format' });
+      }
       updates.push('PhoneNo = @PhoneNo');
       params.PhoneNo = { type: sql.NVarChar, value: phoneNo };
     }
@@ -148,13 +159,15 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
       params.Address = { type: sql.NVarChar, value: address };
     }
 
-    if (amount && parseFloat(amount) !== currentSupplier.Amount) {
+    if (amount) {
       const amountNum = parseFloat(amount);
-      if (isNaN(amountNum) || amountNum <= 0) {
-        return res.status(400).json({ message: 'Amount must be a valid number greater than 0' });
+      if (isNaN(amountNum) || amountNum < 0) {
+        return res.status(400).json({ success: false, message: 'Amount must be a valid positive number' });
       }
-      updates.push('Amount = @Amount');
-      params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
+      if (amountNum !== currentSupplier.Amount) {
+        updates.push('Amount = @Amount');
+        params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
+      }
     }
 
     if (bankName && bankName !== currentSupplier.BankName) {
@@ -168,22 +181,24 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
     }
 
     if (ifscCode && ifscCode !== currentSupplier.IFSCCode) {
+      if (!/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(ifscCode)) {
+        return res.status(400).json({ success: false, message: 'Invalid IFSC code format' });
+      }
       updates.push('IFSCCode = @IFSCCode');
-      params.IFSCCode = { type: sql.NVarChar, value: ifscCode };
+      params.IFSCCode = { type: sql.NVarChar, value: ifscCode.toUpperCase() };
     }
 
-    if (comment && comment !== currentSupplier.Comment) {
+    if (comment !== undefined && comment !== currentSupplier.Comment) {
       updates.push('Comment = @Comment');
-      params.Comment = { type: sql.NVarChar, value: comment };
+      params.Comment = { type: sql.NVarChar, value: comment || null };
     }
 
- 
-    // Update supplier details if there are changes in the fields
+    // Update supplier if there are changes
     if (updates.length > 0) {
       const updateQuery = `
         UPDATE Suppliers
         SET ${updates.join(', ')}, ModifiedBy = @ModifiedBy, ModifiedOn = @ModifiedOn
-        WHERE SupplierId = @SupplierId AND Deleted = 0
+        WHERE SupplierId = @SupplierId
       `;
       await executeQuery(updateQuery, params);
     }
@@ -194,7 +209,11 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
         // Upload to Cloudinary
         const result = await new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
-            { resource_type: 'auto' },
+            { 
+              resource_type: 'auto',
+              folder: 'Supplier',
+              allowed_formats: ['jpg', 'png', 'pdf', 'jpeg', 'doc', 'docx']
+            },
             (error, result) => {
               if (error) reject(error);
               else resolve(result);
@@ -203,23 +222,49 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
           stream.end(file.buffer);
         });
 
-        // Insert into SupplierDocuments
+        // Insert into SupplierDocuments with DocumentType
         await executeQuery(
-          'INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn) VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)',
+          `INSERT INTO SupplierDocuments 
+           (SupplierId, DocumentUrl, PublicId, DocumentType, CreatedOn) 
+           VALUES (@SupplierId, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
           {
             SupplierId: { type: sql.Int, value: parseInt(id) },
             DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
             PublicId: { type: sql.NVarChar, value: result.public_id },
+            DocumentType: { type: sql.NVarChar, value: 'SupplierDocument' },
             CreatedOn: { type: sql.DateTime, value: new Date() },
           }
         );
       }
     }
 
-    res.status(200).json({ message: 'Supplier updated successfully', success: true });
+    res.status(200).json({ 
+      success: true, 
+      message: 'Supplier updated successfully',
+      supplierId: id
+    });
+
   } catch (err) {
     console.error('Error updating supplier:', err);
-    res.status(500).json({ message: 'Failed to update supplier' });
+    
+    // Delete any uploaded files if error occurred
+    if (req.files?.length > 0) {
+      try {
+        for (const file of req.files) {
+          if (file.public_id) {
+            await cloudinary.uploader.destroy(file.public_id);
+          }
+        }
+      } catch (cloudinaryErr) {
+        console.error('Error cleaning up Cloudinary uploads:', cloudinaryErr);
+      }
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update supplier',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
     next(err);
   }
 });
@@ -544,20 +589,24 @@ router.post('/expenses', upload.array('files'), async (req, res, next) => {
     console.log('Received POST request body:', { SupplierId, Reason, Amount, CreatedBy });
     console.log('Received files:', files.length);
 
+    // Validate required fields
     if (!SupplierId || !Reason || !Amount || !CreatedBy) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
+    // Validate SupplierId
     const supplierIdNum = parseInt(SupplierId);
     if (isNaN(supplierIdNum)) {
       return res.status(400).json({ message: 'SupplierId must be a valid number' });
     }
 
+    // Validate Amount
     const amountNum = parseFloat(Amount);
     if (isNaN(amountNum)) {
       return res.status(400).json({ message: 'Amount must be a valid number' });
     }
 
+    // Check if SupplierId exists and is not deleted
     const supplierCheck = await executeQuery(
       'SELECT SupplierId FROM Suppliers WHERE SupplierId = @SupplierId AND Deleted = 0',
       {
@@ -571,6 +620,7 @@ router.post('/expenses', upload.array('files'), async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid SupplierId' });
     }
 
+    // Insert the expense
     const currentDate = new Date();
     const expenseResult = await executeQuery(
       `INSERT INTO SupplierExpenses (SupplierId, Reason, Amount, Deleted, CreatedOn, CreatedBy)
@@ -589,6 +639,7 @@ router.post('/expenses', upload.array('files'), async (req, res, next) => {
 
     const expenseId = expenseResult.recordset[0].SuppliersExpenseID;
 
+    // Process file uploads and insert into SupplierDocuments with DocumentType
     const documentPromises = files.map(async (file) => {
       try {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -601,13 +652,15 @@ router.post('/expenses', upload.array('files'), async (req, res, next) => {
 
             console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
 
+            // Insert document with DocumentType set to 'ExpenseDocument'
             await executeQuery(
-              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn)
-               VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)`,
+              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, DocumentType, CreatedOn)
+               VALUES (@SupplierId, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
               {
                 SupplierId: { type: sql.Int, value: supplierIdNum },
                 DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
                 PublicId: { type: sql.NVarChar, value: result.public_id },
+                DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' }, // Default value
                 CreatedOn: { type: sql.DateTime, value: currentDate },
               }
             );
@@ -641,6 +694,7 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
     console.log('Received PUT request body:', { id, SupplierId, Reason, Amount, ModifiedBy });
     console.log('Received files:', files.length);
 
+    // Check if the expense exists and is not deleted
     const expenseCheck = await executeQuery(
       'SELECT SupplierId, Reason, Amount FROM SupplierExpenses WHERE SuppliersExpenseID = @Id AND Deleted = 0',
       {
@@ -661,6 +715,7 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
       ModifiedBy: { type: sql.NVarChar, value: ModifiedBy || 'admin' },
     };
 
+    // Validate and prepare updates for SupplierId
     if (SupplierId && SupplierId !== currentExpense.SupplierId.toString()) {
       const supplierIdNum = parseInt(SupplierId);
       if (isNaN(supplierIdNum)) {
@@ -679,11 +734,13 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
       params.SupplierId = { type: sql.Int, value: supplierIdNum };
     }
 
+    // Validate and prepare updates for Reason
     if (Reason && Reason !== currentExpense.Reason) {
       updates.push('Reason = @Reason');
       params.Reason = { type: sql.NVarChar, value: Reason };
     }
 
+    // Validate and prepare updates for Amount
     if (Amount && parseFloat(Amount) !== currentExpense.Amount) {
       const amountNum = parseFloat(Amount);
       if (isNaN(amountNum)) {
@@ -693,10 +750,12 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
       params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
     }
 
+    // If no updates and no files, return early
     if (updates.length === 0 && files.length === 0) {
       return res.status(200).json({ message: 'No changes detected' });
     }
 
+    // Perform the update if there are changes
     if (updates.length > 0) {
       const updateQuery = `
         UPDATE SupplierExpenses
@@ -706,6 +765,7 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
       await executeQuery(updateQuery, params);
     }
 
+    // Process file uploads and insert into SupplierDocuments with DocumentType
     const documentPromises = files.map(async (file) => {
       try {
         const uploadStream = cloudinary.uploader.upload_stream(
@@ -718,13 +778,15 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
 
             console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
 
+            // Insert document with DocumentType set to 'ExpenseDocument'
             await executeQuery(
-              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, CreatedOn)
-               VALUES (@SupplierId, @DocumentUrl, @PublicId, @CreatedOn)`,
+              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, DocumentType, CreatedOn)
+               VALUES (@SupplierId, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
               {
                 SupplierId: { type: sql.Int, value: parseInt(SupplierId || currentExpense.SupplierId) },
                 DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
                 PublicId: { type: sql.NVarChar, value: result.public_id },
+                DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' }, // Default value
                 CreatedOn: { type: sql.DateTime, value: new Date() },
               }
             );

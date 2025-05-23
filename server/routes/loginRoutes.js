@@ -72,58 +72,124 @@ async function sendOTPEmail(email, otp) {
 }
 
 // User Login Route (first step)
+
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password, rememberMe, skipOTP } = req.body;
 
-    // Validate input
-    if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+  // Validate input
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  try {
+    const pool = await db.poolConnect;
+    const query = 'SELECT * FROM [user] WHERE email = @email';
+    const request = pool.request();
+    request.input('email', sql.VarChar, email);
+
+    const result = await request.query(query);
+
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    try {
-        const pool = await db.poolConnect;
-        const query = 'SELECT * FROM [user] WHERE email = @email';
-        const request = pool.request();
-        request.input('email', sql.VarChar, email);
+    const user = result.recordset[0];
+    const passwordMatch = await bcrypt.compare(password, user.password);
 
-        const result = await request.query(query);
-
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        const user = result.recordset[0];
-        const passwordMatch = await bcrypt.compare(password, user.password);
-
-        if (!passwordMatch) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        // Generate OTP
-        const otp = generateOTP();
-        otpStore.set(email, {
-            otp,
-            expiresAt: Date.now() + 600000, // 10 minutes
-            attempts: 0,
-        });
-
-        // Send OTP email
-        await sendOTPEmail(email, otp);
-
-        // Return response without sensitive data
-        const { password: _, ...userDetails } = user;
-
-        return res.status(200).json({
-            success: true,
-            message: 'OTP sent to email',
-            user: userDetails,
-        });
-    } catch (error) {
-        console.error('❌ Login error:', error);
-        return res.status(500).json({
-            error: 'An error occurred during login. Please try again.',
-        });
+    if (!passwordMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    if (skipOTP) {
+      // Skip OTP verification for remembered devices
+      const { password: _, ...userDetails } = user;
+      return res.status(200).json({
+        success: true,
+        token,
+        user: userDetails,
+        skipOTP: true
+      });
+    }
+
+    // Generate and store OTP
+    const otp = generateOTP();
+    otpStore.set(email, {
+      otp,
+      expiresAt: Date.now() + 600000, // 10 minutes
+      attempts: 0,
+      token, // Store token with OTP
+    });
+
+    // Send OTP email
+    await sendOTPEmail(email, otp);
+
+    // Return response without sensitive data
+    const { password: _, ...userDetails } = user;
+
+    return res.status(200).json({
+      success: true,
+      message: 'OTP sent to email',
+      user: userDetails,
+      token
+    });
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    return res.status(500).json({
+      error: 'An error occurred during login. Please try again.'
+    });
+  }
+});
+
+router.post('/verify-otp', async (req, res) => {
+  const { email, otp } = req.body;
+
+  if (!email || !otp) {
+    return res.status(400).json({ error: 'Email and OTP are required' });
+  }
+
+  try {
+    const storedOTP = otpStore.get(email);
+
+    if (!storedOTP) {
+      return res.status(400).json({ error: 'No OTP found for this email' });
+    }
+
+    if (Date.now() > storedOTP.expiresAt) {
+      otpStore.delete(email);
+      return res.status(400).json({ error: 'OTP has expired' });
+    }
+
+    if (storedOTP.attempts >= 3) {
+      otpStore.delete(email);
+      return res.status(400).json({ error: 'Too many attempts. Please request a new OTP' });
+    }
+
+    if (storedOTP.otp !== otp) {
+      storedOTP.attempts += 1;
+      otpStore.set(email, storedOTP);
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+
+    // OTP is valid, clear it and return stored token
+    otpStore.delete(email);
+    return res.status(200).json({
+      success: true,
+      token: storedOTP.token,
+      message: 'OTP verified successfully'
+    });
+  } catch (error) {
+    console.error('❌ OTP verification error:', error);
+    return res.status(500).json({
+      error: 'An error occurred during OTP verification. Please try again.'
+    });
+  }
 });
 
 // Verify OTP Route

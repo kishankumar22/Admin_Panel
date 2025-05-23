@@ -1,4 +1,3 @@
-// components/SignIn.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -10,6 +9,7 @@ import OTPVerificationModal from "./OTPVerificationModal";
 const SignIn: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showOTPModal, setShowOTPModal] = useState<boolean>(false);
@@ -17,35 +17,83 @@ const SignIn: React.FC = () => {
   const { isLoggedIn, login } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    // Check if user is remembered on this device
+    const rememberedUser = localStorage.getItem('rememberedUser');
+    if (rememberedUser && isLoggedIn) {
+      navigate("/");
+    }
+  }, [isLoggedIn, navigate]);
+
   const togglePasswordVisibility = () => {
     setShowPassword((prev) => !prev);
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setErrorMessage(null);
 
     try {
-      const response = await axiosInstance.post("/login", { email, password });
+      // Check if user is remembered
+      const rememberedUser = localStorage.getItem('rememberedUser');
+      if (rememberedUser === email) {
+        const response = await axiosInstance.post("/login", { 
+          email, 
+          password,
+          skipOTP: true 
+        });
+        
+        if (response.status === 200) {
+          login(response.data.token, response.data.user);
+          navigate("/", { state: { loginSuccess: true } });
+          toast.success("Login successful");
+        }
+        return;
+      }
+
+      const response = await axiosInstance.post("/login", { 
+        email, 
+        password,
+        rememberMe 
+      });
       const data = response.data;
 
       if (response.status === 200) {
-        // Store login data but don't login yet
-        setLoginData(data);
-        // Show OTP modal
-        setShowOTPModal(true);
-        toast.info("OTP sent to your email");
+        if (data.skipOTP) {
+          // Direct login for remembered devices
+          login(data.token, data.user);
+          if (rememberMe) {
+            localStorage.setItem('rememberedUser', email);
+          }
+          navigate("/", { state: { loginSuccess: true } });
+          toast.success("Login successful");
+        } else {
+          // Store login data and show OTP modal
+          setLoginData(data);
+          setShowOTPModal(true);
+          toast.info("OTP sent to your email");
+        }
       }
     } catch (error: any) {
       console.error("Login error:", error);
-
+      
       if (error.response) {
-        const errorMsg =
-          error.response.data.error || "An error occurred. Please try again later.";
+        const status = error.response.status;
+        let errorMsg = "An error occurred. Please try again later.";
+        
+        if (status === 400) {
+          errorMsg = "Email and password are required";
+        } else if (status === 404) {
+          errorMsg = "User not found";
+        } else if (status === 401) {
+          errorMsg = "Invalid credentials";
+        }
+        
         setErrorMessage(errorMsg);
         toast.error(errorMsg);
       } else {
-        setErrorMessage("An error occurred. Please try again later.");
-        toast.error("An error occurred. Please try again later.");
+        setErrorMessage("Network error. Please try again later.");
+        toast.error("Network error. Please try again later.");
       }
     }
   };
@@ -53,7 +101,10 @@ const SignIn: React.FC = () => {
   const handleResendOTP = async () => {
     try {
       await axiosInstance.post("/resend-otp", { email });
-    } catch (error) {
+      toast.info("OTP resent to your email");
+    } catch (error: any) {
+      const errorMsg = error.response?.data?.error || "Failed to resend OTP";
+      toast.error(errorMsg);
       throw error;
     }
   };
@@ -61,15 +112,13 @@ const SignIn: React.FC = () => {
   const handleOTPVerificationSuccess = () => {
     if (loginData) {
       login(loginData.token, loginData.user);
+      if (rememberMe) {
+        localStorage.setItem('rememberedUser', email);
+      }
       navigate("/", { state: { loginSuccess: true } });
+      toast.success("Login successful");
     }
   };
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      navigate("/");
-    }
-  }, [isLoggedIn, navigate]);
 
   return (
     <div className="flex items-center justify-center h-screen bg-gray-100">
@@ -110,6 +159,18 @@ const SignIn: React.FC = () => {
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
+          </div>
+
+          <div className="mb-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm text-gray-700">Remember me</span>
+            </label>
           </div>
 
           <div className="flex items-center justify-between">

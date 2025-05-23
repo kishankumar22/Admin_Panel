@@ -23,6 +23,7 @@ interface Document {
   DocumentUrl: string;
   PublicId: string;
   CreatedOn: string;
+  DocumentType: string; // Added DocumentType field
 }
 
 interface Supplier {
@@ -69,12 +70,16 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [viewDocument, setViewDocument] = useState<Document | null>(null);
 
-  // Fetch documents when modal opens
+  // Fetch documents when modal opens and filter by DocumentType
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         const response = await axiosInstance.get(`/supplier/${supplier.SupplierId}/documents`);
-        setDocuments(response.data);
+        // Filter documents to only include those with DocumentType 'SupplierDocument'
+        const filteredDocuments = response.data.filter(
+          (doc: Document) => doc.DocumentType === 'SupplierDocument'
+        );
+        setDocuments(filteredDocuments);
       } catch (error) {
         toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 3000 });
       }
@@ -452,7 +457,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
               Cancel
             </button>
             <button
-              type="button" // Changed to type="button" to prevent form submission issues
+              type="button"
               onClick={handleSubmit}
               disabled={isSubmitting}
               className="px-4 py-1 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"

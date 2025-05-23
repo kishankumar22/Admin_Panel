@@ -70,7 +70,7 @@ const ManageSupplier: React.FC = () => {
   const [toDate, setToDate] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(10); // Now dynamic
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -93,7 +93,6 @@ const ManageSupplier: React.FC = () => {
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(today.getMonth() - 1);
 
-    // Format dates as YYYY-MM-DD
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -366,6 +365,14 @@ const ManageSupplier: React.FC = () => {
     }
   };
 
+  // Handle rows per page change
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRowsPerPage = parseInt(e.target.value);
+    setRowsPerPage(newRowsPerPage);
+    setCurrentPage(1); // Reset to first page when rows per page changes
+  };
+
+  // Pagination logic
   const indexOfLastSupplier = currentPage * rowsPerPage;
   const indexOfFirstSupplier = indexOfLastSupplier - rowsPerPage;
   const currentSuppliers = filteredSuppliers.slice(indexOfFirstSupplier, indexOfLastSupplier);
@@ -376,6 +383,16 @@ const ManageSupplier: React.FC = () => {
   const totalFilteredPendingAmount = filteredSuppliers.reduce((sum, supplier) => {
     return sum + (supplier.PendingAmount || 0);
   }, 0);
+
+  // Generate page numbers for pagination
+  const pageNumbers = [];
+  const maxPagesToShow = 5;
+  const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+  const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
 
   return (
     <>
@@ -402,7 +419,7 @@ const ManageSupplier: React.FC = () => {
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1">
           <div className="relative">
             <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
@@ -417,7 +434,7 @@ const ManageSupplier: React.FC = () => {
               className="w-full pl-7 pr-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
-          
+
           <div className="flex items-center gap-1">
             <div className="flex items-center">
               <span className="text-xs text-gray-600 dark:text-gray-400">From:</span>
@@ -458,7 +475,7 @@ const ManageSupplier: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            
+
             <button
               onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -466,7 +483,7 @@ const ManageSupplier: React.FC = () => {
               <FaUserPlus className="w-3.5 h-3.5" />
               <span>Add Supplier</span>
             </button>
-            
+
             <button
               onClick={handleExportToExcel}
               className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-1 focus:ring-green-500"
@@ -477,6 +494,7 @@ const ManageSupplier: React.FC = () => {
           </div>
         </div>
       </div>
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
           <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-2xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
@@ -925,31 +943,82 @@ const ManageSupplier: React.FC = () => {
           </table>
         </div>
 
-        <div className="flex items-center justify-between mt-2 px-3">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            Showing {indexOfFirstSupplier + 1} to{' '}
-            {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
-            {filteredSuppliers.length} suppliers
+        <div className="flex items-center justify-between mt-4 px-3">
+          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+            <span>
+              Showing {indexOfFirstSupplier + 1} to{' '}
+              {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
+              {filteredSuppliers.length} suppliers
+            </span>
+            <div className="flex items-center gap-1">
+              <span>Rows per page:</span>
+              <select
+                value={rowsPerPage}
+                onChange={handleRowsPerPageChange}
+                className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
+          <nav className="flex items-center space-x-1">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150"
+              className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
             >
-              <FaChevronLeft />
+              <FaChevronLeft className="w-4 h-4" />
             </button>
-            <span className="text-xs text-gray-600 dark:text-gray-400">
-              Page {currentPage} of {totalPages}
-            </span>
+            {startPage > 1 && (
+              <>
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
+                >
+                  1
+                </button>
+                {startPage > 2 && (
+                  <span className="px-2 text-xs text-gray-600">...</span>
+                )}
+              </>
+            )}
+            {pageNumbers.map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 text-xs font-medium rounded-full transition duration-150 ${
+                  currentPage === page
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            {endPage < totalPages && (
+              <>
+                {endPage < totalPages - 1 && (
+                  <span className="px-2 text-xs text-gray-600">...</span>
+                )}
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="px-2 py-1 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition duration-150"
+              className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
             >
-              <FaChevronRight />
+              <FaChevronRight className="w-4 h-4" />
             </button>
-          </div>
+          </nav>
         </div>
       </div>
     </>
