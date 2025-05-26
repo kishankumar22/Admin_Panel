@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import axiosInstance from '../../config';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
-import { FaEdit, FaPlus, FaUser, FaSearch } from 'react-icons/fa';
+import { FaEdit, FaPlus, FaUser, FaSearch, FaSpinner, FaXRay, FaTimes } from 'react-icons/fa';
 import { MdDelete } from 'react-icons/md';
 
 const CreatePage: React.FC = () => {
@@ -19,6 +19,7 @@ const CreatePage: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSearchLoading, setIsSearchLoading] = useState(false); // Added for search loader
 
   const { user } = useAuth();
   const createdBy = user?.name;
@@ -68,6 +69,7 @@ const CreatePage: React.FC = () => {
     try {
       const response = await axiosInstance.get('/pages');
       setPages(response.data);
+      console.log(response.data)
       return response.data;
     } catch (err) {
       toast.error('Error fetching pages');
@@ -97,22 +99,37 @@ const CreatePage: React.FC = () => {
     }
   };
 
+  // Handle search with loader
+  useEffect(() => {
+    setIsSearchLoading(true); // Show search loader
+    const filtered = pages.filter(page =>
+      page.pageName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      page.pageUrl.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Simulate processing delay for search loader
+    const timer = setTimeout(() => {
+      setIsSearchLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer); // Cleanup timeout
+  }, [searchQuery, pages]);
+
   // Permissions and roles
   const location = useLocation();
   const currentPageName = location.pathname.split('/').pop();
   const prefixedPageUrl = `/${currentPageName}`;
   const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
-  // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
   const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === user?.roleId);
   const loggedroleId = user?.roleId;
-// Set default permissions based on role ID
-const defaultPermission = loggedroleId === 2;
 
-// Use provided permissions if available, otherwise fall back to defaultPermission
-const canCreate = userPermissions?.canCreate ?? defaultPermission;
-const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
-const canDelete = userPermissions?.canDelete ?? defaultPermission;
-// const canRead   = userPermissions?.canRead   ?? defaultPermission;
+  // Set default permissions based on role ID
+  const defaultPermission = loggedroleId === 2;
+
+  // Use provided permissions if available, otherwise fall back to defaultPermission
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
 
   const handleCreatePage = async () => {
     if (!pageName.trim() || !pageUrl.trim()) {
@@ -200,7 +217,6 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
       
       {/* Header with search and actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-        
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <FaSearch className="text-gray-400 text-xs" />
@@ -213,9 +229,6 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          {/* <span className='bg-gray-300 p-2 rounded ml-3  text-black-2'>Pages :{filteredPages.length}</span> */}
-
-
         </div>
         
         <div className="flex items-center space-x-2 self-end md:self-auto">
@@ -261,7 +274,16 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPages.length > 0 ? (
+                {isSearchLoading ? (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-8 text-center">
+                      <div className="flex flex-col items-center justify-center min-h-[200px] bg-gray-50 border-t border-gray-200">
+                        <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mb-3" />
+                        <p className="text-sm font-medium text-gray-600">Searching...</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredPages.length > 0 ? (
                   filteredPages.map((page) => (
                     <tr key={page.pageId} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{page.pageId}</td>
@@ -303,21 +325,23 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
-                      {searchQuery ? (
-                        <div>
-                          <p className="text-gray-500">No pages found matching "{searchQuery}"</p>
-                          <button 
-                            className="text-blue-500 hover:text-blue-700 text-xs mt-2"
-                            onClick={() => setSearchQuery('')}
-                          >
-                            Clear search
-                          </button>
-                        </div>
-                      ) : (
-                        <p>No pages available</p>
-                      )}
-                    </td>
+                    <td colSpan={8} className="px-3 py-8 text-left text-gray-500">
+  {searchQuery ? (
+    <div className="flex flex-col items-center text-xl">
+      <p className="text-gray-500 mb-1">No pages found matching : <span className="font-bold">"{searchQuery}"</span></p>
+      <button 
+        className="text-blue-500 hover:text-blue-700 text-xs flex items-center gap-1"
+        onClick={() => setSearchQuery('')}
+      >
+        <FaTimes className="text-red-500 text-sm" />
+        <span>Clear search</span>
+      </button>
+    </div>
+  ) : (
+    <p>No pages available</p>
+  )}
+</td>
+
                   </tr>
                 )}
               </tbody>
@@ -327,7 +351,17 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
         
         {/* Mobile card view */}
         <div className="block sm:hidden">
-          {filteredPages.length > 0 && !isLoading && (
+          {isLoading ? (
+            <div className="py-10 text-center text-gray-500">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-gray-300 border-t-blue-500 mb-2"></div>
+              <p>Loading pages...</p>
+            </div>
+          ) : isSearchLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[200px] bg-gray-50 border-t border-gray-200 p-3">
+              <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mb-3" />
+              <p className="text-sm font-medium text-gray-600">Searching...</p>
+            </div>
+          ) : filteredPages.length > 0 ? (
             <div className="divide-y divide-gray-200">
               {filteredPages.map((page) => (
                 <div key={page.pageId} className="p-3 hover:bg-gray-50">
@@ -366,6 +400,22 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="p-3 text-center text-gray-500">
+              {searchQuery ? (
+                <div>
+                  <p className="text-gray-500">No pages found matching "{searchQuery}"</p>
+                  <button 
+                    className="text-blue-500 hover:text-blue-700 text-xs mt-2"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <p>No pages available</p>
+              )}
             </div>
           )}
         </div>

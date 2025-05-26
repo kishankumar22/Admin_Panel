@@ -3,7 +3,6 @@ import axiosInstance from '../../config';
 import { FaSpinner, FaReply, FaTimes } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../../context/AuthContext';
-import { User } from 'lucide-react';
 
 // Define TypeScript interface for the enquiry data
 interface CourseEnquiryData {
@@ -31,10 +30,10 @@ const CourseEnquiry = () => {
   const [selectedEnquiry, setSelectedEnquiry] = useState<CourseEnquiryData | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [replySending, setReplySending] = useState(false);
-    const { user } = useAuth();
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
+  const { user } = useAuth();
   
-   const modifiedBy =user?.name
-//    console.log(modifiedBy)
+  const modifiedBy = user?.name || null;
 
   useEffect(() => {
     const fetchEnquiries = async () => {
@@ -44,13 +43,12 @@ const CourseEnquiry = () => {
         
         if (response.data && response.data.data) {
           setEnquiries(response.data.data);
-          setFilteredEnquiries(response.data.data); // Initially show all enquiries
+          setFilteredEnquiries(response.data.data);
         }
       } catch (err) {
         setError('Failed to fetch enquiries. Please try again later.');
         console.error('Error fetching enquiries:', err);
-      }
-      finally {
+      } finally {
         setTimeout(() => {
           setLoading(false);
         }, 300);
@@ -66,35 +64,25 @@ const CourseEnquiry = () => {
 
   // Filter enquiries when active filter changes
   useEffect(() => {
-    if (activeFilter === 'all') {
-      setFilteredEnquiries(enquiries);
-    } else if (activeFilter === 'pending') {
-      setFilteredEnquiries(enquiries.filter(enquiry => !enquiry.isContacted));
-    } else {
-      setFilteredEnquiries(enquiries.filter(enquiry => enquiry.isContacted));
-    }
-  }, [activeFilter, enquiries]);
+    const filterEnquiries = () => {
+      setIsFilterLoading(true);
+      if (activeFilter === 'all') {
+        setFilteredEnquiries(enquiries);
+      } else if (activeFilter === 'pending') {
+        setFilteredEnquiries(enquiries.filter(enquiry => !enquiry.isContacted));
+      } else {
+        setFilteredEnquiries(enquiries.filter(enquiry => enquiry.isContacted));
+      }
+      setTimeout(() => setIsFilterLoading(false), 300);
+    };
 
-  // Function to format date in the form shown in the screenshot
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    const date = new Date(dateString);
-    
-    // Format: DD/MM/YYYY, HH:MM am/pm
-    return new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }).format(date);
-  };
+    filterEnquiries();
+  }, [activeFilter, enquiries]);
 
   const handleReplyClick = (enquiry: CourseEnquiryData) => {
     setSelectedEnquiry(enquiry);
     setShowReplyModal(true);
-    setReplyMessage(''); // Clear previous replies
+    setReplyMessage('');
   };
 
   const handleSendReply = async () => {
@@ -107,9 +95,8 @@ const CourseEnquiry = () => {
         id: selectedEnquiry.id,
         isContacted: true,
         modifiedAt: new Date().toISOString(),
-        modifiedby: modifiedBy// You might want to dynamically get this from the logged in user
+        modifiedby: modifiedBy
       });
-       alert(response)
       
       // Send the email reply
       const emailResponse = await axiosInstance.post('/sendEnquiryReply', {
@@ -123,20 +110,24 @@ const CourseEnquiry = () => {
         // Update the local state to reflect changes
         const updatedEnquiries = enquiries.map(enquiry => {
           if (enquiry.id === selectedEnquiry.id) {
-            return { ...enquiry, isContacted: true, modifiedAt: new Date().toISOString() };
+            return {
+              ...enquiry,
+              isContacted: true,
+              modifiedAt: new Date().toISOString(),
+              modifiedby: modifiedBy
+            };
           }
           return enquiry;
         });
         
         setEnquiries(updatedEnquiries);
-        // Close the modal
         setShowReplyModal(false);
         setSelectedEnquiry(null);
         setReplyMessage('');
       }
     } catch (err) {
       console.error('Error sending reply:', err);
-      // Optionally show an error message to the user
+      alert('Failed to send reply. Please try again.');
     } finally {
       setReplySending(false);
     }
@@ -151,7 +142,7 @@ const CourseEnquiry = () => {
   if (loading || showLoading) {
     return (
       <div className="flex justify-center -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center ">
           <FaSpinner className="animate-spin text-4xl text-purple-600" />
           <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>
         </div>
@@ -213,7 +204,15 @@ const CourseEnquiry = () => {
       </div>
       
       <div className="mt-2 w-full">
-        {filteredEnquiries.length === 0 ? ( 
+        {isFilterLoading ? (
+       <div className="flex justify-center items-center py-12">
+  <div className="flex flex-col items-center space-y-2">
+    <FaSpinner className="animate-spin text-purple-600 text-5xl" />
+    <span className="text-sm text-gray-500">Loading, please wait...</span>
+  </div>
+</div>
+
+        ) : filteredEnquiries.length === 0 ? (
           <div className="text-center p-4 bg-gray-100 rounded-lg">
             <p className="text-gray-600 text-sm">No enquiries found.</p>
           </div>

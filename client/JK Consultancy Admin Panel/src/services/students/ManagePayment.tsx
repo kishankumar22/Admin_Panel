@@ -124,6 +124,7 @@ const ManagePayment: React.FC = () => {
   const [selectedSessionYear, setSelectedSessionYear] = useState<string | null>(null);
   const [selectedCourseYear, setSelectedCourseYear] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
   const [showLoading, setShowLoading] = useState(true);
 
   const [error, setError] = useState('');
@@ -177,6 +178,109 @@ const ManagePayment: React.FC = () => {
   useEffect(() => {
     fetchStudents();
   }, []);
+
+  // Handle filtering with loader
+  useEffect(() => {
+    setIsFilterLoading(true); // Show filter loader
+    const filtered = students
+      .map((student) => {
+        const filteredAcademicDetails = student.academicDetails.filter((academic) => {
+          const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
+          const isFullPaid = pendingFees === 0;
+          const isPending = pendingFees > 0;
+
+          const matchesFees =
+            feesFilter === 'All' ||
+            (feesFilter === 'Pending' && isPending) ||
+            (feesFilter === 'Full Payment' && isFullPaid);
+
+          const matchesSessionYear = !sessionYearFilter || academic.sessionYear === sessionYearFilter;
+          const matchesYear = !yearFilter || academic.courseYear === yearFilter;
+
+          if (amountTypeFilter) {
+            if (amountTypeFilter === 'adminAmount' || amountTypeFilter === 'feesAmount') {
+              const hasPaymentOfType = payments.some(
+                (payment) =>
+                  payment.studentId === student.id &&
+                  payment.studentAcademic.id === academic.id &&
+                  payment.amountType === amountTypeFilter
+              );
+              return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType;
+            } else if (amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount') {
+              const hasPaymentOfType = payments.some(
+                (payment) => payment.studentId === student.id && payment.amountType === amountTypeFilter
+              );
+              return matchesSessionYear && matchesYear && hasPaymentOfType;
+            }
+          }
+
+          return matchesFees && matchesSessionYear && matchesYear;
+        });
+
+        if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter)) {
+          return null;
+        }
+
+        if (!sessionYearFilter && !yearFilter && !amountTypeFilter && feesFilter === 'Pending') {
+          const pendingAcademicDetails = student.academicDetails.filter((academic) => {
+            const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
+            return pendingFees > 0;
+          });
+          if (pendingAcademicDetails.length === 0) return null;
+          return { ...student, academicDetails: pendingAcademicDetails };
+        }
+
+        return { ...student, academicDetails: filteredAcademicDetails };
+      })
+      .filter((student): student is Student => student !== null)
+      .filter((student) => {
+        const matchesSearch =
+          searchQuery === '' ||
+          student.rollNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          [
+            student.fName,
+            student.lName,
+            student.email,
+            student.mobileNumber,
+            student.fatherName,
+            student.stdCollId,
+            student.address,
+            student.category,
+            student.gender,
+          ].some((field) => field?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+        const matchesCourse = !courseFilter || student.course.courseName === courseFilter;
+        const matchesCollege = !collegeFilter || student.college.collegeName === collegeFilter;
+
+        const matchesStatus =
+          !statusFilter ||
+          (getStatusValue(statusFilter) === 'fresh' &&
+            student.status &&
+            !student.isDiscontinue &&
+            student.academicDetails.some((ad) => ad.courseYear === '1st')) ||
+          (getStatusValue(statusFilter) === 'active' && student.status && !student.isDiscontinue) ||
+          (getStatusValue(statusFilter) === 'inactive' && !student.status && !student.isDiscontinue) ||
+          (getStatusValue(statusFilter) === 'discontinued' && student.isDiscontinue);
+
+        return matchesSearch && matchesCourse && matchesCollege && matchesStatus;
+      });
+
+    // Simulate processing delay for filter loader
+    setTimeout(() => {
+      setIsFilterLoading(false);
+    }, 500);
+  }, [
+    searchQuery,
+    courseFilter,
+    collegeFilter,
+    sessionYearFilter,
+    statusFilter,
+    yearFilter,
+    feesFilter,
+    amountTypeFilter,
+    students,
+    payments,
+  ]);
 
   // Function to calculate pending fees for a student's academic detail
   const calculatePendingFees = (studentId: number, academicId: number, totalFees: number): number => {
@@ -1025,7 +1129,16 @@ const ManagePayment: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginatedStudents.length > 0 ? (
+              {isFilterLoading ? (
+                <tr>
+                  <td colSpan={29} className="px-1.5 text-center text-gray-500">
+                    <div className="flex flex-col items-center justify-center min-h-[150px] bg-gray-50 border-t border-gray-200">
+                      <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+                      <p className="text-sm font-medium text-gray-600">Loading payments...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedStudents.length > 0 ? (
                 paginatedStudents.map((student, index) =>
                   student.academicDetails.map((academic) => {
                     const firstEmi = student.emiDetails.find(
@@ -1143,7 +1256,7 @@ const ManagePayment: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={29} className="px-1.5 text-center text-gray-500">
-                     <div className="flex flex-col items-center justify-center min-h-[150px] bg-gray-50 border-t border-gray-200">
+                    <div className="flex flex-col items-center justify-center min-h-[150px] bg-gray-50 border-t border-gray-200">
                       <div className="mb-3">
                         <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
                       </div>

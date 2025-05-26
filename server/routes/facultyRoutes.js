@@ -1,18 +1,76 @@
+
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinaryConfig');
 const { sql, executeQuery } = require('../config/db');
-
 const router = express.Router();
+
+// Load STORAGE_PATH from environment variable
+require('dotenv').config();
+const STORAGE_PATH = process.env.STORAGE_PATH;
+
+// Ensure storage directory exists with proper permissions
+const initializeStorage = () => {
+  if (!fs.existsSync(STORAGE_PATH)) {
+    fs.mkdirSync(STORAGE_PATH, { recursive: true, mode: 0o755 });
+    // Set read-only permissions for directory (except for deletion through API)
+    fs.chmodSync(STORAGE_PATH, 0o755);
+  }
+};
+
+// Initialize storage on server start
+initializeStorage();
+
+// Handle duplicate file names by appending _1, _2, etc.
+const getUniqueFileName = (fileName, storagePath) => {
+  let newFileName = fileName;
+  let counter = 1;
+  const ext = path.extname(fileName);
+  const baseName = path.basename(fileName, ext);
+
+  while (fs.existsSync(path.join(storagePath, newFileName))) {
+    newFileName = `${baseName}_${counter}${ext}`;
+    counter++;
+  }
+
+  return newFileName;
+};
+
+// Multer configuration for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Middleware to prevent direct folder/file deletion
+const protectFolder = (req, res, next) => {
+  const forbiddenPaths = [STORAGE_PATH];
+  if (forbiddenPaths.some(p => req.path.includes(p))) {
+    return res.status(403).json({ success: false, message: 'Direct access to storage folder is forbidden' });
+  }
+  next();
+};
 
 // 1. GET All Faculties
 router.get('/faculty', async (req, res, next) => {
   try {
     const result = await executeQuery('SELECT * FROM Faculty ORDER BY faculty_name ASC');
-    res.status(200).json(result.recordset);
+    // Validate document files
+    const faculties = result.recordset.map(faculty => {
+      if (faculty.documents) {
+        try {
+          const docs = JSON.parse(faculty.documents);
+          faculty.documents = JSON.stringify(docs.filter(doc => {
+            const fileName = path.basename(doc.url);
+            return fs.existsSync(path.join(STORAGE_PATH, fileName));
+          }));
+        } catch (error) {
+          faculty.documents = null; // Handle invalid JSON
+        }
+      }
+      return faculty;
+    });
+    res.status(200).json(faculties);
   } catch (err) {
-    console.error('Fetch Error:', err);
     next(err);
     res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
   }
@@ -21,16 +79,16 @@ router.get('/faculty', async (req, res, next) => {
 // 2. POST Add Faculty
 router.post('/faculty/add', upload.fields([
   { name: 'profilePic', maxCount: 1 },
-  { name: 'documents', maxCount: 5 }
-]), async (req, res, next) => {
+  { name: 'documents', maxCount: 10 }
+]), protectFolder, async (req, res, next) => {
   try {
-    const { 
-      faculty_name, 
-      qualification, 
-      designation, 
-      created_by, 
-      monthlySalary, 
-      yearlyLeave, 
+    const {
+      faculty_name,
+      qualification,
+      designation,
+      created_by,
+      monthlySalary,
+      yearlyLeave,
       IsVisible,
       documentTitles
     } = req.body;
@@ -42,6 +100,7 @@ router.post('/faculty/add', upload.fields([
     let profilePicUrl = null;
     let documents = [];
 
+    // Upload profile picture to Cloudinary
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -56,29 +115,28 @@ router.post('/faculty/add', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
+    // Save documents locally with original names or unique names
     const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { resource_type: 'auto', folder: 'faculties' },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-          stream.end(file.buffer);
-        });
-        const title = titles[i] || `Untitled Document ${i + 1}`;
-        documents.push({ title, url: uploadResult.secure_url });
+        const originalFileName = file.originalname;
+        const uniqueFileName = getUniqueFileName(originalFileName, STORAGE_PATH);
+        const filePath = path.join(STORAGE_PATH, uniqueFileName);
+
+        // Save file with read-only permissions
+        fs.writeFileSync(filePath, file.buffer);
+        fs.chmodSync(filePath, 0o444); // Read-only permissions
+
+        const title = titles[i] || originalFileName;
+        documents.push({ title, url: `/${uniqueFileName}` });
       }
     }
 
     const query = `
       INSERT INTO Faculty (
-        faculty_name, qualification, designation, profilePicUrl, documents, 
+        faculty_name, qualification, designation, profilePicUrl, documents,
         monthlySalary, yearlyLeave, created_by, created_on, IsVisible
       )
       OUTPUT INSERTED.*
@@ -100,15 +158,13 @@ router.post('/faculty/add', upload.fields([
       isVisible: { type: sql.Bit, value: IsVisible !== undefined ? JSON.parse(IsVisible) : true },
     });
 
-    console.log('Faculty added:', result.recordset[0].faculty_name);
-    res.status(201).json({ 
-      success: true, 
-      message: 'Faculty added successfully', 
-      faculty: result.recordset[0] 
+    res.status(201).json({
+      success: true,
+      message: 'Faculty added successfully',
+      faculty: result.recordset[0]
     });
   } catch (err) {
-    // console.error('Add Faculty Error:', err);
-        next(err);
+    next(err);
     res.status(500).json({ success: false, message: 'Error adding faculty', error: err.message });
   }
 });
@@ -116,17 +172,17 @@ router.post('/faculty/add', upload.fields([
 // 3. PUT Update Faculty
 router.put('/faculty/update/:id', upload.fields([
   { name: 'profilePic', maxCount: 1 },
-  { name: 'documents', maxCount: 5 }
-]), async (req, res, next) => {
+  { name: 'documents', maxCount: 10 }
+]), protectFolder, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { 
-      faculty_name, 
-      qualification, 
-      designation, 
-      monthlySalary, 
-      yearlyLeave, 
-      modify_by, 
+    const {
+      faculty_name,
+      qualification,
+      designation,
+      monthlySalary,
+      yearlyLeave,
+      modify_by,
       IsVisible,
       documentTitles,
       existingDocuments
@@ -144,6 +200,7 @@ router.put('/faculty/update/:id', upload.fields([
     let profilePicUrl = existing.recordset[0].profilePicUrl;
     let documents = existingDocuments ? JSON.parse(existingDocuments) : [];
 
+    // Upload profile picture to Cloudinary
     if (req.files && req.files.profilePic && req.files.profilePic.length > 0) {
       const uploadResult = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
@@ -158,23 +215,21 @@ router.put('/faculty/update/:id', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
+    // Save new documents locally with original names or unique names
     const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
-        const uploadResult = await new Promise((resolve, reject) => {
-          const stream = cloudinary.uploader.upload_stream(
-            { resource_type: 'auto', folder: 'faculties' },
-            (error, result) => {
-              if (error) return reject(error);
-              resolve(result);
-            }
-          );
-          stream.end(file.buffer);
-        });
-        const title = titles[i] || `Untitled Document ${i + 1}`;
-        documents.push({ title, url: uploadResult.secure_url });
+        const originalFileName = file.originalname;
+        const uniqueFileName = getUniqueFileName(originalFileName, STORAGE_PATH);
+        const filePath = path.join(STORAGE_PATH, uniqueFileName);
+
+        fs.writeFileSync(filePath, file.buffer);
+        fs.chmodSync(filePath, 0o444); // Read-only permissions
+
+        const title = titles[i] || originalFileName;
+        documents.push({ title, url: `/${uniqueFileName}` });
       }
     }
 
@@ -208,21 +263,19 @@ router.put('/faculty/update/:id', upload.fields([
       isVisible: { type: sql.Bit, value: IsVisible !== undefined ? JSON.parse(IsVisible) : existing.recordset[0].IsVisible },
     });
 
-    console.log('Faculty updated:', result.recordset[0].faculty_name);
-    res.status(200).json({ 
-      success: true, 
-      message: 'Faculty updated successfully', 
-      faculty: result.recordset[0] 
+    res.status(200).json({
+      success: true,
+      message: 'Faculty updated successfully',
+      faculty: result.recordset[0]
     });
   } catch (err) {
-    // console.error('Update Faculty Error:', err);
-        next(err);
+    next(err);
     res.status(500).json({ success: false, message: 'Error updating faculty', error: err.message });
   }
 });
 
 // 4. DELETE Faculty
-router.delete('/faculty/delete/:id', async (req, res, next) => {
+router.delete('/faculty/delete/:id', protectFolder, async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -235,22 +288,32 @@ router.delete('/faculty/delete/:id', async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Faculty not found' });
     }
 
+    // Delete associated local documents
+    if (result.recordset[0].documents) {
+      const documents = JSON.parse(result.recordset[0].documents);
+      for (const doc of documents) {
+        const fileName = path.basename(doc.url);
+        const filePath = path.join(STORAGE_PATH, fileName);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+
     await executeQuery(
       `DELETE FROM Faculty WHERE id = @id`,
       { id: { type: sql.Int, value: parseInt(id) } }
     );
 
-    console.log('Faculty deleted:', result.recordset[0].faculty_name);
     res.status(200).json({ success: true, message: 'Faculty deleted successfully' });
   } catch (err) {
-    // console.error('Delete Faculty Error:', err);
-        next(err);
+    next(err);
     res.status(500).json({ success: false, message: 'Error deleting faculty', error: err.message });
   }
 });
 
 // 5. PUT Toggle Faculty Visibility
-router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
+router.put('/faculty/toggle-visibility/:id', protectFolder, async (req, res, next) => {
   try {
     const { id } = req.params;
     const { modify_by } = req.body;
@@ -265,7 +328,7 @@ router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
     }
 
     const query = `
-      UPDATE d
+      UPDATE Faculty
       SET IsVisible = @isVisible,
           modify_by = @modifyBy,
           modify_on = GETDATE()
@@ -279,17 +342,102 @@ router.put('/faculty/toggle-visibility/:id', async (req, res, next) => {
       modifyBy: { type: sql.NVarChar, value: modify_by },
     });
 
-    console.log('Faculty visibility toggled:', result.recordset[0].faculty_name);
-    res.status(200).json({ 
-      success: true, 
-      message: 'Faculty visibility updated successfully', 
-      faculty: result.recordset[0] 
+    res.status(200).json({
+      success: true,
+      message: 'Faculty visibility updated successfully',
+      faculty: result.recordset[0]
     });
   } catch (err) {
-    // console.error('Toggle Visibility Error:', err);
-        next(err);
+    next(err);
     res.status(500).json({ success: false, message: 'Error updating faculty visibility', error: err.message });
   }
 });
+
+// 6. Serve Documents (Check File Existence)
+router.get('/upload/:fileName', (req, res, next) => {
+  const fileName = req.params.fileName;
+  const filePath = path.join(STORAGE_PATH, fileName);
+  if (fs.existsSync(filePath)) {
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ success: false, message: 'File not found' });
+  }
+});
+
+//edit: title
+// PUT /faculty/:id/update-document-title - Fixed route
+router.put('/faculty/:id/update-document-title', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { docIndex, newTitle } = req.body;
+
+    // Validate inputs
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ success: false, message: 'Invalid faculty ID' });
+    }
+    if (docIndex === undefined || isNaN(docIndex) || docIndex < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid document index' });
+    }
+    if (!newTitle || typeof newTitle !== 'string') {
+      return res.status(400).json({ success: false, message: 'New title must be a non-empty string' });
+    }
+
+    // Fetch the faculty record
+    const result = await executeQuery('SELECT * FROM Faculty WHERE id = @id', {
+      id: { type: sql.Int, value: parseInt(id) }
+    });
+
+    if (!result.recordset || result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Faculty not found' });
+    }
+
+    const faculty = result.recordset[0];
+    let documents;
+
+    // Handle the documents field
+    try {
+      documents = faculty.documents ? JSON.parse(faculty.documents) : [];
+      if (!Array.isArray(documents)) {
+        documents = [];
+      }
+    } catch (error) {
+      console.error('Error parsing faculty.documents:', error);
+      documents = [];
+    }
+
+    // Validate document index
+    if (docIndex >= documents.length) {
+      return res.status(400).json({ success: false, message: 'Document index out of bounds' });
+    }
+
+    // Update the document title
+    documents[docIndex].title = newTitle;
+
+    // Update the faculty record in the database
+    const documentsString = JSON.stringify(documents);
+    await executeQuery(
+      'UPDATE Faculty SET documents = @documents WHERE id = @id',
+      {
+        id: { type: sql.Int, value: parseInt(id) },
+        documents: { type: sql.NVarChar, value: documents.length > 0 ? documentsString : null }
+      }
+    );
+
+    // Fetch the updated faculty record to return
+    const updatedResult = await executeQuery('SELECT * FROM Faculty WHERE id = @id', {
+      id: { type: sql.Int, value: parseInt(id) }
+    });
+    const updatedFaculty = updatedResult.recordset[0];
+
+    res.status(200).json(updatedFaculty);
+  } catch (err) {
+    next(err);
+    res.status(500).json({ success: false, message: 'Error updating document title', error: err.message });
+  }
+});
+
+
+// Serve static files (optional, for fallback)
+router.use('/', express.static(STORAGE_PATH));
 
 module.exports = router;

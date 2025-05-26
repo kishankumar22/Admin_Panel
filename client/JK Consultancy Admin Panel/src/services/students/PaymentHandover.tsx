@@ -207,6 +207,8 @@ const PaymentHandover: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLoading, setShowLoading] = useState(true);
+  const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false); // Added for payment fetching loader
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -266,6 +268,30 @@ const PaymentHandover: React.FC = () => {
     fetchData();
   }, []);
 
+  // Handle filtering with loader
+  useEffect(() => {
+    setIsFilterLoading(true); // Show filter loader
+    const filtered = cashHandovers.filter(handover => {
+      let matchesFilter = true;
+      if (selectedReceivedBy) {
+        matchesFilter = handover.receivedBy === selectedReceivedBy;
+      }
+      if (selectedHandedOverTo) {
+        matchesFilter = matchesFilter && handover.handedOverTo === selectedHandedOverTo;
+      }
+      const matchesSearch =
+        (handover.student?.fName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (handover.receivedBy?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (handover.handedOverTo?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+
+    // Simulate processing delay for filter loader
+    setTimeout(() => {
+      setIsFilterLoading(false);
+    }, 300);
+  }, [searchTerm, selectedReceivedBy, selectedHandedOverTo, cashHandovers]);
+
   useEffect(() => {
     if (showAddForm && user?.name) {
       setFormData(prev => ({
@@ -290,7 +316,7 @@ const PaymentHandover: React.FC = () => {
   useEffect(() => {
     const fetchPayments = async () => {
       if (formData.receivedBy) {
-        setLoading(true);
+        setIsPaymentLoading(true); // Show payment loader
         try {
           const paymentsRes = await axiosInstance.get(`/payments-by-staff/${encodeURIComponent(formData.receivedBy)}`);
           if (paymentsRes.data.success) {
@@ -304,7 +330,7 @@ const PaymentHandover: React.FC = () => {
           setError('Failed to load payments. Please try again.');
           setPayments([]);
         } finally {
-          setLoading(false);
+          setIsPaymentLoading(false);
         }
       } else {
         setPayments([]);
@@ -752,11 +778,14 @@ const PaymentHandover: React.FC = () => {
                 {formData.receivedBy && (
                   <div className="mt-3">
                     <h3 className="rounded-t bg-gradient-to-r from-blue-200 via-blue-300 to-blue-400 text-black p-1.5 mb-2">Select Payments to Handover</h3>
-                    {loading ? (
-                      <div className="text-gray-500 p-2 bg-gray-50 rounded-md text-xs">Loading payments...</div>
+                    {isPaymentLoading ? (
+                      <div className="flex flex-col items-center justify-center p-2 px-4 bg-gray-50 rounded-md text-xs">
+                        <FaSpinner className="animate-spin h-6 w-6 text-blue-600 mb-2" />
+                        <span>Loading Payments...</span>
+                      </div>
                     ) : Object.keys(paymentsByStudent).length === 0 ? (
-                      <div className="text-gray-500 p-2 text-xl bg-gray-50 rounded-md  text-center ">
-                        <span className='capitalize'> {formData.receivedBy}</span> has no payments to handover.
+                      <div className="text-gray-500 p-2 text-xl bg-gray-50 rounded-md text-center">
+                        <span className='capitalize font-bold text-blue-500'>{formData.receivedBy}</span> has no payments to handover.
                       </div>
                     ) : (
                       <div className="border border-gray-200 rounded-md overflow-hidden">
@@ -895,16 +924,19 @@ const PaymentHandover: React.FC = () => {
                         )}
                       </div>
                     )}
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
-                      <textarea
-                        name="remarks"
-                        value={formData.remarks}
-                        onChange={handleFormChange}
-                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
-                        rows={2}
-                      ></textarea>
-                    </div>
+             {selectedPayments.length > 0 && (
+  <div className="mt-2">
+    <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+    <textarea
+      name="remarks"
+      value={formData.remarks}
+      onChange={handleFormChange}
+      className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
+      rows={2}
+    ></textarea>
+  </div>
+)}
+
                     <div className="flex justify-end space-x-2 mt-3">
                       <button
                         type="button"
@@ -993,7 +1025,12 @@ const PaymentHandover: React.FC = () => {
                     </div>
                   </div>
 
-                  {filteredHandovers.length === 0 ? (
+                  {isFilterLoading ? (
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mb-3" />
+                      <p className="text-sm font-medium text-gray-600">Loading...</p>
+                    </div>
+                  ) : filteredHandovers.length === 0 ? (
                     <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
                       <div className="mb-3">
                         <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
@@ -1008,15 +1045,15 @@ const PaymentHandover: React.FC = () => {
                       <table className="min-w-full divide-y divide-gray-200 text-xs">
                         <thead className="bg-gray-300">
                           <tr>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received By</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received Date</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Handed Over To</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hand Over Date</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">ID</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Student</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Amount</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Received By</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Received Date</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Handed Over To</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Handover Date</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                            <th className="px-2 py-1 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Receipt</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">

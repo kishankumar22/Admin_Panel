@@ -3,7 +3,7 @@ import Breadcrumb from "../../components/Breadcrumbs/Breadcrumb";
 import { usePermissions } from "../../context/PermissionsContext";
 import { useAuth } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
-import { FaPlus, FaSave } from "react-icons/fa";
+import { FaPlus, FaSave, FaSpinner, FaTimes } from "react-icons/fa";
 
 const AssignRolePage: React.FC = () => {
   const { user } = useAuth();
@@ -16,10 +16,10 @@ const AssignRolePage: React.FC = () => {
     savePermissions,
     fetchPermissions,
     fetchRoles,
-    fetchPages  } = usePermissions();
-//  console.log(roles)
-//  console.log(pages)
- useEffect(() => {
+    fetchPages
+  } = usePermissions();
+
+  useEffect(() => {
     const fetchData = async () => {
       await fetchRoles();
       await fetchPages();
@@ -27,17 +27,26 @@ const AssignRolePage: React.FC = () => {
     };
     fetchData();
   }, []);
-  
 
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filteredPages, setFilteredPages] = useState(pages); // Added state for filtered pages
+  const [isSearchLoading, setIsSearchLoading] = useState(false); // Added for search loader
   const [dropdownOpen, setDropdownOpen] = useState<{ [key: number]: { [key: number]: boolean } }>({});
   const dropdownRefs = useRef<{ [key: number]: { [key: number]: HTMLDivElement | null } }>({});
   const buttonRefs = useRef<{ [key: number]: { [key: number]: HTMLButtonElement | null } }>({});
 
-  // Filter pages based on the search query
-  const filteredPages = pages.filter((page) =>
-    page.pageName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Handle search with loader
+  useEffect(() => {
+    setIsSearchLoading(true);
+    const filtered = pages.filter((page) =>
+      page.pageName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredPages(filtered);
+    const timer = setTimeout(() => {
+      setIsSearchLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, pages]);
 
   // Handle click outside dropdown
   const handleClickOutside = (event: MouseEvent) => {
@@ -67,32 +76,31 @@ const AssignRolePage: React.FC = () => {
     <>
       <Breadcrumb pageName="Assign page to role" />
       <div className="flex items-center justify-between mb-4">
-      <input
-        type="search"
-        className="py-0.5 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
-        placeholder="Search Pages here..."
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-      />
+        <input
+          type="search"
+          className="py-0.5 px-3 bg-white border border-gray-300 rounded-md text-sm w-80 placeholder:text-[.8rem] focus:outline-none focus:ring-4 focus:ring-blue-500 transition duration-200"
+          placeholder="Search Pages here..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
 
-      <div className="flex items-center space-x-2">
-        <Link to="/page-management">
-          <button className="bg-orange-500 text-white px-4 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
-            <FaPlus className="inline-block mr-1" /> {/* Create Page Icon */}
-            Go to Create Page
+        <div className="flex items-center space-x-2">
+          <Link to="/page-management">
+            <button className="bg-orange-500 text-white px-4 py-1 rounded text-xs hover:bg-orange-600 transition duration-200">
+              <FaPlus className="inline-block mr-1" />
+              Go to Create Page
+            </button>
+          </Link>
+
+          <button
+            onClick={savePermissions}
+            className="bg-blue-500 text-white px-4 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
+          >
+            <FaSave className="inline-block mr-1" />
+            Save
           </button>
-        </Link>
-
-        <button
-          onClick={savePermissions}
-          className="bg-blue-500 text-white px-4 py-1 rounded text-xs hover:bg-blue-600 transition duration-200"
-        >
-          <FaSave className="inline-block mr-1" /> {/* Save Icon */}
-          Save
-        </button>
+        </div>
       </div>
-    </div>
-
 
       <div className="mt-4 rounded-md">
         <table className="min-w-full bg-white border border-gray-200">
@@ -101,7 +109,7 @@ const AssignRolePage: React.FC = () => {
               <th className="px-2 py-1 text-left">Page</th>
               {roles.map(
                 (role) =>
-                  role.role_id !== userRole && role.role_id !== 2 && ( // Exclude userRole and role_id 2 (Administrator)
+                  role.role_id !== userRole && role.role_id !== 2 && (
                     <th key={role.role_id} className="px-2 py-1 text-left">
                       {role.name}
                     </th>
@@ -110,13 +118,22 @@ const AssignRolePage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="text-gray-600 text-sm">
-            {filteredPages.length > 0 ? (
+            {isSearchLoading ? (
+              <tr>
+                <td colSpan={roles.length + 1} className="py-4 text-center">
+                  <div className="flex flex-col items-center justify-center min-h-[200px] bg-gray-50 border-t border-gray-200">
+                    <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mb-3" />
+                    <p className="text-sm font-medium text-gray-600">Searching...</p>
+                  </div>
+                </td>
+              </tr>
+            ) : filteredPages.length > 0 ? (
               filteredPages.map((page) => (
                 <tr key={page.pageId} className="border-b border-gray-200 hover:bg-gray-100">
                   <td className="py-1 px-2">{page.pageName}</td>
                   {roles.map(
                     (role) =>
-                      role.role_id !== userRole && role.role_id !== 2 && ( // Exclude userRole and role_id 2 (Administrator)
+                      role.role_id !== userRole && role.role_id !== 2 && (
                         <td key={role.role_id} className="px-2 py-1 relative">
                           <button
                             ref={(el) => (buttonRefs.current[role.role_id] = { [page.pageId]: el })}
@@ -143,7 +160,7 @@ const AssignRolePage: React.FC = () => {
                                   <input
                                     type="checkbox"
                                     checked={
-                                      selectedActions[role.role_id]?.[page.pageId]?.length === 4 // 4 actions
+                                      selectedActions[role.role_id]?.[page.pageId]?.length === 4
                                     }
                                     onChange={() =>
                                       handleActionChange(
@@ -187,9 +204,21 @@ const AssignRolePage: React.FC = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={roles.length + 1} className="py-4 text-center text-gray-500">
-                  No pages found
-                </td>
+                <td colSpan={roles.length + 1} className=" text-left text-xl text-gray-500">
+  <div className="flex flex-col items-center justify-center min-h-[200px] bg-gray-50 border-t border-gray-200">
+    <p className="mb-1">
+      No pages found for the search query: <span className="font-bold">"{searchQuery}"</span>
+    </p>
+    <button 
+      className="text-blue-500 hover:text-blue-700 text-md flex items-center gap-1"
+      onClick={() => setSearchQuery('')}
+    >
+      <FaTimes className="text-red-500 text-sm" />
+      <span>Clear search</span>
+    </button>
+  </div>
+</td>
+
               </tr>
             )}
           </tbody>

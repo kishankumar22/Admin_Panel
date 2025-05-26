@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
-import { FaSearch, FaTimes, FaMoneyBillWave, FaEdit, FaToggleOn, FaToggleOff, FaUpload, FaTrash, FaChevronLeft, FaChevronRight, FaEye } from 'react-icons/fa';
+import { FaSearch, FaTimes, FaMoneyBillWave, FaEdit, FaToggleOn, FaToggleOff, FaUpload, FaTrash, FaChevronLeft, FaChevronRight, FaEye, FaSpinner } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../config';
 import * as XLSX from 'xlsx';
@@ -8,7 +8,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ExpensePayment from './ExpensePayment';
 import { FileSearch } from 'lucide-react';
-import DocumentViewerModal from './DocumentViewerModal'; // Import the DocumentViewerModal
+import DocumentViewerModal from './DocumentViewerModal';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -24,7 +24,7 @@ interface Document {
   DocumentUrl: string;
   PublicId: string;
   CreatedOn: string;
-  DocumentType: string; // Added DocumentType
+  DocumentType: string;
 }
 
 interface Expense {
@@ -59,9 +59,10 @@ const ManageExpense: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]); // State for existing documents
-  const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({}); // State for delete loading
-  const [viewDocument, setViewDocument] = useState<Document | null>(null); // State for viewing documents
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
+  const [viewDocument, setViewDocument] = useState<Document | null>(null);
+  const [isLoading, setIsLoading] = useState(true); // Added for loader
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
@@ -81,13 +82,13 @@ const ManageExpense: React.FC = () => {
 
   // Set default date range (To: today, From: one month ago)
   useEffect(() => {
-    const today = new Date(); // Current date: May 23, 2025
-    const oneMonthAgo = new Date(today);
-    oneMonthAgo.setMonth(today.getMonth() - 1);
+    const today = new Date();
+    // const oneMonthAgo = new Date(today);
+    // oneMonthAgo.setMonth(today.getMonth() - 1);
 
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    setToDate(formatDate(today)); // Set to May 23, 2025
-    setFromDate(formatDate(oneMonthAgo)); // Set to April 23, 2025
+    setToDate(formatDate(today));
+    // setFromDate(formatDate(oneMonthAgo));
   }, []);
 
   // Fetch suppliers and expenses with pending amounts
@@ -95,7 +96,6 @@ const ManageExpense: React.FC = () => {
     const fetchSuppliers = async () => {
       try {
         const response = await axiosInstance.get('/suppliers');
-        console.log('Fetched suppliers:', response.data);
         setSuppliers(response.data);
       } catch (err) {
         console.error('Error fetching suppliers:', err);
@@ -105,9 +105,9 @@ const ManageExpense: React.FC = () => {
     };
 
     const fetchExpenses = async () => {
+      setIsLoading(true); // Show loader
       try {
         const response = await axiosInstance.get('/expenses');
-        console.log('Fetched expenses:', response.data);
         const expensesWithPending = await Promise.all(
           response.data.map(async (expense: Expense) => {
             try {
@@ -126,6 +126,8 @@ const ManageExpense: React.FC = () => {
         console.error('Error fetching expenses:', err);
         setError('Failed to load expenses');
         toast.error('Failed to load expenses');
+      } finally {
+        setIsLoading(false); // Hide loader
       }
     };
 
@@ -135,6 +137,7 @@ const ManageExpense: React.FC = () => {
 
   // Handle search, date range, and status filtering
   useEffect(() => {
+    setIsLoading(true); // Show loader when filters change
     let filtered = expenses;
 
     if (searchTerm) {
@@ -167,6 +170,7 @@ const ManageExpense: React.FC = () => {
 
     setFilteredExpenses(filtered);
     setCurrentPage(1);
+    setTimeout(() => setIsLoading(false), 500); // Simulate slight delay for loader
   }, [searchTerm, fromDate, toDate, statusFilter, expenses]);
 
   // Fetch documents when editing an expense
@@ -174,7 +178,6 @@ const ManageExpense: React.FC = () => {
     if (modalMode === 'edit' && editingExpense) {
       const fetchDocuments = async () => {
         try {
-          // Fetch documents with documentType='ExpenseDocument'
           const response = await axiosInstance.get(`/supplier/${editingExpense.SupplierId}/documents`, {
             params: { documentType: 'ExpenseDocument' },
           });
@@ -186,7 +189,7 @@ const ManageExpense: React.FC = () => {
       };
       fetchDocuments();
     } else {
-      setDocuments([]); // Clear documents when not in edit mode
+      setDocuments([]);
     }
   }, [modalMode, editingExpense]);
 
@@ -217,7 +220,7 @@ const ManageExpense: React.FC = () => {
         preview: URL.createObjectURL(file),
       }));
       setFiles((prev) => [...prev, ...selectedFiles]);
-      if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -321,7 +324,7 @@ const ManageExpense: React.FC = () => {
       setIsModalOpen(false);
       setEditingExpense(null);
       setModalMode('add');
-      setDocuments([]); // Clear documents after submission
+      setDocuments([]);
 
       const expensesResponse = await axiosInstance.get('/expenses');
       const expensesWithPending = await Promise.all(
@@ -544,7 +547,12 @@ const ManageExpense: React.FC = () => {
           <FaMoneyBillWave className="text-purple-500 w-4 h-4 mr-1.5" />
           Expenses List
         </h3>
-        {filteredExpenses.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+            <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+            <p className="text-sm font-medium text-gray-600">Loading expenses...</p>
+          </div>
+        ) : filteredExpenses.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
             <div className="mb-3">
               <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />

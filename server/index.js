@@ -19,6 +19,8 @@ const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
 const winston = require('winston');
 const DailyRotateFile = require('winston-daily-rotate-file');
 const { poolConnect } = require('./config/db'); // Correct import path
+const path = require('path');
+const os = require('os');
 
 dotenv.config();
 
@@ -71,6 +73,8 @@ app.use('/api', assignroleRoutes);
 app.use('/api', addStudentsRoutes);
 app.use('/api', paymentHandoverRoutes);
 app.use('/api', addSuppliersRoutes);
+app.use('/api/', express.static(path.join(os.homedir(), 'FacultyDocuments')));
+
 
 // Root endpoint
 app.get('/', (req, res) => {

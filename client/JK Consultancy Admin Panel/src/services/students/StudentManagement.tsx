@@ -87,6 +87,7 @@ const StudentManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [admissionModeFilter, setAdmissionModeFilter] = useState('');
+    const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -98,6 +99,44 @@ const StudentManagement: React.FC = () => {
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [showLoading, setShowLoading] = useState(true);
+    // Handle filtering with loader
+  useEffect(() => {
+    setIsFilterLoading(true); // Show filter loader
+    students.filter(student => {
+      const latestAcademic = student.academicDetails
+        .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
+
+      const matchesSearch = [
+        student.fName,
+        student.lName,
+        student.rollNumber,
+        student.email,
+        student.mobileNumber,
+      ].some(field => field?.toLowerCase().includes(searchQuery.toLowerCase()));
+
+      const matchesCourseYear = !courseYearFilter || latestAcademic.courseYear === courseYearFilter;
+      const matchesCollege = !collegeFilter || student.college.collegeName === collegeFilter;
+      const matchesSessionYear = !sessionYearFilter || latestAcademic.sessionYear === sessionYearFilter;
+      const matchesCategory = !categoryFilter || student.category === categoryFilter;
+      const matchesAdmissionMode = !admissionModeFilter || student.admissionMode === admissionModeFilter;
+
+      const currentYear = new Date().getFullYear();
+      const latestYearPrefix = `${currentYear}-${currentYear + 1}`;
+      const matchesStatus = statusFilter === 'All' ||
+        (statusFilter === 'Active' && student.status === true) ||
+        (statusFilter === 'Inactive' && student.status === false) ||
+        (statusFilter === 'isDiscontinue' && student.isDiscontinue === true) ||
+        (statusFilter === 'Fresh Student' && latestAcademic.sessionYear === latestYearPrefix);
+
+      return matchesSearch && matchesCourseYear && matchesCollege && matchesSessionYear &&
+             matchesStatus && matchesCategory && matchesAdmissionMode;
+    });
+
+    // Simulate processing delay for filter loader
+    setTimeout(() => {
+      setIsFilterLoading(false);
+    }, 500);
+  }, [searchQuery, courseYearFilter, collegeFilter, sessionYearFilter, statusFilter, categoryFilter, admissionModeFilter, students]);
 
   const [yearFilter, setYearFilter] = useState('');
   const [filterOptions, setFilterOptions] = useState({
@@ -534,7 +573,16 @@ const StudentManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {paginatedStudents.length > 0 ? (
+              {isFilterLoading ? (
+                <tr>
+                  <td colSpan={15} className="py-4 text-center text-gray-500 bg-gray-50">
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+                      <p className="text-sm font-medium text-gray-600">Loading students...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : paginatedStudents.length > 0 ? (
                 paginatedStudents.map((student, index) => {
                   const latestAcademic = student.academicDetails
                     .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
@@ -546,7 +594,7 @@ const StudentManagement: React.FC = () => {
                       <td className="py-2 px-2 text-center font-medium text-gray-700">{(currentPage - 1) * entriesPerPage + index + 1}</td>
                       <td className="py-2 px-2 font-medium text-gray-800 whitespace-nowrap">{student.fName} {student.lName || ''}</td>
                       <td className="py-2 px-2 text-center text-gray-700">{student.rollNumber}</td>
-                      <td className="py-2 px-2 text-center text-gray-700">{student?.stdCollId}</td>
+                      <td className="py-2 px-2 text-center text-gray-700">{student.stdCollId}</td>
                       <td className="py-2 px-2 whitespace-nowrap truncate max-w-[150px] text-blue-600">{student.email}</td>
                       <td className="py-2 px-2 font-medium whitespace-nowrap truncate max-w-[120px]">{student.course?.courseName || 'N/A'}</td>
                       <td className="py-2 px-2 whitespace-nowrap truncate max-w-[120px]">{student.college?.collegeName || 'N/A'}</td>
@@ -585,16 +633,15 @@ const StudentManagement: React.FC = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteClick(student.id)}
-                            className="p-1  hidden bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150  items-center justify-center"
+                            className="p-1 hidden bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150 items-center justify-center"
                             title="Delete"
-                            
                           >
                             <FaTrash className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleToggleStatusClick(student.id)}
                             className={`p-1 rounded transition duration-150 flex items-center justify-center ${student.status ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            title="Active/Inactive "
+                            title="Active/Inactive"
                           >
                             {student.status ? (
                               <FaToggleOn className="w-3.5 h-3.5" />
@@ -610,8 +657,7 @@ const StudentManagement: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={15} className="py-4 text-center text-gray-500 bg-gray-50">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
                       <div className="mb-3">
                         <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
                       </div>
@@ -619,7 +665,6 @@ const StudentManagement: React.FC = () => {
                       <p className="text-xs text-gray-400 text-center px-4">
                         Try adjusting your filters or check back later
                       </p>
-                    </div>
                     </div>
                   </td>
                 </tr>

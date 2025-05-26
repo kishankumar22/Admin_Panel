@@ -71,6 +71,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const response = await axiosInstance.get("/pages");
       setPages(response.data);
+      console.log(response.data)
     } catch (err) {
       toast.error("Error fetching pages");
       console.error(err);
@@ -98,6 +99,7 @@ export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setSelectedActions(formattedPermissions);
     } catch (error) {
       console.error("Error fetching permissions:", error);
+      
       toast.error("Error fetching permissions");
     }
   };

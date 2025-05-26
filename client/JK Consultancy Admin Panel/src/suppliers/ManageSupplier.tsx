@@ -63,6 +63,7 @@ const ManageSupplier: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Added for loader
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,7 +71,7 @@ const ManageSupplier: React.FC = () => {
   const [toDate, setToDate] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10); // Now dynamic
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -90,18 +91,15 @@ const ManageSupplier: React.FC = () => {
   // Set default dates: current date for toDate and one month prior for fromDate
   useEffect(() => {
     const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-
+ 
     const formatDate = (date: Date) => {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
-
     setToDate(formatDate(today));
-    setFromDate(formatDate(oneMonthAgo));
+   
   }, []);
 
   const resetForm = () => {
@@ -121,6 +119,7 @@ const ManageSupplier: React.FC = () => {
   };
 
   const fetchSuppliers = async () => {
+    setIsLoading(true); // Show loader
     try {
       const response = await axiosInstance.get('/suppliers');
       let data: Supplier[] = response.data;
@@ -135,6 +134,8 @@ const ManageSupplier: React.FC = () => {
       setFilteredSuppliers(data);
     } catch (error) {
       toast.error('Failed to fetch suppliers', { position: 'top-right', autoClose: 3000 });
+    } finally {
+      setIsLoading(false); // Hide loader
     }
   };
 
@@ -153,6 +154,7 @@ const ManageSupplier: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    setIsLoading(true); // Show loader when filters change
     let filtered = suppliers;
 
     if (searchTerm) {
@@ -186,6 +188,7 @@ const ManageSupplier: React.FC = () => {
 
     setFilteredSuppliers(filtered);
     setCurrentPage(1);
+    setTimeout(() => setIsLoading(false), 500); // Simulate slight delay for loader
   }, [searchTerm, fromDate, toDate, paymentStatus, suppliers]);
 
   const validateForm = () => {
@@ -365,14 +368,12 @@ const ManageSupplier: React.FC = () => {
     }
   };
 
-  // Handle rows per page change
   const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRowsPerPage = parseInt(e.target.value);
     setRowsPerPage(newRowsPerPage);
-    setCurrentPage(1); // Reset to first page when rows per page changes
+    setCurrentPage(1);
   };
 
-  // Pagination logic
   const indexOfLastSupplier = currentPage * rowsPerPage;
   const indexOfFirstSupplier = indexOfLastSupplier - rowsPerPage;
   const currentSuppliers = filteredSuppliers.slice(indexOfFirstSupplier, indexOfLastSupplier);
@@ -384,7 +385,6 @@ const ManageSupplier: React.FC = () => {
     return sum + (supplier.PendingAmount || 0);
   }, 0);
 
-  // Generate page numbers for pagination
   const pageNumbers = [];
   const maxPagesToShow = 5;
   const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
@@ -800,147 +800,154 @@ const ManageSupplier: React.FC = () => {
 
       <div className="mt-2">
         <div className="overflow-x-auto rounded-lg shadow-md">
-          <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-            <thead>
-              <tr className="bg-indigo-600 text-white">
-                {[
-                  'Sr.',
-                  'Name',
-                  'Email',
-                  'Phone No.',
-                  'Address',
-                  'Amount',
-                  'Pending Amount',
-                  'Bank Name',
-                  'Account No.',
-                  'IFSC Code',
-                  'Comment',
-                  'Created By',
-                  'Created On',
-                  'Status',
-                  'Action',
-                ].map((title) => (
-                  <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
-                    {title}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {currentSuppliers.length > 0 ? (
-                currentSuppliers.map((supplier, index) => (
-                  <tr
-                    key={supplier.SupplierId || index}
-                    className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
-                      supplier.Deleted
-                        ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
-                        : index % 2 === 0
-                        ? 'bg-gray-100 dark:bg-gray-800'
-                        : 'bg-white dark:bg-gray-900'
-                    } hover:bg-indigo-100 dark:hover:bg-gray-700`}
-                  >
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {indexOfFirstSupplier + index + 1}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Name}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Email}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.PhoneNo}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Address}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      ₹{supplier.Amount.toLocaleString()}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      ₹{(supplier.PendingAmount || 0).toLocaleString()}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.BankName}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.AccountNo}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.IFSCCode}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Comment}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.CreatedBy}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {new Date(supplier.CreatedOn).toLocaleString()}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                          supplier.Deleted
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                        }`}
-                      >
-                        {supplier.Deleted ? 'InActive' : 'Active'}
-                      </span>
-                    </td>
-                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      <button
-                        onClick={() => handlePaySupplier(supplier)}
-                        className="inline-flex items-center px-2 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 transition text-[11px]"
-                        title="Payment"
-                      >
-                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                        Pay
-                      </button>
-                      <button
-                        onClick={() => handleEditSupplier(supplier)}
-                        className="inline-flex items-center px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700 transition text-[11px]"
-                        title="Edit"
-                      >
-                        <FaEdit className="w-3 h-3 mr-1" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleDeleted(supplier)}
-                        className="inline-flex items-center px-2 py-1 text-white bg-gray-600 rounded hover:bg-gray-700 transition text-[11px]"
-                        title={supplier.Deleted ? 'Restore' : 'Delete'}
-                      >
-                        {supplier.Deleted ? (
-                          <FaToggleOff className="w-3 h-3 mr-1" />
-                        ) : (
-                          <FaToggleOn className="w-3 h-3 mr-1" />
-                        )}
-                        {supplier.Deleted ? 'Restore' : 'Delete'}
-                      </button>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
+              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+              <p className="text-sm font-medium text-gray-600">Loading suppliers...</p>
+            </div>
+          ) : (
+            <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+              <thead>
+                <tr className="bg-indigo-600 text-white">
+                  {[
+                    'Sr.',
+                    'Name',
+                    'Email',
+                    'Phone No.',
+                    'Address',
+                    'Amount',
+                    'Pending Amount',
+                    'Bank Name',
+                    'Account No.',
+                    'IFSC Code',
+                    'Comment',
+                    'Created By',
+                    'Created On',
+                    'Status',
+                    'Action',
+                  ].map((title) => (
+                    <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
+                      {title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {currentSuppliers.length > 0 ? (
+                  currentSuppliers.map((supplier, index) => (
+                    <tr
+                      key={supplier.SupplierId || index}
+                      className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
+                        supplier.Deleted
+                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
+                          : index % 2 === 0
+                          ? 'bg-gray-100 dark:bg-gray-800'
+                          : 'bg-white dark:bg-gray-900'
+                      } hover:bg-indigo-100 dark:hover:bg-gray-700`}
+                    >
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {indexOfFirstSupplier + index + 1}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.Name}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.Email}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.PhoneNo}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.Address}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        ₹{supplier.Amount.toLocaleString()}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        ₹{(supplier.PendingAmount || 0).toLocaleString()}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.BankName}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.AccountNo}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.IFSCCode}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.Comment}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {supplier.CreatedBy}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {new Date(supplier.CreatedOn).toLocaleString()}
+                      </td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                            supplier.Deleted
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          }`}
+                        >
+                          {supplier.Deleted ? 'InActive' : 'Active'}
+                        </span>
+                      </td>
+                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        <button
+                          onClick={() => handlePaySupplier(supplier)}
+                          className="inline-flex items-center px-2 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 transition text-[11px]"
+                          title="Payment"
+                        >
+                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => handleEditSupplier(supplier)}
+                          className="inline-flex items-center px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700 transition text-[11px]"
+                          title="Edit"
+                        >
+                          <FaEdit className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleDeleted(supplier)}
+                          className="inline-flex items-center px-2 py-1 text-white bg-gray-600 rounded hover:bg-gray-700 transition text-[11px]"
+                          title={supplier.Deleted ? 'Restore' : 'Delete'}
+                        >
+                          {supplier.Deleted ? (
+                            <FaToggleOff className="w-3 h-3 mr-1" />
+                          ) : (
+                            <FaToggleOn className="w-3 h-3 mr-1" />
+                          )}
+                          {supplier.Deleted ? 'Restore' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={15}
+                      className="text-center text-gray-600 dark:text-gray-400 text-xs"
+                    >
+                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                        <div className="mb-3">
+                          <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
+                        <p className="text-xs text-gray-400 text-center px-4">
+                          Try adjusting your filters or check back later
+                        </p>
+                      </div>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={15}
-                    className="text-center text-gray-600 dark:text-gray-400 text-xs"
-                  >
-                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-                      <div className="mb-3">
-                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
-                      <p className="text-xs text-gray-400 text-center px-4">
-                        Try adjusting your filters or check back later
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-4 px-3">
