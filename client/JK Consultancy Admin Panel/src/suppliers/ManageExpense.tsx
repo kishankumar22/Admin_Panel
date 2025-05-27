@@ -68,7 +68,7 @@ const ManageExpense: React.FC = () => {
   const [toDate, setToDate] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   const [formData, setFormData] = useState({
     SupplierId: '',
     Reason: '',
@@ -108,6 +108,9 @@ const ManageExpense: React.FC = () => {
       setIsLoading(true); // Show loader
       try {
         const response = await axiosInstance.get('/expenses');
+        const expensList = response.data as Expense[];
+        setExpenses(expensList);
+
         const expensesWithPending = await Promise.all(
           response.data.map(async (expense: Expense) => {
             try {
@@ -170,7 +173,7 @@ const ManageExpense: React.FC = () => {
 
     setFilteredExpenses(filtered);
     setCurrentPage(1);
-    setTimeout(() => setIsLoading(false), 500); // Simulate slight delay for loader
+    setTimeout(() => setIsLoading(false), 200); // Simulate slight delay for loader
   }, [searchTerm, fromDate, toDate, statusFilter, expenses]);
 
   // Fetch documents when editing an expense
@@ -184,7 +187,7 @@ const ManageExpense: React.FC = () => {
           setDocuments(response.data);
         } catch (error) {
           console.error('Error fetching documents:', error);
-          toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 3000 });
+          toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 1000 });
         }
       };
       fetchDocuments();
@@ -458,10 +461,9 @@ const ManageExpense: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Manage Expenses" />
-
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 bg-white rounded-lg border border-gray-200">
         <div className="flex items-center gap-4 mb-2 sm:mb-0">
-          <span className="text-sm font-medium">Expenses: <span className="text-indigo-700">{filteredExpenses.length}</span></span>
+          <span className="text-sm font-medium">Total Expenses: <span className="text-indigo-700">{filteredExpenses.length}</span></span>
           <span className="text-sm font-medium">Total Amount: <span className="text-indigo-700">₹{totalFilteredAmount.toLocaleString('en-IN')}</span></span>
           <span className="text-sm font-medium">Pending Amount: <span className="text-red-700">₹{totalFilteredPendingAmount.toLocaleString('en-IN')}</span></span>
         </div>
@@ -542,172 +544,200 @@ const ManageExpense: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-3 mb-4">
-        <h3 className="text-base font-semibold text-gray-800 mb-2 flex items-center">
-          <FaMoneyBillWave className="text-purple-500 w-4 h-4 mr-1.5" />
-          Expenses List
+ {/* // Compact Modern Expenses Table - Inline Header Design */}
+{/* // Compact Modern Expenses Table - Inline Header Design */}
+<div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+  
+  {/* Ultra Compact Header - Minimal Spacing */}
+  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-2 py-1.5 border-b border-gray-200">
+    <div className="flex items-center justify-between gap-2">
+      
+      {/* Left Side - Title and Count Info */}
+      <div className="flex items-center gap-2">
+        <h3 className="text-base font-semibold text-gray-800 flex items-center">
+          <FaMoneyBillWave className="text-blue-500 w-4 h-4 mr-1" />
+          Expenses
         </h3>
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-            <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
-            <p className="text-sm font-medium text-gray-600">Loading expenses...</p>
-          </div>
-        ) : filteredExpenses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-            <div className="mb-3">
-              <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
-            </div>
-            <p className="text-sm font-medium text-gray-600 mb-1">No Expense found</p>
-            <p className="text-xs text-gray-400 text-center px-4">
-              Try adjusting your filters or check back later
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-gray-700 border-collapse">
-                <thead className="text-xs uppercase bg-gray-400 text-white">
-                  <tr>
-                    <th className="px-3 py-2 rounded-tl-md">Supplier Name</th>
-                    <th className="px-3 py-2">Email</th>
-                    <th className="px-3 py-2">Phone</th>
-                    <th className="px-3 py-2">Reason</th>
-                    <th className="px-3 py-2">Amount (₹)</th>
-                    <th className="px-3 py-2">Pending Amount (₹)</th>
-                    <th className="px-3 py-2">Created On</th>
-                    <th className="px-3 py-2">Created By</th>
-                    <th className="px-3 py-2 rounded-tr-md">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentExpenses.map((expense, index) => (
-                    <tr
-                      key={expense.SuppliersExpenseID}
-                      className={`border-b hover:bg-gray-50 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}`}
-                    >
-                      <td className="px-3 py-1.5">{expense.SupplierName}</td>
-                      <td className="px-3 py-1.5">{expense.SupplierEmail}</td>
-                      <td className="px-3 py-1.5">{expense.SupplierPhone}</td>
-                      <td className="px-3 py-1.5">{expense.Reason}</td>
-                      <td className="px-3 py-1.5 font-medium text-purple-700">₹{expense.Amount.toFixed(2)}</td>
-                      <td className="px-3 py-1.5 font-medium text-red-700">₹{(expense.PendingAmount || 0).toFixed(2)}</td>
-                      <td className="px-3 py-1.5">{new Date(expense.CreatedOn).toLocaleDateString()}</td>
-                      <td className="px-3 py-1.5">{expense.CreatedBy}</td>
-                      <td className="px-3 py-1.5 flex gap-1">
-                        <button
-                          onClick={() => openPaymentModal(expense)}
-                          className="inline-flex items-center px-1.5 py-0.5 text-white bg-blue-500 rounded hover:bg-blue-600 transition text-[10px]"
-                          title="Payment"
-                        >
-                          <FaMoneyBillWave className="w-2.5 h-2.5 mr-0.5" />
-                          Pay
-                        </button>
-                        <button
-                          onClick={() => openEditModal(expense)}
-                          className="inline-flex items-center px-1.5 py-0.5 text-white bg-yellow-500 rounded hover:bg-yellow-600 transition text-[10px]"
-                          title="Edit"
-                        >
-                          <FaEdit className="w-2.5 h-2.5 mr-0.5" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleDeleted(expense)}
-                          className={`inline-flex items-center px-1.5 py-0.5 text-white rounded hover:opacity-90 transition text-[10px] ${expense.Deleted ? 'bg-green-500' : 'bg-red-500'}`}
-                          title={expense.Deleted ? 'Restore' : 'Delete'}
-                        >
-                          {expense.Deleted ? (
-                            <FaToggleOff className="w-2.5 h-2.5 mr-0.5" />
-                          ) : (
-                            <FaToggleOn className="w-2.5 h-2.5 mr-0.5" />
-                          )}
-                          {expense.Deleted ? 'Active' : 'Deactive'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center justify-between mt-4 px-3">
-              <div className="flex items-center gap-2 text-xs text-gray-600">
-                <span>
-                  Showing {indexOfFirstExpense + 1} to{' '}
-                  {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
-                  {filteredExpenses.length} expenses
-                </span>
-                <div className="flex items-center gap-1">
-                  <span>Rows per page:</span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={handleRowsPerPageChange}
-                    className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-              </div>
-              <nav className="flex items-center space-x-1">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
-                >
-                  <FaChevronLeft className="w-4 h-4" />
-                </button>
-                {startPage > 1 && (
-                  <>
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
-                    >
-                      1
-                    </button>
-                    {startPage > 2 && (
-                      <span className="px-2 text-xs text-gray-600">...</span>
-                    )}
-                  </>
-                )}
-                {pageNumbers.map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`px-3 py-1 text-xs font-medium rounded-full transition duration-150 ${
-                      currentPage === page
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                {endPage < totalPages && (
-                  <>
-                    {endPage < totalPages - 1 && (
-                      <span className="px-2 text-xs text-gray-600">...</span>
-                    )}
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
-                    >
-                      {totalPages}
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
-                >
-                  <FaChevronRight className="w-4 h-4" />
-                </button>
-              </nav>
-            </div>
-          </>
-        )}
+        <div className="text-xs text-gray-600 bg-white px-2 py-0.5 rounded-full border">
+          <span className="font-medium text-gray-800">{indexOfFirstExpense + 1}-{Math.min(indexOfLastExpense, filteredExpenses.length)}</span>
+          <span className="mx-0.5">of</span>
+          <span className="font-medium text-blue-600">{filteredExpenses.length}</span>
+        </div>
       </div>
+
+      {/* Right Side - Rows Per Page Control */}
+      <div className="flex items-center gap-1 text-xs text-gray-600">
+        <span className="font-medium">Show:</span>
+        <select
+          value={rowsPerPage}
+          onChange={handleRowsPerPageChange}
+          className="px-2 py-0.5 text-xs rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={75}>75</option>
+          <option value={100}>100</option>
+        </select>
+        <span>rows</span>
+      </div>
+    </div>
+  </div>
+
+  {/* Table Content */}
+  {isLoading ? (
+    <div className="flex flex-col items-center justify-center h-40 bg-gray-50">
+      <FaSpinner className="animate-spin h-6 w-6 text-blue-600 mb-2" />
+      <p className="text-xs font-medium text-gray-600">Loading...</p>
+    </div>
+  ) : filteredExpenses.length === 0 ? (
+    <div className="flex flex-col items-center justify-center h-40 bg-gray-50">
+      <FileSearch className="h-8 w-8 text-gray-300 mb-2" />
+      <p className="text-sm font-medium text-gray-600 mb-0.5">No expenses found</p>
+      <p className="text-xs text-gray-400">Adjust filters or add expenses</p>
+    </div>
+  ) : (
+    <>
+      {/* Compact Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-gray-700 text-white">
+            <tr>
+              <th className="px-2 py-1.5 text-left font-semibold">Supplier</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold">Phone</th>
+              <th className="px-2 py-1.5 text-left font-semibold">Reason</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold">Amount</th>
+              <th className="px-1.5 py-1.5 text-right font-semibold">Pending</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold">Date</th>
+              <th className="px-1.5 py-1.5 text-left font-semibold">By</th>
+              <th className="px-1.5 py-1.5 text-center font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {currentExpenses.map((expense, index) => (
+              <tr
+                key={expense.SuppliersExpenseID}
+                className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+              >
+                <td className="px-2 py-1.5 font-medium text-gray-900">{expense.SupplierName}</td>
+                <td className="px-1.5 py-1.5 text-gray-600">{expense.SupplierPhone}</td>
+                <td className="px-1 py-1.5 text-gray-700 max-w-xs truncate" title={expense.Reason}>
+                  {expense.Reason}
+                </td>
+                <td className="px-1.5 py-1.5 text-right font-semibold text-green-600">
+                  ₹{expense.Amount.toFixed(2)}
+                </td>
+                <td className="px-1.5 py-1.5 text-right font-semibold text-red-600">
+                  ₹{(expense.PendingAmount || 0).toFixed(2)}
+                </td>
+                <td className="px-1.5 py-1.5 text-gray-600">
+                  {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
+                </td>
+                <td className="px-1.5 py-1.5 text-gray-600">{expense.CreatedBy}</td>
+                <td className="px-1.5 py-1.5">
+                  <div className="flex items-center justify-center gap-0.5">
+                    <button
+                      onClick={() => openPaymentModal(expense)}
+                      className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
+                      title="Make Payment"
+                    >
+                      <FaMoneyBillWave className="w-2.5 h-2.5 mr-0.5" />
+                      Pay
+                    </button>
+                    <button
+                      onClick={() => openEditModal(expense)}
+                      className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-amber-500 rounded hover:bg-amber-600 transition-colors"
+                      title="Edit Expense"
+                    >
+                      <FaEdit className="w-2.5 h-2.5 mr-0.5" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleToggleDeleted(expense)}
+                      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white rounded transition-colors ${
+                        expense.Deleted 
+                          ? 'bg-green-600 hover:bg-green-700' 
+                          : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                      title={expense.Deleted ? 'Activate' : 'Deactivate'}
+                    >
+                      {expense.Deleted ? (
+                        <FaToggleOff className="w-2.5 h-2.5 mr-0.5" />
+                      ) : (
+                        <FaToggleOn className="w-2.5 h-2.5 mr-0.5" />
+                      )}
+                      {expense.Deleted ? 'On' : 'Off'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Ultra Compact Pagination Footer */}
+      <div className="bg-gray-50 px-2 py-1.5 border-t border-gray-200">
+        <div className="flex items-center justify-center">
+          <nav className="flex items-center space-x-0.5">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-1 rounded text-gray-500 hover:bg-white hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <FaChevronLeft className="w-3 h-3" />
+            </button>
+            
+            {startPage > 1 && (
+              <>
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  className="px-2 py-1 text-xs font-medium text-gray-700 bg-white rounded hover:bg-gray-100 transition-colors"
+                >
+                  1
+                </button>
+                {startPage > 2 && <span className="px-1 text-xs text-gray-400">...</span>}
+              </>
+            )}
+            
+            {pageNumbers.map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                  currentPage === page
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            {endPage < totalPages && (
+              <>
+                {endPage < totalPages - 1 && <span className="px-1 text-xs text-gray-400">...</span>}
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  className="px-2 py-1 text-xs font-medium text-gray-700 bg-white rounded hover:bg-gray-100 transition-colors"
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+            
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-1 rounded text-gray-500 hover:bg-white hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              <FaChevronRight className="w-3 h-3" />
+            </button>
+          </nav>
+        </div>
+      </div>
+    </>
+  )}
+</div>
 
       {/* Add/Edit Expense Modal */}
       {isModalOpen && (

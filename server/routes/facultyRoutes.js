@@ -1,4 +1,3 @@
-
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
@@ -15,7 +14,6 @@ const STORAGE_PATH = process.env.STORAGE_PATH;
 const initializeStorage = () => {
   if (!fs.existsSync(STORAGE_PATH)) {
     fs.mkdirSync(STORAGE_PATH, { recursive: true, mode: 0o755 });
-    // Set read-only permissions for directory (except for deletion through API)
     fs.chmodSync(STORAGE_PATH, 0o755);
   }
 };
@@ -51,30 +49,41 @@ const protectFolder = (req, res, next) => {
 };
 
 // 1. GET All Faculties
-router.get('/faculty', async (req, res, next) => {
+router.get('/faculty', async (req, res) => {
   try {
     const result = await executeQuery('SELECT * FROM Faculty ORDER BY faculty_name ASC');
-    // Validate document files
     const faculties = result.recordset.map(faculty => {
       if (faculty.documents) {
         try {
           const docs = JSON.parse(faculty.documents);
           faculty.documents = JSON.stringify(docs.filter(doc => {
-            const fileName = path.basename(doc.url);
-            return fs.existsSync(path.join(STORAGE_PATH, fileName));
+            const url = doc.url;
+            if (url.includes('res.cloudinary.com')) {
+              return true;
+            }
+            const fileName = path.basename(url);
+            const filePath = path.resolve(STORAGE_PATH, 'faculties', fileName);
+            const exists = fs.existsSync(filePath);
+            if (!exists) {
+              console.log(`Local file not found: ${filePath}`);
+            }
+            return exists;
           }));
         } catch (error) {
-          faculty.documents = null; // Handle invalid JSON
+          console.error(`Error parsing documents for faculty ${faculty.id}:`, error.message);
+          faculty.documents = null;
         }
       }
       return faculty;
     });
-    res.status(200).json(faculties);
+
+    return res.status(200).json(faculties);
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
+    console.error('Error fetching faculties:', err.stack);
+    return res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
   }
 });
+
 
 // 2. POST Add Faculty
 router.post('/faculty/add', upload.fields([
@@ -164,8 +173,7 @@ router.post('/faculty/add', upload.fields([
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error adding faculty', error: err.message });
+    next(err); // Pass error to middleware
   }
 });
 
@@ -269,8 +277,7 @@ router.put('/faculty/update/:id', upload.fields([
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error updating faculty', error: err.message });
+    next(err); // Pass error to middleware
   }
 });
 
@@ -307,8 +314,7 @@ router.delete('/faculty/delete/:id', protectFolder, async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Faculty deleted successfully' });
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error deleting faculty', error: err.message });
+    next(err); // Pass error to middleware
   }
 });
 
@@ -348,24 +354,26 @@ router.put('/faculty/toggle-visibility/:id', protectFolder, async (req, res, nex
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error updating faculty visibility', error: err.message });
+    next(err); // Pass error to middleware
   }
 });
 
 // 6. Serve Documents (Check File Existence)
 router.get('/upload/:fileName', (req, res, next) => {
-  const fileName = req.params.fileName;
-  const filePath = path.join(STORAGE_PATH, fileName);
-  if (fs.existsSync(filePath)) {
-    res.sendFile(filePath);
-  } else {
-    res.status(404).json({ success: false, message: 'File not found' });
+  try {
+    const fileName = req.params.fileName;
+    const filePath = path.join(STORAGE_PATH, fileName);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ success: false, message: 'File not found' });
+    }
+  } catch (err) {
+    next(err); // Pass error to middleware
   }
 });
 
-//edit: title
-// PUT /faculty/:id/update-document-title - Fixed route
+// 7. PUT Update Document Title
 router.put('/faculty/:id/update-document-title', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -431,11 +439,9 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
 
     res.status(200).json(updatedFaculty);
   } catch (err) {
-    next(err);
-    res.status(500).json({ success: false, message: 'Error updating document title', error: err.message });
+    next(err); // Pass error to middleware
   }
 });
-
 
 // Serve static files (optional, for fallback)
 router.use('/', express.static(STORAGE_PATH));

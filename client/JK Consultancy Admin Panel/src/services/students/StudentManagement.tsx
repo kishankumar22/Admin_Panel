@@ -89,7 +89,7 @@ const StudentManagement: React.FC = () => {
   const [admissionModeFilter, setAdmissionModeFilter] = useState('');
     const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
   const [currentPage, setCurrentPage] = useState(1);
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(50);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -105,7 +105,6 @@ const StudentManagement: React.FC = () => {
     students.filter(student => {
       const latestAcademic = student.academicDetails
         .sort((a, b) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime())[0] || {};
-
       const matchesSearch = [
         student.fName,
         student.lName,
@@ -135,7 +134,7 @@ const StudentManagement: React.FC = () => {
     // Simulate processing delay for filter loader
     setTimeout(() => {
       setIsFilterLoading(false);
-    }, 500);
+    }, 100);
   }, [searchQuery, courseYearFilter, collegeFilter, sessionYearFilter, statusFilter, categoryFilter, admissionModeFilter, students]);
 
   const [yearFilter, setYearFilter] = useState('');
@@ -222,10 +221,10 @@ const StudentManagement: React.FC = () => {
     } finally {
       setTimeout(() => {
         setLoading(false);
-      }, 300);
+      }, 200);
       const minLoadingTime = setTimeout(() => {
         setShowLoading(false);
-      }, 300);
+      }, 200);
       return () => clearTimeout(minLoadingTime);
     }
   };
@@ -434,7 +433,7 @@ const StudentManagement: React.FC = () => {
           <div className="mb-1">
             <div className="flex justify-between items-center text-blue-800 text-[14px]">
               <span className="flex items-center">
-                Filtered Students: <b className="text-base ml-0.5">{filteredStudents.length}</b>
+                Number of Students: <b className="text-base ml-0.5">{filteredStudents.length}</b>
               </span>
               <div className="flex items-center">
                 Status : 
@@ -689,9 +688,9 @@ const StudentManagement: React.FC = () => {
               }}
               className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
+              <option value={75}>75</option>
               <option value={100}>100</option>
             </select>
           </div>

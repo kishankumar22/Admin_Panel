@@ -63,15 +63,15 @@ const ManageSupplier: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Added for loader
+  const [isLoading, setIsLoading] = useState(true);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fromDate, setFromDate] = useState<string>('');
-  const [toDate, setToDate] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>(''); // Removed default date
+  const [toDate, setToDate] = useState<string>(''); // Removed default date
   const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,20 +87,6 @@ const ManageSupplier: React.FC = () => {
     comment: '',
     files: [] as File[],
   });
-
-  // Set default dates: current date for toDate and one month prior for fromDate
-  useEffect(() => {
-    const today = new Date();
- 
-    const formatDate = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    setToDate(formatDate(today));
-   
-  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -119,23 +105,22 @@ const ManageSupplier: React.FC = () => {
   };
 
   const fetchSuppliers = async () => {
-    setIsLoading(true); // Show loader
+    setIsLoading(true);
     try {
       const response = await axiosInstance.get('/suppliers');
+      const suppliersData: Supplier[] = response.data;
+      setSuppliers(suppliersData);
       let data: Supplier[] = response.data;
-
       for (let supplier of data) {
         const totalPaid = await fetchTotalPaidAmount(supplier.SupplierId!);
         supplier.TotalPaidAmount = totalPaid;
         supplier.PendingAmount = supplier.Amount - (totalPaid || 0);
       }
-
-      setSuppliers(data);
-      setFilteredSuppliers(data);
+      
     } catch (error) {
-      toast.error('Failed to fetch suppliers', { position: 'top-right', autoClose: 3000 });
+      toast.error('Failed to fetch suppliers', { position: 'top-right', autoClose: 1000 });
     } finally {
-      setIsLoading(false); // Hide loader
+      setIsLoading(false);
     }
   };
 
@@ -154,7 +139,7 @@ const ManageSupplier: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    setIsLoading(true); // Show loader when filters change
+    setIsLoading(true);
     let filtered = suppliers;
 
     if (searchTerm) {
@@ -188,7 +173,7 @@ const ManageSupplier: React.FC = () => {
 
     setFilteredSuppliers(filtered);
     setCurrentPage(1);
-    setTimeout(() => setIsLoading(false), 500); // Simulate slight delay for loader
+    setTimeout(() => setIsLoading(false), 100);
   }, [searchTerm, fromDate, toDate, paymentStatus, suppliers]);
 
   const validateForm = () => {
@@ -315,7 +300,7 @@ const ManageSupplier: React.FC = () => {
       console.error('Error toggling supplier:', err);
       toast.error(err.response?.data?.message || 'Failed to toggle supplier', {
         position: 'top-right',
-        autoClose: 3000,
+        autoClose: 1000,
       });
     }
   };
@@ -351,20 +336,12 @@ const ManageSupplier: React.FC = () => {
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    const today = new Date();
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-    const formatDate = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-    setToDate(formatDate(today));
-    setFromDate(formatDate(oneMonthAgo));
+    setFromDate('');
+    setToDate('');
     setPaymentStatus('All');
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
+      searchInputRef.current.blur();
     }
   };
 
@@ -401,7 +378,7 @@ const ManageSupplier: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="flex items-center">
             <FaUserPlus className="text-indigo-600 dark:text-indigo-400 w-4 h-4 mr-1" />
-            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Suppliers:</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Total Suppliers:</span>
             <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
               {filteredSuppliers.length}
             </span>
@@ -964,9 +941,9 @@ const ManageSupplier: React.FC = () => {
                 onChange={handleRowsPerPageChange}
                 className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
               >
-                <option value={10}>10</option>
                 <option value={25}>25</option>
                 <option value={50}>50</option>
+                <option value={75}>75</option>
                 <option value={100}>100</option>
               </select>
             </div>

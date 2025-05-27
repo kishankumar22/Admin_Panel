@@ -504,15 +504,15 @@ router.post('/supplier/payment', upload.single('file'), async (req, res, next) =
   }
 });
 // GET all expenses with supplier details
-router.get('/suppliers', async (req, res, next) => {
-  try {
-    const result = await executeQuery('SELECT * FROM Suppliers WHERE Deleted = 0', {});
-    res.status(200).json(result.recordset);
-  } catch (err) {
-    console.error('Error fetching suppliers:', err);
-    next(err);
-  }
-});
+// router.get('/suppliers', async (req, res, next) => {
+//   try {
+//     const result = await executeQuery('SELECT * FROM Suppliers WHERE Deleted = 0', {});
+//     res.status(200).json(result.recordset);
+//   } catch (err) {
+//     console.error('Error fetching suppliers:', err);
+//     next(err);
+//   }
+// });
 
 // GET all expenses with supplier details
 router.get('/expenses', async (req, res, next) => {
@@ -533,7 +533,7 @@ router.get('/expenses', async (req, res, next) => {
         se.ModifiedOn
       FROM SupplierExpenses se
       INNER JOIN Suppliers s ON se.SupplierId = s.SupplierId
-      WHERE s.Deleted = 0`,
+      WHERE s.Deleted = 0 `,
       {}
     );
     // console.log('Fetched expenses:', result.recordset.length);

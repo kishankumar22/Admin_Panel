@@ -161,7 +161,7 @@ const ManagePayment: React.FC = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [entriesPerPage, setEntriesPerPage] = useState(10);
+  const [entriesPerPage, setEntriesPerPage] = useState(50);
 
   // Filter options using Sets
   const [filterOptions, setFilterOptions] = useState({
@@ -268,7 +268,7 @@ const ManagePayment: React.FC = () => {
     // Simulate processing delay for filter loader
     setTimeout(() => {
       setIsFilterLoading(false);
-    }, 500);
+    }, 100);
   }, [
     searchQuery,
     courseFilter,
@@ -388,10 +388,10 @@ const ManagePayment: React.FC = () => {
     } finally {
       setTimeout(() => {
         setLoading(false);
-      }, 300);
+      }, 100);
       const minLoadingTime = setTimeout(() => {
         setShowLoading(false);
-      }, 300);
+      }, 100);
       return () => clearTimeout(minLoadingTime);
     }
   };
@@ -1026,7 +1026,25 @@ const ManagePayment: React.FC = () => {
       </div>
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
         <div className="relative overflow-x-auto max-h-[70vh] flex justify-between items-center p-1">
-          <div></div>
+          <div>
+            <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
+          <span className="text-xs">Show:</span>
+          <select
+            value={entriesPerPage}
+            onChange={(e) => {
+              setEntriesPerPage(parseInt(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={75}>75</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="text-xs">entries</span>
+        </div>
+          </div>
           <button
             onClick={handleExportToExcel}
             className="flex items-center text-green-600 hover:text-green-800 text-xs px-2 py-1 bg-white border border-green-300 rounded hover:bg-green-50 transition-all duration-150"
@@ -1274,23 +1292,7 @@ const ManagePayment: React.FC = () => {
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center mt-2 p-2 bg-white rounded shadow-md border border-gray-200">
-        <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
-          <span className="text-xs">Show:</span>
-          <select
-            value={entriesPerPage}
-            onChange={(e) => {
-              setEntriesPerPage(parseInt(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-          <span className="text-xs">entries</span>
-        </div>
+        
         <div className="flex items-center space-x-0.5">
           <button
             onClick={() => handlePageChange(1)}

@@ -229,7 +229,7 @@ const PaymentHandover: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [handoverCurrentPage, setHandoverCurrentPage] = useState(1);
   const [paymentsCurrentPage, setPaymentsCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50;
   const [selectedReceivedBy, setSelectedReceivedBy] = useState('');
   const [selectedHandedOverTo, setSelectedHandedOverTo] = useState('');
 
