@@ -32,7 +32,7 @@ interface Supplier {
   Email: string;
   PhoneNo: string;
   Address: string;
-  Amount: number;
+ 
   BankName: string;
   AccountNo: string;
   IFSCCode: string;
@@ -57,7 +57,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     email: supplier.Email,
     phoneNo: supplier.PhoneNo,
     address: supplier.Address,
-    amount: supplier.Amount.toString(),
+
     bankName: supplier.BankName,
     accountNo: supplier.AccountNo,
     ifscCode: supplier.IFSCCode,
@@ -95,8 +95,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
-    if (!formData.amount) newErrors.amount = 'Amount is required';
-    else if (parseFloat(formData.amount) <= 0) newErrors.amount = 'Amount must be greater than 0';
+
     if (!formData.bankName) newErrors.bankName = 'Bank name is required';
     if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
     if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
@@ -161,7 +160,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     data.append('email', formData.email);
     data.append('phoneNo', formData.phoneNo);
     data.append('address', formData.address);
-    data.append('amount', formData.amount);
+
     data.append('bankName', formData.bankName);
     data.append('accountNo', formData.accountNo);
     data.append('ifscCode', formData.ifscCode);
@@ -280,23 +279,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                 />
                 {errors.address && <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>}
               </div>
-              <div className="mb-2">
-                <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                  <FaMoneyBillWave className="text-indigo-500" />
-                  Total Amount <RequiredAsterisk />
-                </label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  className={`w-full p-1 text-sm rounded-md border ${
-                    errors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                  required
-                />
-                {errors.amount && <p className="text-red-500 text-xs mt-0.5">{errors.amount}</p>}
-              </div>
+          
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   Bank Name <RequiredAsterisk />

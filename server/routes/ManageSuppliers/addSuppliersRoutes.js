@@ -92,7 +92,7 @@ router.delete('/documents/:publicId', async (req, res, next) => {
 router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
+    const { name, email, phoneNo, address, bankName, accountNo, ifscCode, comment, modifiedBy } = req.body;
     const files = req.files;
 
     // Validate required fields
@@ -157,17 +157,6 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
     if (address && address !== currentSupplier.Address) {
       updates.push('Address = @Address');
       params.Address = { type: sql.NVarChar, value: address };
-    }
-
-    if (amount) {
-      const amountNum = parseFloat(amount);
-      if (isNaN(amountNum) || amountNum < 0) {
-        return res.status(400).json({ success: false, message: 'Amount must be a valid positive number' });
-      }
-      if (amountNum !== currentSupplier.Amount) {
-        updates.push('Amount = @Amount');
-        params.Amount = { type: sql.Decimal(18, 2), value: amountNum };
-      }
     }
 
     if (bankName && bankName !== currentSupplier.BankName) {
@@ -273,11 +262,11 @@ router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
 // POST Add Supplier with multiple files
 router.post('/supplier/add', upload.array('files', 10), async (req, res, next) => {
   try {
-    const { name, email, phoneNo, address, amount, bankName, accountNo, ifscCode, comment, createdBy } = req.body;
+    const { name, email, phoneNo, address, bankName, accountNo, ifscCode, comment, createdBy } = req.body;
     const files = req.files;
 
     // Validate required fields
-    if (!name || !email || !phoneNo || !address || !amount || !bankName || !accountNo || !ifscCode || !createdBy) {
+    if (!name || !email || !phoneNo || !address || !bankName || !accountNo || !ifscCode || !createdBy) {
       return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 
@@ -304,9 +293,9 @@ router.post('/supplier/add', upload.array('files', 10), async (req, res, next) =
 
     // Insert supplier into Suppliers table
     const supplierQuery = `
-      INSERT INTO Suppliers (Name, Email, PhoneNo, Address, Amount, BankName, AccountNo, IFSCCode, Comment, CreatedBy, CreatedOn, Deleted)
+      INSERT INTO Suppliers (Name, Email, PhoneNo, Address, BankName, AccountNo, IFSCCode, Comment, CreatedBy, CreatedOn, Deleted)
       OUTPUT INSERTED.SupplierId
-      VALUES (@name, @email, @phoneNo, @address, @amount, @bankName, @accountNo, @ifscCode, @comment, @createdBy, GETDATE(), 0)
+      VALUES (@name, @email, @phoneNo, @address, @bankName, @accountNo, @ifscCode, @comment, @createdBy, GETDATE(), 0)
     `;
 
     const supplierResult = await executeQuery(supplierQuery, {
@@ -314,7 +303,6 @@ router.post('/supplier/add', upload.array('files', 10), async (req, res, next) =
       email: { type: sql.NVarChar, value: email },
       phoneNo: { type: sql.NVarChar, value: phoneNo },
       address: { type: sql.NVarChar, value: address },
-      amount: { type: sql.Decimal(18, 2), value: parseFloat(amount) },
       bankName: { type: sql.NVarChar, value: bankName },
       accountNo: { type: sql.NVarChar, value: accountNo },
       ifscCode: { type: sql.NVarChar, value: ifscCode },
@@ -384,7 +372,7 @@ router.patch('/supplier/:id/toggle', async (req, res, next) => {
       }
     );
 
-    res.status(200).json({ message: `Supplier ${newDeleted ? 'deleted' : 'restored'} successfully`, newDeleted });
+    res.status(200).json({ message: `Supplier ${newDeleted ? 'InActive' : 'Active'} successfully`, newDeleted });
   } catch (err) {
     console.error('Error toggling supplier:', err);
     res.status(500).json({ message: 'Failed to toggle supplier' });
@@ -393,116 +381,7 @@ router.patch('/supplier/:id/toggle', async (req, res, next) => {
 });
 
 
-// POST Add Supplier Payment
-router.post('/supplier/payment', upload.single('file'), async (req, res, next) => {
-  try {
-    const {
-      supplierId,
-      paidAmount,
-      paymentMode,
-      transactionId,
-      paymentDate,
-      isApproved,
-      approveBy,
-      comment,
-      createdBy,
-    } = req.body;
-    const file = req.file;
 
-    // Validate required fields
-    if (!supplierId || !paidAmount || !paymentMode || !paymentDate || !createdBy) {
-      return res.status(400).json({ success: false, message: 'All required fields must be provided' });
-    }
-
-    // If payment mode is not Cash, transactionId is required
-    if (paymentMode !== 'Cash' && !transactionId) {
-      return res.status(400).json({ success: false, message: 'Transaction ID is required for non-cash payments' });
-    }
-
-    // Fetch current supplier details
-    const supplierQuery = `
-      SELECT Amount
-      FROM Suppliers
-      WHERE SupplierId = @supplierId AND Deleted = 0
-    `;
-    const supplierResult = await executeQuery(supplierQuery, {
-      supplierId: { type: sql.Int, value: parseInt(supplierId) },
-    });
-
-    if (!supplierResult.recordset.length) {
-      return res.status(404).json({ success: false, message: 'Supplier not found' });
-    }
-
-    const currentAmount = parseFloat(supplierResult.recordset[0].Amount);
-    const paymentAmount = parseFloat(paidAmount);
-
-    // Fetch total paid amount for this supplier to calculate remaining amount
-    const paymentHistoryQuery = `
-      SELECT SUM(PaidAmount) AS TotalPaidAmount
-      FROM SupplierPayment
-      WHERE SupplierId = @supplierId
-    `;
-    const paymentHistoryResult = await executeQuery(paymentHistoryQuery, {
-      supplierId: { type: sql.Int, value: parseInt(supplierId) },
-    });
-
-    const totalPaidAmount = parseFloat(paymentHistoryResult.recordset[0].TotalPaidAmount) || 0;
-    const remainingAmount = currentAmount - totalPaidAmount;
-
-    if (paymentAmount > remainingAmount) {
-      return res.status(400).json({ success: false, message: 'Payment amount exceeds remaining amount' });
-    }
-
-    // Upload file to Cloudinary if provided
-    let fileUrl = null;
-    let publicId = null;
-    if (file) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { resource_type: 'auto', folder: 'SupplierPayments' },
-          (error, result) => {
-            if (error) return reject(error);
-            resolve(result);
-          }
-        );
-        stream.end(file.buffer);
-      });
-      fileUrl = uploadResult.secure_url;
-      publicId = uploadResult.public_id;
-    }
-
-    // Insert payment into SupplierPayment table
-    const paymentQuery = `
-      INSERT INTO SupplierPayment (
-        SupplierId, PaidAmount, PaymentMode, TransactionId, PaymentDate, 
-        IsApproved, ApproveBy, Comment, PaymentImage, PaymentPublicId, 
-        CreatedBy, CreatedOn
-      )
-      VALUES (
-        @supplierId, @paidAmount, @paymentMode, @transactionId, @paymentDate, 
-        @isApproved, @approveBy, @comment, @paymentImage, @paymentPublicId, 
-        @createdBy, GETDATE()
-      )
-    `;
-    await executeQuery(paymentQuery, {
-      supplierId: { type: sql.Int, value: parseInt(supplierId) },
-      paidAmount: { type: sql.Decimal(18, 2), value: paymentAmount },
-      paymentMode: { type: sql.NVarChar, value: paymentMode },
-      transactionId: { type: sql.NVarChar, value: paymentMode === 'Cash' ? null : transactionId },
-      paymentDate: { type: sql.Date, value: paymentDate },
-      isApproved: { type: sql.Bit, value: isApproved === 'true' ? 1 : 0 },
-      approveBy: { type: sql.NVarChar, value: approveBy || null },
-      comment: { type: sql.NVarChar, value: comment || null },
-      paymentImage: { type: sql.NVarChar, value: fileUrl || null },
-      paymentPublicId: { type: sql.NVarChar, value: publicId || null },
-      createdBy: { type: sql.NVarChar, value: createdBy },
-    });
-
-    res.status(201).json({ success: true, message: 'Payment processed successfully' });
-  } catch (err) {
-    next(err);
-  }
-});
 // GET all expenses with supplier details
 // router.get('/suppliers', async (req, res, next) => {
 //   try {
@@ -867,17 +746,25 @@ router.patch('/expenses/:id/toggle', async (req, res, next) => {
 router.get('/expense/:supplierId/payments', async (req, res, next) => {
   try {
     const { supplierId } = req.params;
+    const { suppliersExpenseID } = req.query; // Get SuppliersExpenseID from query parameter
+
     if (!supplierId || isNaN(parseInt(supplierId))) {
       return res.status(400).json({ success: false, message: 'Invalid supplier ID' });
     }
+    if (!suppliersExpenseID || isNaN(parseInt(suppliersExpenseID))) {
+      return res.status(400).json({ success: false, message: 'Invalid suppliers expense ID' });
+    }
+
     const query = `
-      SELECT ExpensePaymentID, PaidAmount, PaymentMode, TransactionId, PaymentDate, Comment, PaymentImage, PaymentPublicId, CreatedBy, CreatedOn
+      SELECT ExpensePaymentID, SuppliersExpenseID, PaidAmount, PaymentMode, TransactionId, PaymentDate, Comment, PaymentImage, PaymentPublicId, CreatedBy, CreatedOn
       FROM ExpensePayment
-      WHERE SupplierId = @supplierId
+      WHERE SupplierId = @supplierId AND SuppliersExpenseID = @suppliersExpenseID
     `;
     const result = await executeQuery(query, {
       supplierId: { type: sql.Int, value: parseInt(supplierId) },
+      suppliersExpenseID: { type: sql.Int, value: parseInt(suppliersExpenseID) },
     });
+
     res.status(200).json(result.recordset);
   } catch (err) {
     next(err);
@@ -885,11 +772,11 @@ router.get('/expense/:supplierId/payments', async (req, res, next) => {
 });
 
 // POST expense payment
-// POST expense payment
 router.post('/expense/payment', upload.single('file'), async (req, res, next) => {
   try {
     const {
       supplierId,
+      suppliersExpenseID, // Added suppliersExpenseID
       paidAmount,
       paymentMode,
       transactionId,
@@ -902,7 +789,7 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
     const file = req.file;
 
     // Validate required fields
-    if (!supplierId || !paidAmount || !paymentMode || !paymentDate || !createdBy) {
+    if (!supplierId || !suppliersExpenseID || !paidAmount || !paymentMode || !paymentDate || !createdBy) {
       return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 
@@ -913,7 +800,7 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
 
     // Fetch current supplier details
     const supplierQuery = `
-      SELECT Amount
+      SELECT *
       FROM Suppliers
       WHERE SupplierId = @supplierId AND Deleted = 0
     `;
@@ -966,18 +853,19 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
     // Insert payment into ExpensePayment table
     const paymentQuery = `
       INSERT INTO ExpensePayment (
-        SupplierId, PaidAmount, PaymentMode, TransactionId, PaymentDate, 
+        SupplierId, SuppliersExpenseID, PaidAmount, PaymentMode, TransactionId, PaymentDate, 
         IsApproved, ApproveBy, Comment, PaymentImage, PaymentPublicId, 
         CreatedBy, CreatedOn
       )
       VALUES (
-        @supplierId, @paidAmount, @paymentMode, @transactionId, @paymentDate, 
+        @supplierId, @suppliersExpenseID, @paidAmount, @paymentMode, @transactionId, @paymentDate, 
         @isApproved, @approveBy, @comment, @paymentImage, @paymentPublicId, 
         @createdBy, GETDATE()
       )
     `;
     await executeQuery(paymentQuery, {
       supplierId: { type: sql.Int, value: parseInt(supplierId) },
+      suppliersExpenseID: { type: sql.Int, value: parseInt(suppliersExpenseID) }, // Added SuppliersExpenseID
       paidAmount: { type: sql.Decimal(18, 2), value: paymentAmount },
       paymentMode: { type: sql.NVarChar, value: paymentMode },
       transactionId: { type: sql.NVarChar, value: paymentMode === 'Cash' ? '' : transactionId },

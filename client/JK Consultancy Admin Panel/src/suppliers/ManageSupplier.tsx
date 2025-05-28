@@ -9,7 +9,6 @@ import {
   FaEnvelope,
   FaPhone,
   FaBuilding,
-  FaMoneyBillWave,
   FaCreditCard,
   FaComment,
   FaFileUpload,
@@ -18,12 +17,13 @@ import {
   FaEdit,
   FaToggleOn,
   FaToggleOff,
+  FaMoneyBillWave,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../config';
 import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
-import SupplierPayment from './SupplierPayment';
+import SupplierPayment from './SupplierPaymentHistory';
 import EditSupplierModal from './EditSupplierModal';
 import { FileSearch } from 'lucide-react';
 
@@ -35,7 +35,6 @@ interface Supplier {
   Email: string;
   PhoneNo: string;
   Address: string;
-  Amount: number;
   BankName: string;
   AccountNo: string;
   IFSCCode: string;
@@ -45,14 +44,9 @@ interface Supplier {
   Deleted: boolean;
   ModifiedBy: string | null;
   ModifiedOn: string | null;
-  TotalPaidAmount?: number;
-  PendingAmount?: number;
 }
 
-interface PaymentHistory {
-  SPId: number;
-  PaidAmount: number;
-}
+
 
 const ManageSupplier: React.FC = () => {
   const { user } = useAuth();
@@ -67,9 +61,9 @@ const ManageSupplier: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [fromDate, setFromDate] = useState<string>(''); // Removed default date
-  const [toDate, setToDate] = useState<string>(''); // Removed default date
-  const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -80,7 +74,6 @@ const ManageSupplier: React.FC = () => {
     email: '',
     phoneNo: '',
     address: '',
-    amount: '',
     bankName: '',
     accountNo: '',
     ifscCode: '',
@@ -94,7 +87,6 @@ const ManageSupplier: React.FC = () => {
       email: '',
       phoneNo: '',
       address: '',
-      amount: '',
       bankName: '',
       accountNo: '',
       ifscCode: '',
@@ -108,29 +100,12 @@ const ManageSupplier: React.FC = () => {
     setIsLoading(true);
     try {
       const response = await axiosInstance.get('/suppliers');
-      const suppliersData: Supplier[] = response.data;
-      setSuppliers(suppliersData);
-      let data: Supplier[] = response.data;
-      for (let supplier of data) {
-        const totalPaid = await fetchTotalPaidAmount(supplier.SupplierId!);
-        supplier.TotalPaidAmount = totalPaid;
-        supplier.PendingAmount = supplier.Amount - (totalPaid || 0);
-      }
-      
+      setSuppliers(response.data);
+      setFilteredSuppliers(response.data);
     } catch (error) {
       toast.error('Failed to fetch suppliers', { position: 'top-right', autoClose: 1000 });
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchTotalPaidAmount = async (supplierId: number): Promise<number> => {
-    try {
-      const response = await axiosInstance.get(`/supplier/${supplierId}/payments`);
-      const payments: PaymentHistory[] = response.data;
-      return payments.reduce((sum, payment) => sum + payment.PaidAmount, 0);
-    } catch (error) {
-      return 0;
     }
   };
 
@@ -139,8 +114,10 @@ const ManageSupplier: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (suppliers.length === 0) return;
+
     setIsLoading(true);
-    let filtered = suppliers;
+    let filtered = [...suppliers];
 
     if (searchTerm) {
       filtered = filtered.filter((supplier) =>
@@ -159,13 +136,12 @@ const ManageSupplier: React.FC = () => {
       });
     }
 
-    if (paymentStatus !== 'All') {
+    if (statusFilter !== 'All') {
       filtered = filtered.filter((supplier) => {
-        const totalPaid = supplier.TotalPaidAmount || 0;
-        if (paymentStatus === 'Paid') {
-          return supplier.Amount === totalPaid;
-        } else if (paymentStatus === 'Unpaid') {
-          return supplier.Amount > totalPaid;
+        if (statusFilter === 'Active') {
+          return !supplier.Deleted;
+        } else if (statusFilter === 'Inactive') {
+          return supplier.Deleted;
         }
         return true;
       });
@@ -174,7 +150,7 @@ const ManageSupplier: React.FC = () => {
     setFilteredSuppliers(filtered);
     setCurrentPage(1);
     setTimeout(() => setIsLoading(false), 100);
-  }, [searchTerm, fromDate, toDate, paymentStatus, suppliers]);
+  }, [searchTerm, fromDate, toDate, statusFilter, suppliers]);
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -189,8 +165,6 @@ const ManageSupplier: React.FC = () => {
     if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
-    if (!formData.amount) newErrors.amount = 'Amount is required';
-    else if (parseFloat(formData.amount) <= 0) newErrors.amount = 'Amount must be greater than 0';
     if (!formData.bankName) newErrors.bankName = 'Bank name is required';
     if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
     if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
@@ -244,7 +218,6 @@ const ManageSupplier: React.FC = () => {
     data.append('email', formData.email);
     data.append('phoneNo', formData.phoneNo);
     data.append('address', formData.address);
-    data.append('amount', formData.amount);
     data.append('bankName', formData.bankName);
     data.append('accountNo', formData.accountNo);
     data.append('ifscCode', formData.ifscCode);
@@ -275,6 +248,13 @@ const ManageSupplier: React.FC = () => {
   };
 
   const handlePaySupplier = (supplier: Supplier) => {
+    if (supplier.Deleted) {
+      toast.warning('Supplier is inactive. Please activate to edit or make payment.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
     setSelectedSupplier(supplier);
     setSearchTerm('');
     if (searchInputRef.current) {
@@ -285,20 +265,27 @@ const ManageSupplier: React.FC = () => {
   };
 
   const handleEditSupplier = (supplier: Supplier) => {
+    if (supplier.Deleted) {
+      toast.warning('Supplier is inactive. Please activate to edit or make payment.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
     setEditingSupplier(supplier);
     setIsEditModalOpen(true);
   };
 
-  const handleToggleDeleted = async (supplier: Supplier) => {
+  const handleToggleStatus = async (supplier: Supplier) => {
     try {
       const response = await axiosInstance.patch(`/supplier/${supplier.SupplierId}/toggle`, {
         ModifiedBy: createdBy,
       });
-      toast.success(response.data.message, { position: 'top-right', autoClose: 3000 });
+      toast.success(response.data.message, { position: 'top-right', autoClose: 2000 });
       fetchSuppliers();
     } catch (err: any) {
-      console.error('Error toggling supplier:', err);
-      toast.error(err.response?.data?.message || 'Failed to toggle supplier', {
+      console.error('Error toggling supplier status:', err);
+      toast.error(err.response?.data?.message || 'Failed to toggle supplier status', {
         position: 'top-right',
         autoClose: 1000,
       });
@@ -316,15 +303,13 @@ const ManageSupplier: React.FC = () => {
       Email: supplier.Email,
       'Phone No.': supplier.PhoneNo,
       Address: supplier.Address,
-      Amount: supplier.Amount,
-      'Pending Amount': supplier.PendingAmount,
       'Bank Name': supplier.BankName,
       'Account No.': supplier.AccountNo,
       'IFSC Code': supplier.IFSCCode,
       Comment: supplier.Comment,
       'Created By': supplier.CreatedBy,
       'Created On': new Date(supplier.CreatedOn).toLocaleString(),
-      Status: supplier.Deleted ? 'INActive' : 'Active',
+      Status: supplier.Deleted ? 'Inactive' : 'Active',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -338,7 +323,7 @@ const ManageSupplier: React.FC = () => {
     setSearchTerm('');
     setFromDate('');
     setToDate('');
-    setPaymentStatus('All');
+    setStatusFilter('All');
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
       searchInputRef.current.blur();
@@ -355,12 +340,10 @@ const ManageSupplier: React.FC = () => {
   const indexOfFirstSupplier = indexOfLastSupplier - rowsPerPage;
   const currentSuppliers = filteredSuppliers.slice(indexOfFirstSupplier, indexOfLastSupplier);
   const totalPages = Math.ceil(filteredSuppliers.length / rowsPerPage);
-  const totalFilteredAmount = filteredSuppliers.reduce((sum, supplier) => {
-    return sum + (supplier.Amount || 0);
-  }, 0);
-  const totalFilteredPendingAmount = filteredSuppliers.reduce((sum, supplier) => {
-    return sum + (supplier.PendingAmount || 0);
-  }, 0);
+
+  const activeFilteredSuppliers = filteredSuppliers.filter((supplier) => !supplier.Deleted);
+  const displaySuppliers = statusFilter === 'Inactive' ? filteredSuppliers : activeFilteredSuppliers;
+  const totalDisplaySuppliers = displaySuppliers.length;
 
   const pageNumbers = [];
   const maxPagesToShow = 5;
@@ -374,104 +357,107 @@ const ManageSupplier: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Manage Suppliers" />
-      <div className="flex flex-row items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center">
-            <FaUserPlus className="text-indigo-600 dark:text-indigo-400 w-4 h-4 mr-1" />
-            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Total Suppliers:</span>
-            <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
-              {filteredSuppliers.length}
-            </span>
+      <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+            <div className="flex items-center gap-1">
+              <FaUserPlus className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
+              <span className="text-gray-600 dark:text-gray-400">Total Supplier:</span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                {isLoading ? '...' : totalDisplaySuppliers}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Total Amount:</span>
-            <span className="font-medium text-indigo-700 dark:text-indigo-400 mr-3">
-              ₹{totalFilteredAmount.toLocaleString()}
-            </span>
-          </div>
-          <div className="flex items-center">
-            <span className="text-sm text-gray-600 dark:text-gray-400 mr-1">Pending Amount:</span>
-            <span className="font-medium text-red-600 dark:text-red-400">
-              ₹{totalFilteredPendingAmount.toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <div className="relative">
-            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-            <input
-              type="text"
-              name="search"
-              placeholder="Search by Name, Email, or Phone"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              ref={searchInputRef}
-              autoComplete="new-search"
-              className="w-full pl-7 pr-2 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
-            <div className="flex items-center">
-              <span className="text-xs text-gray-600 dark:text-gray-400">From:</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <div className="relative w-full sm:w-auto">
+              <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
               <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-[110px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                type="text"
+                name="search"
+                placeholder="Search by Name, Email, Phone"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                ref={searchInputRef}
+                autoComplete="new-search"
+                className="w-full sm:w-48 pl-6 pr-2 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white placeholder:text-xs"
               />
             </div>
-            <div className="flex items-center">
-              <span className="text-xs text-gray-600 dark:text-gray-400">To:</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-[110px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-              />
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">From:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">To:</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
+                  className="w-16 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="All">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleClearFilters}
+                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  title="Clear Filters"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <FaUserPlus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Add Supplier</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center">
-              <span className="text-xs text-gray-600 dark:text-gray-400">Status:</span>
-              <select
-                value={paymentStatus}
-                onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
-                className="w-[90px] p-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="All">All</option>
-                <option value="Paid">Paid</option>
-                <option value="Unpaid">Unpaid</option>
-              </select>
-            </div>
-            <button
-              onClick={handleClearFilters}
-              className="p-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md transition-colors focus:outline-none"
-              title="Clear Filters"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            >
-              <FaUserPlus className="w-3.5 h-3.5" />
-              <span>Add Supplier</span>
-            </button>
-
-            <button
-              onClick={handleExportToExcel}
-              className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-1 focus:ring-green-500"
-            >
-              <FaFileExcel className="w-3.5 h-3.5" />
-              <span>Export</span>
-            </button>
           </div>
         </div>
       </div>
-
+      <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">  
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-600 dark:text-gray-400">Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={handleRowsPerPageChange}
+            className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={75}>75</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+        <button
+          onClick={handleExportToExcel}
+          className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-1 focus:ring-green-500"
+        >
+          <FaFileExcel className="w-3.5 h-3.5" />
+          <span>Export To Excel</span>
+        </button>
+      </div>
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
           <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-2xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
@@ -557,23 +543,6 @@ const ManageSupplier: React.FC = () => {
                     required
                   />
                   {errors.address && <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>}
-                </div>
-                <div className="mb-2">
-                  <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                    <FaMoneyBillWave className="text-indigo-500" />
-                    Total Amount <RequiredAsterisk />
-                  </label>
-                  <input
-                    type="number"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleInputChange}
-                    className={`w-full p-1 text-sm rounded-md border ${
-                      errors.amount ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                    required
-                  />
-                  {errors.amount && <p className="text-red-500 text-xs mt-0.5">{errors.amount}</p>}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
@@ -724,38 +693,23 @@ const ManageSupplier: React.FC = () => {
           </div>
         </div>
       )}
-
-      {isPaymentModalOpen && selectedSupplier && (
-        <SupplierPayment
-          supplier={{
-            SupplierId: selectedSupplier.SupplierId!,
-            Name: selectedSupplier.Name,
-            Amount: selectedSupplier.Amount,
-          }}
-          onClose={() => {
-            setIsPaymentModalOpen(false);
-            setSelectedSupplier(null);
-            setSearchTerm('');
-            if (searchInputRef.current) {
-              searchInputRef.current.blur();
-              searchInputRef.current.value = '';
-            }
-          }}
-          onSuccess={() => {
-            setIsPaymentModalOpen(false);
-            setSelectedSupplier(null);
-            setSearchTerm('');
-            if (searchInputRef.current) {
-              searchInputRef.current.blur();
-              searchInputRef.current.value = '';
-            }
-            fetchSuppliers();
-          }}
-          createdBy={createdBy}
-          searchInputRef={searchInputRef}
-        />
-      )}
-
+   {isPaymentModalOpen && selectedSupplier && (
+  <SupplierPayment
+    supplier={{
+      SupplierId: selectedSupplier.SupplierId!,
+      Name: selectedSupplier.Name,
+    }}
+    onClose={() => {
+      setIsPaymentModalOpen(false);
+      setSelectedSupplier(null);
+      setSearchTerm('');
+      if (searchInputRef.current) {
+        searchInputRef.current.blur();
+        searchInputRef.current.value = '';
+      }
+    }}
+  />
+)}
       {isEditModalOpen && editingSupplier && editingSupplier.SupplierId !== undefined && (
         <EditSupplierModal
           supplier={{
@@ -774,7 +728,6 @@ const ManageSupplier: React.FC = () => {
           modifiedBy={createdBy}
         />
       )}
-
       <div className="mt-2">
         <div className="overflow-x-auto rounded-lg shadow-md">
           {isLoading ? (
@@ -788,12 +741,11 @@ const ManageSupplier: React.FC = () => {
                 <tr className="bg-indigo-600 text-white">
                   {[
                     'Sr.',
+                    'Action',
                     'Name',
                     'Email',
                     'Phone No.',
                     'Address',
-                    'Amount',
-                    'Pending Amount',
                     'Bank Name',
                     'Account No.',
                     'IFSC Code',
@@ -801,7 +753,6 @@ const ManageSupplier: React.FC = () => {
                     'Created By',
                     'Created On',
                     'Status',
-                    'Action',
                   ].map((title) => (
                     <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
                       {title}
@@ -825,6 +776,48 @@ const ManageSupplier: React.FC = () => {
                       <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                         {indexOfFirstSupplier + index + 1}
                       </td>
+                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        <button
+                          onClick={() => handlePaySupplier(supplier)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            supplier.Deleted
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
+                          title="Payment"
+                        >
+                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => handleEditSupplier(supplier)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            supplier.Deleted
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-yellow-600 hover:bg-yellow-700'
+                          }`}
+                          title="Edit"
+                        >
+                          <FaEdit className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(supplier)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            supplier.Deleted
+                              ? 'bg-green-600 hover:bg-green-700'
+                              : 'bg-red-600 hover:bg-red-700'
+                          }`}
+                          title={supplier.Deleted ? 'Activate' : 'Deactivate'}
+                        >
+                          {supplier.Deleted ? (
+                            <FaToggleOff className="w-3 h-3 mr-1" />
+                          ) : (
+                            <FaToggleOn className="w-3 h-3 mr-1" />
+                          )}
+                          {supplier.Deleted ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
                       <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                         {supplier.Name}
                       </td>
@@ -836,12 +829,6 @@ const ManageSupplier: React.FC = () => {
                       </td>
                       <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                         {supplier.Address}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        ₹{supplier.Amount.toLocaleString()}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        ₹{(supplier.PendingAmount || 0).toLocaleString()}
                       </td>
                       <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                         {supplier.BankName}
@@ -869,45 +856,15 @@ const ManageSupplier: React.FC = () => {
                               : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                           }`}
                         >
-                          {supplier.Deleted ? 'InActive' : 'Active'}
+                          {supplier.Deleted ? 'Inactive' : 'Active'}
                         </span>
-                      </td>
-                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        <button
-                          onClick={() => handlePaySupplier(supplier)}
-                          className="inline-flex items-center px-2 py-1 text-white bg-blue-600 rounded hover:bg-blue-700 transition text-[11px]"
-                          title="Payment"
-                        >
-                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                          Pay
-                        </button>
-                        <button
-                          onClick={() => handleEditSupplier(supplier)}
-                          className="inline-flex items-center px-2 py-1 text-white bg-yellow-600 rounded hover:bg-yellow-700 transition text-[11px]"
-                          title="Edit"
-                        >
-                          <FaEdit className="w-3 h-3 mr-1" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleDeleted(supplier)}
-                          className="inline-flex items-center px-2 py-1 text-white bg-gray-600 rounded hover:bg-gray-700 transition text-[11px]"
-                          title={supplier.Deleted ? 'Restore' : 'Delete'}
-                        >
-                          {supplier.Deleted ? (
-                            <FaToggleOff className="w-3 h-3 mr-1" />
-                          ) : (
-                            <FaToggleOn className="w-3 h-3 mr-1" />
-                          )}
-                          {supplier.Deleted ? 'Restore' : 'Delete'}
-                        </button>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan={15}
+                      colSpan={13}
                       className="text-center text-gray-600 dark:text-gray-400 text-xs"
                     >
                       <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
@@ -926,27 +883,13 @@ const ManageSupplier: React.FC = () => {
             </table>
           )}
         </div>
-
         <div className="flex items-center justify-between mt-4 px-3">
-          <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+          <div className="text-xs text-gray-600 dark:text-gray-400">
             <span>
               Showing {indexOfFirstSupplier + 1} to{' '}
               {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
               {filteredSuppliers.length} suppliers
             </span>
-            <div className="flex items-center gap-1">
-              <span>Rows per page:</span>
-              <select
-                value={rowsPerPage}
-                onChange={handleRowsPerPageChange}
-                className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={75}>75</option>
-                <option value={100}>100</option>
-              </select>
-            </div>
           </div>
           <nav className="flex items-center space-x-1">
             <button

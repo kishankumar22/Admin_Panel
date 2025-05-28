@@ -7,7 +7,7 @@ import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { Button, Modal } from "flowbite-react";
 import { useAuth } from "../context/AuthContext";
 import { MdDelete } from "react-icons/md";
-import { FaEdit, FaEye, FaEyeSlash, FaSpinner, FaSave } from "react-icons/fa"; // Added FaSave
+import { FaEdit, FaSpinner, FaSave, FaToggleOn, FaToggleOff } from "react-icons/fa"; // Added FaSave
 import { FcViewDetails } from "react-icons/fc";
 import { usePermissions } from "../context/PermissionsContext";
 import { IoDocumentsOutline } from "react-icons/io5";
@@ -379,73 +379,100 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
-        {filteredFaculties.length > 0 ? (
-          filteredFaculties.map((faculty: Faculty) => (
-            <div key={faculty.id} className="p-3 border rounded-lg shadow-lg bg-white dark:bg-gray-800">
-              <div className="relative">
-                <img
-                  src={faculty.profilePicUrl || "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"}
-                  alt={faculty.faculty_name || "Faculty Image"}
-                  className="max-w-full h-40 object-fit rounded-md"
-                  style={{ opacity: faculty.IsVisible ? 1 : 0.5 }}
-                />
-                <button
-                  className={`flex items-center justify-center p-2 focus:ring-4 text-xs text-white bg-slate-200 rounded-md transition duration-200 ease-in-out hover:bg-gray-400 absolute top-2 right-2 ${!canRead ? "opacity-50 cursor-not-allowed" : ""}`}
-                  onClick={() => handleToggleVisibility(faculty.id ?? 0)}
-                >
-                  {faculty.IsVisible ? (
-                    <FaEye className="w-5 h-5 text-blue-700" />
-                  ) : (
-                    <FaEyeSlash className="w-5 h-5 text-red-500" />
-                  )}
-                </button>
-              </div>
-              <div className="mt-2 text-sm text-gray-700 dark:text-gray-300">
-                <p><b>Name:</b> {faculty.faculty_name}</p>
-                <p><b>Qualification:</b> {faculty.qualification}</p>
-                <p><b>Designation:</b> {faculty.designation}</p>
-                <p><b>Salary:</b> {faculty.monthlySalary ?? "N/A"}</p>
-                <p><b>Yearly Leave:</b> {faculty.yearlyLeave ?? "N/A"}</p>
-              </div>
-              <div className="mt-2">
-                <div className="flex justify-evenly">
-                  <button
-                    className={`flex items-center px-2 py-1 text-xs focus:ring-4 focus:ring-green-300 text-white bg-green-500 rounded-md hover:bg-green-600 ${!canUpdate ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={() => handleEditFaculty(faculty)}
-                  >
-                    <FaEdit className="text-sm" />
-                  </button>
-                  <button
-                    className={`flex items-center px-2 py-1 text-xs text-white focus:ring-4 focus:ring-red-300 bg-red-500 rounded-md hover:bg-red-600 ${!canDelete ? "opacity-50 cursor-not-allowed" : ""}`}
-                    onClick={() => handleOpenDeleteModal(faculty.id ?? 0)}
-                  >
-                    <MdDelete className="text-sm" />
-                  </button>
-                  <button
-                    className="flex items-center px-2 py-1 text-xs focus:ring-4 text-white bg-gray-500 rounded-md hover:bg-gray-600"
-                    onClick={() => handleOpenDetailsModal(faculty)}
-                  >
-                    <FcViewDetails className="text-sm" />
-                    Details
-                  </button>
-                  <Button
-                    color="red"
-                    size="xs"
-                    className="flex items-center bg-blue-500 hover:bg-blue-600 text-white focus:ring-blue-300 font-medium rounded-md transition-colors duration-150"
-                    onClick={() => handleOpenDocsModal(faculty)}
-                  >
-                    <IoDocumentsOutline className="w-4 h-4 mr-1" />
-                    Docs
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <p className="text-center w-full text-gray-500 dark:text-gray-400">No faculties found</p>
-        )}
-      </div>
+   <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 p-2">         
+  {filteredFaculties.length > 0 ? (           
+    filteredFaculties.map((faculty: Faculty) => (             
+      <div key={faculty.id} className="p-2 border rounded-lg shadow-sm bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">               
+        <div className="relative">                 
+          <img                   
+            src={faculty.profilePicUrl || "https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png"}                   
+            alt={faculty.faculty_name || "Faculty Image"}                   
+            className=" h-32 object-cover rounded-md"                   
+            style={{ opacity: faculty.IsVisible ? 1 : 0.5 }}                 
+          />                 
+          <button                   
+            className={`flex items-center justify-center p-1.5 text-xs  transition duration-200 ease-in-out  absolute top-1 right-1 ${!canRead ? "opacity-50 cursor-not-allowed" : ""}`}                   
+            onClick={() => handleToggleVisibility(faculty.id ?? 0)}  
+               title="Active/Inactive Faculty"                
+          >                   
+            {faculty.IsVisible ? (                     
+              <FaToggleOn className="w-4 h-4 text-green-500" />                   
+            ) : (                     
+              <FaToggleOff className="w-4 h-4 text-red-600" />   
+                          
+            )}                 
+          </button>               
+        </div>               
+        
+        <div className="mt-2 text-xs text-gray-700 dark:text-gray-300 space-y-1">                 
+          <p><span className="font-semibold">Name:</span> {faculty.faculty_name}</p>                 
+          <p><span className="font-semibold">Qualification:</span> {faculty.qualification}</p>                 
+          <p><span className="font-semibold">Designation:</span> {faculty.designation}</p>                 
+          <p><span className="font-semibold">Salary:</span> {faculty.monthlySalary ?? "N/A"}</p>                 
+          <p><span className="font-semibold">Yearly Leave:</span> {faculty.yearlyLeave ?? "N/A"}</p>               
+        </div>               
+        
+        <div className="mt-2">                 
+          <div className="flex justify-between gap-1">                   
+            <button                     
+              className={`flex items-center justify-center px-2 py-1 text-xs text-white rounded-md transition-colors ${
+                !canUpdate || !faculty.IsVisible 
+                  ? "bg-gray-300 cursor-not-allowed" 
+                  : "bg-green-500 hover:bg-green-600 focus:ring-4 focus:ring-green-400"
+              }`}                     
+              onClick={() => {
+                if (!faculty.IsVisible) {
+                toast.warning("Faculty is inactive. Please activate first to edit.");
+                  return;
+                }
+                handleEditFaculty(faculty);
+              }}  
+              title="Edit Faculty"                 
+            >                     
+              <FaEdit className="text-sm" />                   
+            </button>                   
+            
+            <button                     
+              className={`flex items-center justify-center px-2 py-1 text-xs text-white rounded-md transition-colors ${
+              !canDelete || !faculty.IsVisible 
+                ? "bg-gray-300 cursor-not-allowed" 
+                : "bg-red-500 hover:bg-red-600 focus:ring-4 focus:ring-red-400"
+              }`}                     
+              onClick={() => {
+              if (!faculty.IsVisible) {
+                toast.warning("Faculty is inactive. Please activate first to delete.");
+                return;
+              }
+              handleOpenDeleteModal(faculty.id ?? 0);
+              }}                   
+              title="Delete Faculty"
+            >                     
+              <MdDelete className="text-sm" />                   
+            </button>                   
+            
+            <button                     
+              className="flex items-center justify-center px-2 py-1 text-xs text-white bg-gray-500 rounded-md hover:bg-gray-600 focus:ring-4 focus:ring-gray-400 transition-colors"                     
+              onClick={() => handleOpenDetailsModal(faculty)}                   
+            >                     
+          Details  <FcViewDetails className="text-sm ml-1" />                   
+            </button>                   
+            
+            <button                     
+              className="flex items-center justify-center px-2 py-1 text-xs text-white bg-blue-500 hover:bg-blue-600 focus:ring-4 focus:ring-blue-400 rounded-md transition-colors"                     
+              onClick={() => handleOpenDocsModal(faculty)}                   
+            >                     
+               Docs  <IoDocumentsOutline className="text-sm ml-1" />                   
+            </button>                 
+          </div>               
+        </div>             
+      </div>           
+    ))         
+  ) : (           
+    <div className="col-span-full text-center py-8">
+      <p className="text-gray-500 dark:text-gray-400">No faculties found</p>
+    </div>         
+  )}       
+</div>
 
       {/* Add Faculty Modal */}
       {addFacultyModel && (
@@ -910,71 +937,83 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
       )}
 
       {/* Documents Preview Modal */}
-      <Modal
-        show={openPreviewModal}
-        onClose={handleClosePreviewModal}
-        size="6xl"
-        popup
-        className="px-100 py-24"
-      >
-        <Modal.Header className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 text-center w-full">
-            Preview: <span className="text-blue-600">{selectedDocument?.title || "Document"}</span>
+{openPreviewModal && (
+  <div className="fixed inset-0 z-999 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
+    <div className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-800 rounded-lg shadow-xl overflow-hidden">
+      {/* Header */}
+      <div className="p-3 sm:p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm sm:text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Preview docs: <span className="text-blue-600">{selectedDocument?.title || "Document"}</span>
           </h3>
-        </Modal.Header>
-        <Modal.Body className="p-6">
-          <div className="w-full h-[60vh] overflow-auto flex justify-center items-center bg-gray-50 dark:bg-gray-700 rounded-md">
-            {selectedDocument?.url ? (
-              getFileType(selectedDocument.url) === "pdf" ? (
-                <object
-                  data={selectedDocument.url}
+          <button
+            onClick={handleClosePreviewModal}
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-3 sm:p-4">
+        <div className="w-full h-[65vh] sm:h-[70vh] overflow-auto flex justify-center items-center bg-gray-50 dark:bg-gray-700 rounded-md">
+          {selectedDocument?.url ? (
+            getFileType(selectedDocument.url) === "pdf" ? (
+              <object
+                data={selectedDocument.url}
+                type="application/pdf"
+                className="w-full h-full border-none rounded-md"
+              >
+                <embed
+                  src={selectedDocument.url}
                   type="application/pdf"
                   className="w-full h-full border-none rounded-md"
-                >
-                  <embed
-                    src={selectedDocument.url}
-                    type="application/pdf"
-                    className="w-full h-full border-none rounded-md"
-                  />
-                  <p className="text-center text-gray-500 dark:text-gray-300">
-                    PDF preview is not available.{" "}
-                    <a
-                      href={selectedDocument.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline"
-                    >
-                      Click here to download
-                    </a>
-                  </p>
-                </object>
-              ) : (
-                <img
-                  src={selectedDocument.url}
-                  alt={selectedDocument.title}
-                  className="max-w-full max-h-full object-contain rounded-md"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/placeholder-image.jpg";
-                  }}
                 />
-              )
+                <div className="text-center text-gray-500 dark:text-gray-300 p-4">
+                  <p className="text-sm sm:text-base mb-2">PDF preview is not available.</p>
+                  <a
+                    href={selectedDocument.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 underline text-sm sm:text-base hover:text-blue-800"
+                  >
+                    Click here to download
+                  </a>
+                </div>
+              </object>
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
-                Unable to preview document.
-              </p>
-            )}
-          </div>
-        </Modal.Body>
-        <Modal.Footer className="flex justify-end p-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <Button
-            color="gray"
-            className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-4 py-1 transition-colors duration-200"
-            onClick={handleClosePreviewModal}
-          >
-            Close
-          </Button>
-        </Modal.Footer>
-      </Modal>
+              <img
+                src={selectedDocument.url}
+                alt={selectedDocument.title}
+                className="max-w-full max-h-full object-contain rounded-md"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/placeholder-image.jpg";
+                }}
+              />
+            )
+          ) : (
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+              Unable to preview document.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="flex justify-end p-3 sm:p-4 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+        <button
+          className="bg-gray-500 hover:bg-gray-600 text-white font-medium rounded-md px-3 py-1.5 sm:px-4 sm:py-2 text-sm transition-colors duration-200"
+          onClick={handleClosePreviewModal}
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Documents Modal */}
       {openDocsModal && (

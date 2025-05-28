@@ -10,6 +10,7 @@ interface ExpensePaymentProps {
     SupplierId: number;
     SupplierName: string;
     Amount: number;
+    SuppliersExpenseID: number;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -91,7 +92,11 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
 
   const fetchPaymentHistory = async () => {
     try {
-      const response = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`);
+      const response = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
+        params: {
+          suppliersExpenseID: expense.SuppliersExpenseID, // Pass SuppliersExpenseID as query parameter
+        },
+      });
       const history: PaymentHistory[] = response.data.map((payment: any) => ({
         ExpensePaymentID: payment.ExpensePaymentID,
         amount: payment.PaidAmount,
@@ -125,7 +130,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
 
   useEffect(() => {
     fetchPaymentHistory();
-  }, [expense.SupplierId]);
+  }, [expense.SupplierId, expense.SuppliersExpenseID]); // Added SuppliersExpenseID to dependency array
 
   const getTransactionLabel = () => {
     switch (paymentData.paymentMethod) {
@@ -244,6 +249,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
     try {
       const formData = new FormData();
       formData.append('supplierId', expense.SupplierId.toString());
+      formData.append('suppliersExpenseID', expense.SuppliersExpenseID.toString());
       formData.append('paidAmount', paymentData.paymentAmount);
       formData.append('paymentMode', paymentData.paymentMethod);
       formData.append('transactionId', paymentData.paymentMethod === 'Cash' ? '' : paymentData.transactionNo);
@@ -398,22 +404,22 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
         </button>
         <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4 px-3 py-1 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-indigo-500 text-white dark:from-blue-700 dark:via-indigo-700 dark:to-indigo-800 shadow flex items-center gap-2">
           <FaMoneyBillWave className="text-yellow-300 w-5 h-5" />
-          <span>Expense Payment Details - {expense.SupplierName} ({expense.SupplierId})</span>
+          <span>Expense Payment Details - {expense.SupplierName}</span>
         </h2>
 
         <div className="max-h-[70vh] overflow-y-auto pr-1">
           <div className="mb-3">
             <div className="flex flex-col sm:flex-row justify-between items-center bg-blue-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm shadow-sm gap-2 sm:gap-4">
               <div className="text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Total Amount:</span>{' '}
+                <span className="font-medium">Total Expense Amount:</span>{' '}
                 <span className="font-bold text-gray-900 dark:text-white">₹{totalAmount}</span>
               </div>
               <div className="text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Paid Amount:</span>{' '}
+                <span className="font-medium">Total Paid Amount:</span>{' '}
                 <span className="font-bold text-blue-600 dark:text-blue-400">₹{totalPaidAmount}</span>
               </div>
               <div className="text-gray-600 dark:text-gray-300">
-                <span className="font-medium">Remaining Amount:</span>{' '}
+                <span className="font-medium">Total Remaining Amount:</span>{' '}
                 <span className="font-bold text-red-600 dark:text-red-400">₹{remainingAmount}</span>
               </div>
             </div>
@@ -463,7 +469,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                     }`}
                     disabled={paymentData.paymentMethod === 'Cash'}
                     required={paymentData.paymentMethod !== 'Cash'}
-                      title={paymentData.paymentMethod === 'Cash' ? 'Cash does not need transaction no' : ''}
+                    title={paymentData.paymentMethod === 'Cash' ? 'Cash does not need transaction no' : ''}
                   />
                   {errors.transactionNo && (
                     <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>

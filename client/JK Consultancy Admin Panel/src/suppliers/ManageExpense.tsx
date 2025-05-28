@@ -55,18 +55,22 @@ const ManageExpense: React.FC = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [selectedSupplier, setSelectedSupplier] = useState<{ SupplierId: number; SupplierName: string; Amount: number } | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<{
+    SuppliersExpenseID: number; SupplierId: number; SupplierName: string; Amount: number 
+  } | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
   const [viewDocument, setViewDocument] = useState<Document | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Added for loader
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataFetched, setDataFetched] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [paymentStatus, setPaymentStatus] = useState<'All' | 'Paid' | 'Unpaid'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [formData, setFormData] = useState({
@@ -80,45 +84,34 @@ const ManageExpense: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Set default date range (To: today, From: one month ago)
+  // Set default "To" date to today
   useEffect(() => {
     const today = new Date();
-    // const oneMonthAgo = new Date(today);
-    // oneMonthAgo.setMonth(today.getMonth() - 1);
-
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     setToDate(formatDate(today));
-    // setFromDate(formatDate(oneMonthAgo));
   }, []);
 
   // Fetch suppliers and expenses with pending amounts
   useEffect(() => {
-    const fetchSuppliers = async () => {
+    const fetchData = async () => {
+      setIsLoading(true);
       try {
-        const response = await axiosInstance.get('/suppliers');
-        setSuppliers(response.data);
-      } catch (err) {
-        console.error('Error fetching suppliers:', err);
-        setError('Failed to load suppliers');
-        toast.error('Failed to load suppliers');
-      }
-    };
+        // Fetch suppliers
+        const suppliersResponse = await axiosInstance.get('/suppliers');
+        setSuppliers(suppliersResponse.data);
 
-    const fetchExpenses = async () => {
-      setIsLoading(true); // Show loader
-      try {
-        const response = await axiosInstance.get('/expenses');
-        const expensList = response.data as Expense[];
-        setExpenses(expensList);
-
+        // Fetch expenses
+        const expensesResponse = await axiosInstance.get('/expenses');
         const expensesWithPending = await Promise.all(
-          response.data.map(async (expense: Expense) => {
+          expensesResponse.data.map(async (expense: Expense) => {
             try {
-              const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`);
+              const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
+                params: { suppliersExpenseID: expense.SuppliersExpenseID },
+              });
               const totalPaid = paymentResponse.data.reduce((sum: number, payment: any) => sum + payment.PaidAmount, 0);
               return { ...expense, PendingAmount: expense.Amount - totalPaid };
             } catch (error) {
-              console.error(`Error fetching payments for supplier ${expense.SupplierId}:`, error);
+              console.error(`Error fetching payments for expense ${expense.SuppliersExpenseID}:`, error);
               return { ...expense, PendingAmount: expense.Amount };
             }
           })
@@ -126,22 +119,24 @@ const ManageExpense: React.FC = () => {
         setExpenses(expensesWithPending);
         setFilteredExpenses(expensesWithPending);
       } catch (err) {
-        console.error('Error fetching expenses:', err);
-        setError('Failed to load expenses');
-        toast.error('Failed to load expenses');
+        console.error('Error fetching data:', err);
+        setError('Failed to load data');
+        toast.error('Failed to load data');
       } finally {
-        setIsLoading(false); // Hide loader
+        setDataFetched(true);
+        setIsLoading(false);
       }
     };
 
-    fetchSuppliers();
-    fetchExpenses();
+    fetchData();
   }, []);
 
-  // Handle search, date range, and status filtering
+  // Handle search, date range, payment status, and active/inactive filtering
   useEffect(() => {
-    setIsLoading(true); // Show loader when filters change
-    let filtered = expenses;
+    if (expenses.length === 0) return;
+
+    setIsLoading(true);
+    let filtered = [...expenses];
 
     if (searchTerm) {
       filtered = filtered.filter((expense) =>
@@ -159,13 +154,24 @@ const ManageExpense: React.FC = () => {
       });
     }
 
-    if (statusFilter !== 'All') {
+    if (paymentStatus !== 'All') {
       filtered = filtered.filter((expense) => {
         const pendingAmount = expense.PendingAmount || 0;
-        if (statusFilter === 'Paid') {
+        if (paymentStatus === 'Paid') {
           return pendingAmount <= 0;
-        } else if (statusFilter === 'Unpaid') {
+        } else if (paymentStatus === 'Unpaid') {
           return pendingAmount > 0;
+        }
+        return true;
+      });
+    }
+
+    if (statusFilter !== 'All') {
+      filtered = filtered.filter((expense) => {
+        if (statusFilter === 'Active') {
+          return !expense.Deleted;
+        } else if (statusFilter === 'Inactive') {
+          return expense.Deleted;
         }
         return true;
       });
@@ -173,13 +179,14 @@ const ManageExpense: React.FC = () => {
 
     setFilteredExpenses(filtered);
     setCurrentPage(1);
-    setTimeout(() => setIsLoading(false), 200); // Simulate slight delay for loader
-  }, [searchTerm, fromDate, toDate, statusFilter, expenses]);
+    setTimeout(() => setIsLoading(false), 100);
+  }, [searchTerm, fromDate, toDate, paymentStatus, statusFilter, expenses]);
 
   // Fetch documents when editing an expense
   useEffect(() => {
     if (modalMode === 'edit' && editingExpense) {
       const fetchDocuments = async () => {
+        setIsLoading(true);
         try {
           const response = await axiosInstance.get(`/supplier/${editingExpense.SupplierId}/documents`, {
             params: { documentType: 'ExpenseDocument' },
@@ -188,6 +195,8 @@ const ManageExpense: React.FC = () => {
         } catch (error) {
           console.error('Error fetching documents:', error);
           toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 1000 });
+        } finally {
+          setIsLoading(false);
         }
       };
       fetchDocuments();
@@ -203,12 +212,17 @@ const ManageExpense: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const totalFilteredAmount = filteredExpenses.reduce((sum, expense) => sum + expense.Amount, 0);
-  const totalFilteredPendingAmount = filteredExpenses.reduce((sum, expense) => sum + (expense.PendingAmount || 0), 0);
   const indexOfLastExpense = currentPage * rowsPerPage;
   const indexOfFirstExpense = indexOfLastExpense - rowsPerPage;
   const currentExpenses = filteredExpenses.slice(indexOfFirstExpense, indexOfLastExpense);
   const totalPages = Math.ceil(filteredExpenses.length / rowsPerPage);
+
+  // Calculate metrics based on statusFilter
+  const activeFilteredExpenses = filteredExpenses.filter((expense) => !expense.Deleted);
+  const displayExpenses = statusFilter === 'Inactive' ? filteredExpenses : activeFilteredExpenses;
+  const totalDisplayExpenses = displayExpenses.length;
+  const totalDisplayAmount = displayExpenses.reduce((sum, expense) => sum + expense.Amount, 0);
+  const totalDisplayPendingAmount = displayExpenses.reduce((sum, expense) => sum + (expense.PendingAmount || 0), 0);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -254,6 +268,13 @@ const ManageExpense: React.FC = () => {
   };
 
   const openEditModal = (expense: Expense) => {
+    if (expense.Deleted) {
+      toast.warning('Expense is inactive. Please activate to edit or make payment.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
     setEditingExpense(expense);
     setModalMode('edit');
     setFormData({
@@ -268,9 +289,17 @@ const ManageExpense: React.FC = () => {
   };
 
   const openPaymentModal = (expense: Expense) => {
+    if (expense.Deleted) {
+      toast.warning('Expense is inactive. Please activate to edit or make payment.', {
+        position: 'top-right',
+        autoClose: 1500,
+      });
+      return;
+    }
     const supplier = suppliers.find((s) => s.SupplierId === expense.SupplierId);
     if (supplier) {
       setSelectedSupplier({
+        SuppliersExpenseID: expense.SuppliersExpenseID,
         SupplierId: supplier.SupplierId,
         SupplierName: supplier.Name,
         Amount: expense.Amount,
@@ -333,7 +362,9 @@ const ManageExpense: React.FC = () => {
       const expensesWithPending = await Promise.all(
         expensesResponse.data.map(async (expense: Expense) => {
           try {
-            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`);
+            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
+              params: { suppliersExpenseID: expense.SuppliersExpenseID },
+            });
             const totalPaid = paymentResponse.data.reduce((sum: number, payment: any) => sum + payment.PaidAmount, 0);
             return { ...expense, PendingAmount: expense.Amount - totalPaid };
           } catch (error) {
@@ -346,7 +377,7 @@ const ManageExpense: React.FC = () => {
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || `Failed to ${modalMode === 'add' ? 'add' : 'update'} expense`;
       setError(errorMessage);
-      toast.error(errorMessage, { position: 'top-right', autoClose: 2000 });
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
     }
   };
 
@@ -355,13 +386,14 @@ const ManageExpense: React.FC = () => {
       const response = await axiosInstance.patch(`/expenses/${expense.SuppliersExpenseID}/toggle`, {
         ModifiedBy: createdBy,
       });
-      toast.success(response.data.message, { position: 'top-right', autoClose: 2000 });
-
+      toast.success(response.data.message);
       const expensesResponse = await axiosInstance.get('/expenses');
       const expensesWithPending = await Promise.all(
         expensesResponse.data.map(async (expense: Expense) => {
           try {
-            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`);
+            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
+              params: { suppliersExpenseID: expense.SuppliersExpenseID },
+            });
             const totalPaid = paymentResponse.data.reduce((sum: number, payment: any) => sum + payment.PaidAmount, 0);
             return { ...expense, PendingAmount: expense.Amount - totalPaid };
           } catch (error) {
@@ -373,13 +405,13 @@ const ManageExpense: React.FC = () => {
       setFilteredExpenses(expensesWithPending);
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to toggle expense';
-      toast.error(errorMessage, { position: 'top-right', autoClose: 2000 });
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
     }
   };
 
   const handleExportToExcel = () => {
     if (filteredExpenses.length === 0) {
-      toast.warning('No data to export');
+      toast.warning('No data to export to Excel');
       return;
     }
     const worksheetData = filteredExpenses.map((expense) => ({
@@ -391,27 +423,27 @@ const ManageExpense: React.FC = () => {
       'Pending Amount (₹)': (expense.PendingAmount || 0).toFixed(2),
       'Created On': new Date(expense.CreatedOn).toLocaleDateString(),
       'Created By': expense.CreatedBy,
-      'Status': expense.Deleted ? 'InActive' : 'Active',
+      'Status': expense.Deleted ? 'Inactive' : 'Active',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Expenses');
     XLSX.writeFile(workbook, 'Expenses.xlsx');
-    toast.success('Expenses exported to Excel successfully', { position: 'top-right', autoClose: 2000 });
+    toast.success('Expenses exported to Excel successfully', { position: 'top-right', autoClose: 1500 });
   };
 
   const handleClearFilters = () => {
     setSearchTerm('');
     const today = new Date();
-    const oneMonthAgo = new Date(today);
-    oneMonthAgo.setMonth(today.getMonth() - 1);
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
-    setFromDate(formatDate(oneMonthAgo));
+    setFromDate('');
     setToDate(formatDate(today));
+    setPaymentStatus('All');
     setStatusFilter('All');
     if (searchInputRef.current) {
       searchInputRef.current.value = '';
+      searchInputRef.current.blur();
     }
   };
 
@@ -434,7 +466,9 @@ const ManageExpense: React.FC = () => {
       const expensesWithPending = await Promise.all(
         response.data.map(async (expense: Expense) => {
           try {
-            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`);
+            const paymentResponse = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
+              params: { suppliersExpenseID: expense.SuppliersExpenseID },
+            });
             const totalPaid = paymentResponse.data.reduce((sum: number, payment: any) => sum + payment.PaidAmount, 0);
             return { ...expense, PendingAmount: expense.Amount - totalPaid };
           } catch (error) {
@@ -445,7 +479,7 @@ const ManageExpense: React.FC = () => {
       setExpenses(expensesWithPending);
       setFilteredExpenses(expensesWithPending);
     }).catch((err) => {
-      toast.error('Failed to refresh expenses', { position: 'top-right', autoClose: 2000 });
+      toast.error('Failed to refresh expenses', { position: 'top-right', autoClose: 1500 });
     });
   };
 
@@ -461,283 +495,349 @@ const ManageExpense: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Manage Expenses" />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 mb-3 bg-white rounded-lg border border-gray-200">
-        <div className="flex items-center gap-4 mb-2 sm:mb-0">
-          <span className="text-sm font-medium">Total Expenses: <span className="text-indigo-700">{filteredExpenses.length}</span></span>
-          <span className="text-sm font-medium">Total Amount: <span className="text-indigo-700">₹{totalFilteredAmount.toLocaleString('en-IN')}</span></span>
-          <span className="text-sm font-medium">Pending Amount: <span className="text-red-700">₹{totalFilteredPendingAmount.toLocaleString('en-IN')}</span></span>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-          <div className="relative flex-1 min-w-[180px]">
-            <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-            <input
-              type="text"
-              placeholder="Search by Name, Email, or"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-7 pr-2 py-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
+      <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        {/* Main Container - Responsive Flex Layout */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+          {/* Statistics Section */}
+          <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
+            {/* Total Expenses */}
             <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">From:</span>
+              <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
+              <span className="text-gray-600 dark:text-gray-400">Total Expense:</span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                {isLoading ? '...' : totalDisplayExpenses}
+              </span>
+            </div>
+            {/* Total Amount */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">Total Amount:</span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
+              </span>
+            </div>
+            {/* Pending Amount */}
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">Total Pending:</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
+              </span>
+            </div>
+          </div>
+          {/* Controls Section */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-auto">
+              <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
               <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="w-28 p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                type="text"
+                name="search"
+                placeholder="Search by Name, Email, Phone"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                ref={searchInputRef}
+                autoComplete="new-search"
+                className="w-full sm:w-48 pl-6 pr-2 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white placeholder:text-xs"
               />
             </div>
-
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">To:</span>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="w-28 p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              />
+            {/* Filter Controls - Responsive Grid */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {/* Date Range */}
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">From:</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">To:</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              {/* Payment Status */}
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Payment:</span>
+                <select
+                  value={paymentStatus}
+                  onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
+                  className="w-16 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="All">All</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Unpaid">Unpaid</option>
+                </select>
+              </div>
+              {/* Status Filter */}
+              <div className="flex items-center gap-1">
+                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
+                  className="w-16 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="All">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleClearFilters}
+                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  title="Clear Filters"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => {
+                    setModalMode('add');
+                    setIsModalOpen(true);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <span className="hidden sm:inline">Add Expense</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              </div>
             </div>
-
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-600">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-20 p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              >
-                <option value="All">All</option>
-                <option value="Paid">Paid</option>
-                <option value="Unpaid">Unpaid</option>
-              </select>
-            </div>
-            <button
-              onClick={handleClearFilters}
-              className="p-1 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors focus:outline-none"
-              title="Clear Filters"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                setModalMode('add');
-                setIsModalOpen(true);
-              }}
-              className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-            >
-              Add Expense
-            </button>
-            <button
-              onClick={handleExportToExcel}
-              className="px-2 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
-            >
-              Export
-            </button>
           </div>
         </div>
       </div>
 
- {/* // Compact Modern Expenses Table - Inline Header Design */}
-{/* // Compact Modern Expenses Table - Inline Header Design */}
-<div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-  
-  {/* Ultra Compact Header - Minimal Spacing */}
-  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-2 py-1.5 border-b border-gray-200">
-    <div className="flex items-center justify-between gap-2">
-      
-      {/* Left Side - Title and Count Info */}
-      <div className="flex items-center gap-2">
-        <h3 className="text-base font-semibold text-gray-800 flex items-center">
-          <FaMoneyBillWave className="text-blue-500 w-4 h-4 mr-1" />
-          Expenses
-        </h3>
-        <div className="text-xs text-gray-600 bg-white px-2 py-0.5 rounded-full border">
-          <span className="font-medium text-gray-800">{indexOfFirstExpense + 1}-{Math.min(indexOfLastExpense, filteredExpenses.length)}</span>
-          <span className="mx-0.5">of</span>
-          <span className="font-medium text-blue-600">{filteredExpenses.length}</span>
+      <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-600 dark:text-gray-400">Rows per page:</span>
+          <select
+            value={rowsPerPage}
+            onChange={handleRowsPerPageChange}
+            className="p-1 text-xs rounded border border-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={75}>75</option>
+            <option value={100}>100</option>
+          </select>
         </div>
-      </div>
-
-      {/* Right Side - Rows Per Page Control */}
-      <div className="flex items-center gap-1 text-xs text-gray-600">
-        <span className="font-medium">Show:</span>
-        <select
-          value={rowsPerPage}
-          onChange={handleRowsPerPageChange}
-          className="px-2 py-0.5 text-xs rounded border border-gray-300 bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200"
+        <button
+          onClick={handleExportToExcel}
+          className="flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors focus:outline-none focus:ring-1 focus:ring-green-500"
         >
-          <option value={25}>25</option>
-          <option value={50}>50</option>
-          <option value={75}>75</option>
-          <option value={100}>100</option>
-        </select>
-        <span>rows</span>
-      </div>
-    </div>
-  </div>
-
-  {/* Table Content */}
-  {isLoading ? (
-    <div className="flex flex-col items-center justify-center h-40 bg-gray-50">
-      <FaSpinner className="animate-spin h-6 w-6 text-blue-600 mb-2" />
-      <p className="text-xs font-medium text-gray-600">Loading...</p>
-    </div>
-  ) : filteredExpenses.length === 0 ? (
-    <div className="flex flex-col items-center justify-center h-40 bg-gray-50">
-      <FileSearch className="h-8 w-8 text-gray-300 mb-2" />
-      <p className="text-sm font-medium text-gray-600 mb-0.5">No expenses found</p>
-      <p className="text-xs text-gray-400">Adjust filters or add expenses</p>
-    </div>
-  ) : (
-    <>
-      {/* Compact Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-700 text-white">
-            <tr>
-              <th className="px-2 py-1.5 text-left font-semibold">Supplier</th>
-              <th className="px-1.5 py-1.5 text-left font-semibold">Phone</th>
-              <th className="px-2 py-1.5 text-left font-semibold">Reason</th>
-              <th className="px-1.5 py-1.5 text-right font-semibold">Amount</th>
-              <th className="px-1.5 py-1.5 text-right font-semibold">Pending</th>
-              <th className="px-1.5 py-1.5 text-left font-semibold">Date</th>
-              <th className="px-1.5 py-1.5 text-left font-semibold">By</th>
-              <th className="px-1.5 py-1.5 text-center font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {currentExpenses.map((expense, index) => (
-              <tr
-                key={expense.SuppliersExpenseID}
-                className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-              >
-                <td className="px-2 py-1.5 font-medium text-gray-900">{expense.SupplierName}</td>
-                <td className="px-1.5 py-1.5 text-gray-600">{expense.SupplierPhone}</td>
-                <td className="px-1 py-1.5 text-gray-700 max-w-xs truncate" title={expense.Reason}>
-                  {expense.Reason}
-                </td>
-                <td className="px-1.5 py-1.5 text-right font-semibold text-green-600">
-                  ₹{expense.Amount.toFixed(2)}
-                </td>
-                <td className="px-1.5 py-1.5 text-right font-semibold text-red-600">
-                  ₹{(expense.PendingAmount || 0).toFixed(2)}
-                </td>
-                <td className="px-1.5 py-1.5 text-gray-600">
-                  {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
-                </td>
-                <td className="px-1.5 py-1.5 text-gray-600">{expense.CreatedBy}</td>
-                <td className="px-1.5 py-1.5">
-                  <div className="flex items-center justify-center gap-0.5">
-                    <button
-                      onClick={() => openPaymentModal(expense)}
-                      className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-                      title="Make Payment"
-                    >
-                      <FaMoneyBillWave className="w-2.5 h-2.5 mr-0.5" />
-                      Pay
-                    </button>
-                    <button
-                      onClick={() => openEditModal(expense)}
-                      className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white bg-amber-500 rounded hover:bg-amber-600 transition-colors"
-                      title="Edit Expense"
-                    >
-                      <FaEdit className="w-2.5 h-2.5 mr-0.5" />
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleToggleDeleted(expense)}
-                      className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium text-white rounded transition-colors ${
-                        expense.Deleted 
-                          ? 'bg-green-600 hover:bg-green-700' 
-                          : 'bg-red-600 hover:bg-red-700'
-                      }`}
-                      title={expense.Deleted ? 'Activate' : 'Deactivate'}
-                    >
-                      {expense.Deleted ? (
-                        <FaToggleOff className="w-2.5 h-2.5 mr-0.5" />
-                      ) : (
-                        <FaToggleOn className="w-2.5 h-2.5 mr-0.5" />
-                      )}
-                      {expense.Deleted ? 'On' : 'Off'}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          <span>Export to Excel</span>
+        </button>
       </div>
 
-      {/* Ultra Compact Pagination Footer */}
-      <div className="bg-gray-50 px-2 py-1.5 border-t border-gray-200">
-        <div className="flex items-center justify-center">
-          <nav className="flex items-center space-x-0.5">
+      <div className="mt-2">
+        <div className="overflow-x-auto rounded-lg shadow-md">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
+              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+              <p className="text-sm font-medium text-gray-600">Loading expenses...</p>
+            </div>
+          ) : (
+            <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+              <thead>
+                <tr className="bg-indigo-600 text-white">
+                  {[
+                    'Sr.',
+                    'Action',
+                    'Supplier',
+                    'Phone',
+                    'Reason',
+                    'Amount',
+                    'Pending',
+                    'Date',
+                    'By',
+                    'Status',
+                  ].map((title) => (
+                    <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
+                      {title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dataFetched && currentExpenses.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="text-center text-gray-600 dark:text-gray-400 text-xs"
+                    >
+                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                        <div className="mb-3">
+                          <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-600 mb-1">No Expense records found</p>
+                        <p className="text-xs text-gray-400 text-center px-4">
+                          Try adjusting your filters or check back later
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  currentExpenses.map((expense, index) => (
+                    <tr
+                      key={expense.SuppliersExpenseID}
+                      className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
+                        expense.Deleted
+                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
+                          : index % 2 === 0
+                          ? 'bg-gray-100 dark:bg-gray-800'
+                          : 'bg-white dark:bg-gray-900'
+                      } hover:bg-indigo-100 dark:hover:bg-gray-700`}
+                    >
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        {indexOfFirstExpense + index + 1}
+                      </td>
+                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        <button
+                          onClick={() => openPaymentModal(expense)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            expense.Deleted
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                          }`}
+                          title="Make Payment"
+                        >
+                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                          Pay
+                        </button>
+                        <button
+                          onClick={() => openEditModal(expense)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            expense.Deleted
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-yellow-600 hover:bg-yellow-700'
+                          }`}
+                          title="Edit Expense"
+                        >
+                          <FaEdit className="w-3 h-3 mr-1" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleToggleDeleted(expense)}
+                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                            expense.Deleted
+                              ? 'bg-green-600 hover:bg-green-700'
+                              : 'bg-red-600 hover:bg-red-700'
+                          }`}
+                          title={expense.Deleted ? 'Activate' : 'Deactivate'}
+                        >
+                          {expense.Deleted ? (
+                            <FaToggleOff className="w-3 h-3 mr-1" />
+                          ) : (
+                            <FaToggleOn className="w-3 h-3 mr-1" />
+                          )}
+                          {expense.Deleted ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="px-2 py-1.5 font-medium text-gray-900 dark:text-gray-200">{expense.SupplierName}</td>
+                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">{expense.SupplierPhone}</td>
+                      <td className="px-1 py-1.5 text-gray-700 dark:text-gray-200 max-w-xs truncate" title={expense.Reason}>
+                        {expense.Reason}
+                      </td>
+                      <td className="px-1.5 py-1.5 text-right font-semibold text-green-600 dark:text-green-400">
+                        ₹{expense.Amount.toFixed(2)}
+                      </td>
+                      <td className="px-1.5 py-1.5 text-right font-semibold text-red-600 dark:text-red-400">
+                        ₹{(expense.PendingAmount || 0).toFixed(2)}
+                      </td>
+                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">
+                        {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
+                      </td>
+                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">{expense.CreatedBy}</td>
+                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                        <span
+                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                            expense.Deleted
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          }`}
+                        >
+                          {expense.Deleted ? 'Inactive' : 'Active'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between mt-4 px-3">
+          <div className="text-xs text-gray-600 dark:text-gray-400">
+            <span>
+              Showing {indexOfFirstExpense + 1} to{' '}
+              {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
+              {filteredExpenses.length} expenses
+            </span>
+          </div>
+          <nav className="flex items-center space-x-1">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="p-1 rounded text-gray-500 hover:bg-white hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="p-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
             >
-              <FaChevronLeft className="w-3 h-3" />
+              <FaChevronLeft className="w-4 h-4" />
             </button>
-            
             {startPage > 1 && (
               <>
                 <button
                   onClick={() => setCurrentPage(1)}
-                  className="px-2 py-1 text-xs font-medium text-gray-700 bg-white rounded hover:bg-gray-100 transition-colors"
+                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition duration-150"
                 >
                   1
                 </button>
-                {startPage > 2 && <span className="px-1 text-xs text-gray-400">...</span>}
+                {startPage > 2 && (
+                  <span className="px-2 text-xs text-gray-600">...</span>
+                )}
               </>
             )}
-            
             {pageNumbers.map((page) => (
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-2 py-1 text-xs font-medium rounded transition-colors ${
+                className={`px-3 py-1 text-xs font-medium rounded-md transition duration-150 ${
                   currentPage === page
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
                 {page}
               </button>
             ))}
-            
             {endPage < totalPages && (
               <>
-                {endPage < totalPages - 1 && <span className="px-1 text-xs text-gray-400">...</span>}
+                {endPage < totalPages - 1 && (
+                  <span className="px-2 text-xs text-gray-600">...</span>
+                )}
                 <button
                   onClick={() => setCurrentPage(totalPages)}
-                  className="px-2 py-1 text-xs font-medium text-gray-700 bg-white rounded hover:bg-gray-100 transition-colors"
+                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition duration-150"
                 >
                   {totalPages}
                 </button>
               </>
             )}
-            
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="p-1 rounded text-gray-500 hover:bg-white hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="p-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
             >
-              <FaChevronRight className="w-3 h-3" />
+              <FaChevronRight className="w-4 h-4" />
             </button>
           </nav>
         </div>
       </div>
-    </>
-  )}
-</div>
 
       {/* Add/Edit Expense Modal */}
       {isModalOpen && (
@@ -927,7 +1027,12 @@ const ManageExpense: React.FC = () => {
       {/* Payment Modal */}
       {isPaymentModalOpen && selectedSupplier && (
         <ExpensePayment
-          expense={selectedSupplier}
+          expense={{
+            SupplierId: selectedSupplier.SupplierId,
+            SupplierName: selectedSupplier.SupplierName,
+            Amount: selectedSupplier.Amount,
+            SuppliersExpenseID: selectedSupplier.SuppliersExpenseID,
+          }}
           onClose={closePaymentModal}
           onSuccess={() => {
             closePaymentModal();
