@@ -520,7 +520,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                     value={paymentData.comment}
                     onChange={handleInputChange}
                     className="w-full p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white"
-                    rows={1}
+                    rows={2}
                   />
                 </div>
                 <div className="mb-1">

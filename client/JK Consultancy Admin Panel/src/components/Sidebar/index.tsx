@@ -188,7 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <MdOutlineNotificationAdd className="w-3.5 h-3.5" />
-                              Add Notification
+                              Manage Notification
                             </NavLink>
                           </li>
                         )}
@@ -201,7 +201,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <RiImageAddFill className="w-3.5 h-3.5" />
-                              Update Banner
+                              Manage Banner
                             </NavLink>
                           </li>
                         )}
@@ -214,7 +214,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <BiSolidImageAdd className="w-3.5 h-3.5" />
-                              Update Gallery
+                              Manage Gallery
                             </NavLink>
                           </li>
                         )}
@@ -227,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <BiImageAdd className="w-3.5 h-3.5" />
-                              Update Logo
+                              Manage Logo
                             </NavLink>
                           </li>
                         )}
@@ -240,7 +240,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <CgProfile className="w-3.5 h-3.5" />
-                              Add Faculty
+                              Manage Faculty
                             </NavLink>
                           </li>
                         )}
@@ -253,7 +253,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <MdOutlinePostAdd className="w-3.5 h-3.5" />
-                              Add Latest Post
+                              Manage Post
                             </NavLink>
                           </li>
                         )}

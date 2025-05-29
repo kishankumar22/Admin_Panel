@@ -1,11 +1,14 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const multer = require('multer');
+const cloudinary = require('../config/cloudinaryConfig');
 const { sql, executeQuery } = require('../config/db');
+const bcrypt = require('bcrypt');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
-// Add a new user
-router.post('/users', async (req, res, next) => {
+// Add a new user with profile picture
+router.post('/users', upload.single('profilePic'), async (req, res, next) => {
   const { name, email, mobileNo, password, roleId, created_by } = req.body;
 
   try {
@@ -14,11 +17,36 @@ router.post('/users', async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    let profilePicUrl = null;
+    let profilePicPublicId = null;
+
+    // Handle profile picture upload to Cloudinary
+    if (req.file) {
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'MISC FOLDER', resource_type: 'image' },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      profilePicUrl = result.secure_url;
+      profilePicPublicId = result.public_id;
+    }
 
     const query = `
-      INSERT INTO [User] (name, email, mobileNo, password, roleId, created_by, created_on)
+      INSERT INTO [User] (
+        name, email, mobileNo, password, roleId, created_by, created_on, 
+        profile_pic_url, profile_pic_public_id
+      )
       OUTPUT INSERTED.*
-      VALUES (@name, @email, @mobileNo, @password, @roleId, @createdBy, GETDATE())
+      VALUES (
+        @name, @email, @mobileNo, @password, @roleId, @createdBy, GETDATE(),
+        @profilePicUrl, @profilePicPublicId
+      )
     `;
 
     const result = await executeQuery(query, {
@@ -28,17 +56,107 @@ router.post('/users', async (req, res, next) => {
       password: { type: sql.NVarChar, value: hashedPassword },
       roleId: { type: sql.Int, value: parseInt(roleId) },
       createdBy: { type: sql.NVarChar, value: created_by || 'admin' },
+      profilePicUrl: { type: sql.NVarChar, value: profilePicUrl },
+      profilePicPublicId: { type: sql.NVarChar, value: profilePicPublicId },
     });
 
     console.log('User added:', result.recordset[0].name);
     res.status(201).json({ success: true, message: 'User created successfully!', user: result.recordset[0] });
   } catch (err) {
-    // console.error('Error creating user:', error);
-        next(err);
-    if (err.number === 2627) { // SQL Server error code for unique constraint violation
+    next(err);
+    if (err.number === 2627) {
       return res.status(400).json({ success: false, message: 'Failed to create user, please try another email' });
     }
     res.status(500).json({ success: false, message: 'Failed to create user', error: err.message });
+  }
+});
+
+// Update a user with profile picture
+router.put('/users/:id', upload.single('profilePic'), async (req, res, next) => {
+  const { id } = req.params;
+  const { name, email, mobileNo, password, roleId } = req.body;
+  const modifyBy = req.user?.name || 'admin';
+
+  try {
+    if (!name || !email || !mobileNo || !roleId) {
+      return res.status(400).json({ success: false, message: 'All fields are required except password and profile picture' });
+    }
+
+    const existing = await executeQuery(
+      `SELECT * FROM [User] WHERE user_id = @userId`,
+      { userId: { type: sql.Int, value: parseInt(id) } }
+    );
+
+    if (existing.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    let hashedPassword = existing.recordset[0].password;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
+    let profilePicUrl = existing.recordset[0].profile_pic_url;
+    let profilePicPublicId = existing.recordset[0].profile_pic_public_id;
+
+    // Handle profile picture update
+    if (req.file) {
+      // Delete old profile picture from Cloudinary if it exists
+      if (existing.recordset[0].profile_pic_public_id) {
+        await cloudinary.uploader.destroy(existing.recordset[0].profile_pic_public_id);
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: 'user_profiles', resource_type: 'image' },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+
+      profilePicUrl = result.secure_url;
+      profilePicPublicId = result.public_id;
+    }
+
+    const query = `
+      UPDATE [User]
+      SET 
+        name = @name,
+        email = @email,
+        mobileNo = @mobileNo,
+        password = @password,
+        roleId = @roleId,
+        modify_by = @modifyBy,
+        modify_on = GETDATE(),
+        profile_pic_url = @profilePicUrl,
+        profile_pic_public_id = @profilePicPublicId
+      OUTPUT INSERTED.*
+      WHERE user_id = @userId
+    `;
+
+    const result = await executeQuery(query, {
+      userId: { type: sql.Int, value: parseInt(id) },
+      name: { type: sql.NVarChar, value: name },
+      email: { type: sql.NVarChar, value: email },
+      mobileNo: { type: sql.NVarChar, value: mobileNo },
+      password: { type: sql.NVarChar, value: hashedPassword },
+      roleId: { type: sql.Int, value: parseInt(roleId) },
+      modifyBy: { type: sql.NVarChar, value: modifyBy },
+      profilePicUrl: { type: sql.NVarChar, value: profilePicUrl },
+      profilePicPublicId: { type: sql.NVarChar, value: profilePicPublicId },
+    });
+
+    console.log('User updated:', result.recordset[0].name);
+    res.status(200).json({ success: true, message: 'User updated successfully!', user: result.recordset[0] });
+  } catch (err) {
+    next(err);
+    if (err.number === 2627) {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+    res.status(500).json({ success: false, message: 'Failed to update user', error: err.message });
   }
 });
 
@@ -88,66 +206,6 @@ router.get('/users/:id', async (req, res, next) => {
   }
 });
 
-// Update a user
-router.put('/users/:id', async (req, res, next) => {
-  const { id } = req.params;
-  const { name, email, mobileNo, password, roleId } = req.body;
-  const modifyBy = req.user?.name || 'admin';
-
-  try {
-    if (!name || !email || !mobileNo || !roleId) {
-      return res.status(400).json({ success: false, message: 'All fields are required except password' });
-    }
-
-    const existing = await executeQuery(
-      `SELECT * FROM [User] WHERE user_id = @userId`,
-      { userId: { type: sql.Int, value: parseInt(id) } }
-    );
-
-    if (existing.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    let hashedPassword = existing.recordset[0].password;
-    if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
-    }
-
-    const query = `
-      UPDATE [User]
-      SET 
-        name = @name,
-        email = @email,
-        mobileNo = @mobileNo,
-        password = @password,
-        roleId = @roleId,
-        modify_by = @modifyBy,
-        modify_on = GETDATE()
-      OUTPUT INSERTED.*
-      WHERE user_id = @userId
-    `;
-
-    const result = await executeQuery(query, {
-      userId: { type: sql.Int, value: parseInt(id) },
-      name: { type: sql.NVarChar, value: name },
-      email: { type: sql.NVarChar, value: email },
-      mobileNo: { type: sql.NVarChar, value: mobileNo },
-      password: { type: sql.NVarChar, value: hashedPassword },
-      roleId: { type: sql.Int, value: parseInt(roleId) },
-      modifyBy: { type: sql.NVarChar, value: modifyBy },
-    });
-
-    console.log('User updated:', result.recordset[0].name);
-    res.status(200).json({ success: true, message: 'User updated successfully!', user: result.recordset[0] });
-  } catch (err) {
-    // console.error('Error updating user:', error);
-        next(err);
-    if (err.number === 2627) { // Unique constraint violation
-      return res.status(400).json({ success: false, message: 'Email already exists' });
-    }
-    res.status(500).json({ success: false, message: 'Failed to update user', error: err.message });
-  }
-});
 
 // Delete a user
 router.delete('/users/:id', async (req, res, next) => {

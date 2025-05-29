@@ -1,4 +1,3 @@
-// context/AuthContext.tsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface User {
@@ -11,6 +10,7 @@ interface User {
   created_on: Date;
   modify_by: string;
   modify_on: Date;
+  profile_pic_url: string;
 }
 
 interface AuthContextType {
@@ -18,6 +18,7 @@ interface AuthContextType {
   user: User | null;
   login: (token: string, userDetails: User) => void;
   logout: () => void;
+  setUser: (user: User | null) => void; // Add setUser to the interface
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, setUser }}>
       {children}
     </AuthContext.Provider>
   );

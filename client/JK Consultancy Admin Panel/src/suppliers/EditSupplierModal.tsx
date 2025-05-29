@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fa';
 import axiosInstance from '../config';
 import { toast } from 'react-toastify';
-import { RequiredAsterisk } from './ManageSupplier';
+import { RequiredAsterisk } from './ManageExpense';
 import DocumentViewerModal from './DocumentViewerModal';
 
 interface Document {
@@ -197,8 +197,8 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-2xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
+      <div className="fixed inset-0 bg-black bg-opacity-60 top-6 flex items-center justify-center z-50 transition-opacity duration-300">
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-5xl mx-2  transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
           <button
             onClick={onClose}
             className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"

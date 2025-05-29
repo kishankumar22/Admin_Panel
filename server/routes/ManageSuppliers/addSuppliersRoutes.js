@@ -34,18 +34,87 @@ router.get('/supplier/:supplierId/documents', async (req, res, next) => {
 });
 
 // GET payment history for a specific supplier
+// router.get('/supplier/:supplierId/payments', async (req, res, next) => {
+//   try {
+//     const { supplierId } = req.params;
+//     const query = `
+//       SELECT SPId, PaidAmount, PaymentMode, TransactionId, PaymentDate, Comment, PaymentImage, PaymentPublicId, CreatedBy, CreatedOn
+//       FROM SupplierPayment
+//       WHERE SupplierId = @supplierId
+//     `;
+//     const result = await executeQuery(query, {
+//       supplierId: { type: sql.Int, value: parseInt(supplierId) },
+//     });
+//     res.status(200).json(result.recordset);
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 router.get('/supplier/:supplierId/payments', async (req, res, next) => {
   try {
     const { supplierId } = req.params;
+    const { status } = req.query; // Filter by 'active', 'inactive', or undefined (all)
+
+    if (!supplierId || isNaN(parseInt(supplierId))) {
+      return res.status(400).json({ success: false, message: 'Invalid supplier ID' });
+    }
+
+    // Query to fetch supplier details, expenses, and payments
     const query = `
-      SELECT SPId, PaidAmount, PaymentMode, TransactionId, PaymentDate, Comment, PaymentImage, PaymentPublicId, CreatedBy, CreatedOn
-      FROM SupplierPayment
-      WHERE SupplierId = @supplierId
+      -- Fetch supplier details
+      SELECT s.SupplierId, s.Name
+      FROM Suppliers s
+      WHERE s.SupplierId = @supplierId;
+
+      -- Fetch expenses with payments
+      SELECT 
+        se.SuppliersExpenseID,
+        se.SupplierId,
+        s.Name AS SupplierName,
+        se.Reason,
+        se.Amount AS ExpenseAmount,
+        se.Deleted,
+        COALESCE(SUM(ep.PaidAmount), 0) AS TotalPaid,
+        (se.Amount - COALESCE(SUM(ep.PaidAmount), 0)) AS RemainingAmount
+      FROM SupplierExpenses se
+      LEFT JOIN ExpensePayment ep ON se.SuppliersExpenseID = ep.SuppliersExpenseID
+      LEFT JOIN Suppliers s ON se.SupplierId = s.SupplierId
+      WHERE se.SupplierId = @supplierId
+      ${status ? "AND se.Deleted = @status" : ""}
+      GROUP BY se.SuppliersExpenseID, se.SupplierId, s.Name, se.Reason, se.Amount, se.Deleted;
+
+      -- Fetch total expense, total paid, and remaining amount
+      SELECT 
+        COALESCE(SUM(se.Amount), 0) AS TotalExpense,
+        COALESCE(SUM(ep.PaidAmount), 0) AS TotalPaid,
+        COALESCE(SUM(se.Amount) - SUM(ep.PaidAmount), 0) AS TotalRemaining
+      FROM SupplierExpenses se
+      LEFT JOIN ExpensePayment ep ON se.SuppliersExpenseID = ep.SuppliersExpenseID
+      WHERE se.SupplierId = @supplierId
+      ${status ? "AND se.Deleted = @status" : ""};
     `;
-    const result = await executeQuery(query, {
+
+    const params = {
       supplierId: { type: sql.Int, value: parseInt(supplierId) },
+    };
+    if (status) {
+      params.status = { type: sql.Bit, value: status === 'inactive' ? 1 : 0 };
+    }
+
+    const result = await executeQuery(query, params);
+
+    // Organize the response
+    const [supplierDetails, expenses, totals] = result.recordsets;
+    if (!supplierDetails.length) {
+      return res.status(404).json({ success: false, message: 'Supplier not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      supplier: supplierDetails[0],
+      expenses: expenses,
+      totals: totals[0],
     });
-    res.status(200).json(result.recordset);
   } catch (err) {
     next(err);
   }
@@ -883,5 +952,74 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
     next(err);
   }
 });
+
+//get all payment history for a specific supplier
+// New endpoint: /supplier/:supplierId/paymentsHistory
+router.get('/supplier/:supplierId/paymentsHistory', async (req, res, next) => {
+  try {
+    const { supplierId } = req.params;
+    const { reason, fromDate, toDate } = req.query; // Add fromDate and toDate query parameters
+
+    if (!supplierId || isNaN(parseInt(supplierId))) {
+      return res.status(400).json({ success: false, message: 'Invalid supplier ID' });
+    }
+
+    // Validate date parameters
+    if (fromDate && isNaN(Date.parse(fromDate ))) {
+      return res.status(400).json({ success: false, message: 'Invalid fromDate format' });
+    }
+    if (toDate && isNaN(Date.parse(toDate ))) {
+      return res.status(400).json({ success: false, message: 'Invalid toDate format' });
+    }
+
+    const query = `
+      SELECT 
+        ep.ExpensePaymentID,
+        ep.PaidAmount,
+        ep.PaymentMode,
+        ep.TransactionId,
+        ep.PaymentDate,
+        ep.CreatedBy,
+        ep.CreatedOn,
+        ep.PaymentImage,
+        ep.Comment,
+        se.Reason,
+        se.Amount AS ExpenseAmount
+      FROM ExpensePayment ep
+      JOIN SupplierExpenses se
+        ON ep.SuppliersExpenseID = se.SuppliersExpenseID
+      WHERE ep.SupplierId = @SupplierId
+      ${reason ? "AND se.Reason LIKE '%' + @reason + '%'" : ""}
+      ${fromDate ? "AND ep.PaymentDate >= @fromDate" : ""}
+      ${toDate ? "AND ep.PaymentDate <= @toDate" : ""}
+      ORDER BY ep.CreatedOn DESC;
+    `;
+
+    const params  = {
+      SupplierId: { type: sql.Int, value: parseInt(supplierId) },
+    };
+
+    if (reason) {
+      params.reason = { type: sql.NVarChar, value: reason };
+    }
+    if (fromDate) {
+      params.fromDate = { type: sql.DateTime, value: new Date(fromDate ) };
+    }
+    if (toDate) {
+      params.toDate = { type: sql.DateTime, value: new Date(toDate ) };
+    }
+
+    const result = await executeQuery(query, params);
+
+    if (!result.recordset.length) {
+      return res.status(404).json({ success: false, message: 'No payment history found' });
+    }
+
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 module.exports = router;

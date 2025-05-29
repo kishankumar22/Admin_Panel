@@ -503,21 +503,21 @@ const ManageExpense: React.FC = () => {
             {/* Total Expenses */}
             <div className="flex items-center gap-1">
               <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
-              <span className="text-gray-600 dark:text-gray-400">Total Expense:</span>
+              <span className="text-gray-600 dark:text-gray-400">Number of Expense:</span>
               <span className="font-semibold text-indigo-700 dark:text-indigo-400">
                 {isLoading ? '...' : totalDisplayExpenses}
               </span>
             </div>
             {/* Total Amount */}
             <div className="flex items-center gap-1">
-              <span className="text-gray-600 dark:text-gray-400">Total Amount:</span>
+              <span className="text-gray-600 dark:text-gray-400">Total Expense  Amount:</span>
               <span className="font-semibold text-indigo-700 dark:text-indigo-400">
                 {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
               </span>
             </div>
             {/* Pending Amount */}
             <div className="flex items-center gap-1">
-              <span className="text-gray-600 dark:text-gray-400">Total Pending:</span>
+              <span className="text-gray-600 dark:text-gray-400">Total Expense Pending:</span>
               <span className="font-semibold text-red-600 dark:text-red-400">
                 {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
               </span>
@@ -635,170 +635,172 @@ const ManageExpense: React.FC = () => {
         </button>
       </div>
 
-      <div className="mt-2">
-        <div className="overflow-x-auto rounded-lg shadow-md">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
-              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
-              <p className="text-sm font-medium text-gray-600">Loading expenses...</p>
-            </div>
-          ) : (
-            <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-              <thead>
-                <tr className="bg-indigo-600 text-white">
-                  {[
-                    'Sr.',
-                    'Action',
-                    'Supplier',
-                    'Phone',
-                    'Reason',
-                    'Amount',
-                    'Pending',
-                    'Date',
-                    'By',
-                    'Status',
-                  ].map((title) => (
-                    <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
-                      {title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dataFetched && currentExpenses.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={10}
-                      className="text-center text-gray-600 dark:text-gray-400 text-xs"
-                    >
-                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-                        <div className="mb-3">
-                          <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">No Expense records found</p>
-                        <p className="text-xs text-gray-400 text-center px-4">
-                          Try adjusting your filters or check back later
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  currentExpenses.map((expense, index) => (
-                    <tr
-                      key={expense.SuppliersExpenseID}
-                      className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
-                        expense.Deleted
-                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
-                          : index % 2 === 0
-                          ? 'bg-gray-100 dark:bg-gray-800'
-                          : 'bg-white dark:bg-gray-900'
-                      } hover:bg-indigo-100 dark:hover:bg-gray-700`}
-                    >
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {indexOfFirstExpense + index + 1}
-                      </td>
-                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        <button
-                          onClick={() => openPaymentModal(expense)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                            expense.Deleted
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          }`}
-                          title="Make Payment"
-                        >
-                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                          Pay
-                        </button>
-                        <button
-                          onClick={() => openEditModal(expense)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                            expense.Deleted
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-yellow-600 hover:bg-yellow-700'
-                          }`}
-                          title="Edit Expense"
-                        >
-                          <FaEdit className="w-3 h-3 mr-1" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleDeleted(expense)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                            expense.Deleted
-                              ? 'bg-green-600 hover:bg-green-700'
-                              : 'bg-red-600 hover:bg-red-700'
-                          }`}
-                          title={expense.Deleted ? 'Activate' : 'Deactivate'}
-                        >
-                          {expense.Deleted ? (
-                            <FaToggleOff className="w-3 h-3 mr-1" />
-                          ) : (
-                            <FaToggleOn className="w-3 h-3 mr-1" />
-                          )}
-                          {expense.Deleted ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="px-2 py-1.5 font-medium text-gray-900 dark:text-gray-200">{expense.SupplierName}</td>
-                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">{expense.SupplierPhone}</td>
-                      <td className="px-1 py-1.5 text-gray-700 dark:text-gray-200 max-w-xs truncate" title={expense.Reason}>
-                        {expense.Reason}
-                      </td>
-                      <td className="px-1.5 py-1.5 text-right font-semibold text-green-600 dark:text-green-400">
-                        ₹{expense.Amount.toFixed(2)}
-                      </td>
-                      <td className="px-1.5 py-1.5 text-right font-semibold text-red-600 dark:text-red-400">
-                        ₹{(expense.PendingAmount || 0).toFixed(2)}
-                      </td>
-                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">
-                        {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
-                      </td>
-                      <td className="px-1.5 py-1.5 text-gray-600 dark:text-gray-200">{expense.CreatedBy}</td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                            expense.Deleted
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                          }`}
-                        >
-                          {expense.Deleted ? 'Inactive' : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+    <div className="mt-2">
+  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+    {isLoading ? (
+      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 dark:bg-gray-800">
+        <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Loading expenses...</p>
+      </div>
+    ) : (
+      <>
+        <table className="min-w-full text-xs bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-indigo-600 dark:bg-indigo-700 text-white">
+            <tr>
+              {['Sr.', 'Action', 'Supplier', 'Phone', 'Reason', 'Amount', 'Pending', 'Created On', 'Created By', 'Status'].map((title) => (
+                <th 
+                  key={title} 
+                  className={`px-2 py-2 text-left font-medium whitespace-nowrap ${
+                    title === 'Amount' || title === 'Pending' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  {title}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            {dataFetched && currentExpenses.length === 0 ? (
+              <tr>
+                <td colSpan={10} className="py-8 text-center">
+                  <div className="flex flex-col items-center justify-center">
+                    <FileSearch className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No Expense records found</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Try adjusting your filters or check back later
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              currentExpenses.map((expense, index) => (
+                <tr
+                  key={expense.SuppliersExpenseID}
+                  className={`${
+                    expense.Deleted
+                      ? 'bg-gray-50 dark:bg-gray-800 opacity-80'
+                      : index % 2 === 0
+                      ? 'bg-gray-50 dark:bg-gray-800'
+                      : 'bg-white dark:bg-gray-900'
+                  } hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors`}
+                >
+                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300">
+                    {indexOfFirstExpense + index + 1}
+                  </td>
+                  <td className="px-2 py-2">
+                    <div className="flex gap-1">
+                      <button
+                        onClick={() => openPaymentModal(expense)}
+                        // disabled={expense.Deleted}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                          expense.Deleted
+                            ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        }`}
+                        title="Make Payment"
+                      >
+                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                        Pay
+                      </button>
+                      <button
+                        onClick={() => openEditModal(expense)}
+                        // disabled={expense.Deleted}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                          expense.Deleted
+                            ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                            : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                        }`}
+                        title="Edit Expense"
+                      >
+                        <FaEdit className="w-3 h-3 mr-1" />
+                        Edit
+                      </button>
+                   <button
+  onClick={() => handleToggleDeleted(expense)}
+  className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+    expense.Deleted
+      ? 'bg-green-600 hover:bg-green-700 text-white'
+      : 'bg-red-600 hover:bg-red-700 text-white'
+  }`}
+  title={expense.Deleted ? 'Activate' : 'Deactivate'}
+>
+  {expense.Deleted ? (
+    <>
+      <FaToggleOff className="w-3 h-3 mr-1" />
+      Active
+    </>
+  ) : (
+    <>
+      <FaToggleOn className="w-3 h-3 mr-1" />
+      Inactive
+    </>
+  )}
+</button>
 
-        <div className="flex items-center justify-between mt-4 px-3">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            <span>
-              Showing {indexOfFirstExpense + 1} to{' '}
-              {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
-              {filteredExpenses.length} expenses
-            </span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 font-medium">
+                    {expense.SupplierName}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                    {expense.SupplierPhone}
+                  </td>
+                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 max-w-[120px] truncate" title={expense.Reason}>
+                    {expense.Reason}
+                  </td>
+                  <td className="px-2 py-2 text-right font-medium text-green-600 dark:text-green-400">
+                    ₹{expense.Amount.toFixed(2)}
+                  </td>
+                  <td className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">
+                    ₹{(expense.PendingAmount || 0).toFixed(2)}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                    {expense.CreatedBy}
+                  </td>
+                  <td className="px-2 py-2">
+                    <span
+                      className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                        expense.Deleted
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      }`}
+                    >
+                      {expense.Deleted ? 'Inactive' : 'Active'}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+          <div className="text-xs text-gray-600 dark:text-gray-400 mb-2 sm:mb-0">
+            Showing {indexOfFirstExpense + 1} to{' '}
+            {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
+            {filteredExpenses.length} expenses
           </div>
           <nav className="flex items-center space-x-1">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
+              className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
             >
-              <FaChevronLeft className="w-4 h-4" />
+              <FaChevronLeft className="w-3 h-3" />
             </button>
             {startPage > 1 && (
               <>
                 <button
                   onClick={() => setCurrentPage(1)}
-                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition duration-150"
+                  className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                 >
                   1
                 </button>
                 {startPage > 2 && (
-                  <span className="px-2 text-xs text-gray-600">...</span>
+                  <span className="px-1 text-xs text-gray-500">...</span>
                 )}
               </>
             )}
@@ -806,10 +808,10 @@ const ManageExpense: React.FC = () => {
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition duration-150 ${
+                className={`px-2.5 py-1 text-xs rounded-md transition ${
                   currentPage === page
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
               >
                 {page}
@@ -818,11 +820,11 @@ const ManageExpense: React.FC = () => {
             {endPage < totalPages && (
               <>
                 {endPage < totalPages - 1 && (
-                  <span className="px-2 text-xs text-gray-600">...</span>
+                  <span className="px-1 text-xs text-gray-500">...</span>
                 )}
                 <button
                   onClick={() => setCurrentPage(totalPages)}
-                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition duration-150"
+                  className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
                 >
                   {totalPages}
                 </button>
@@ -831,13 +833,16 @@ const ManageExpense: React.FC = () => {
             <button
               onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-md text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
+              className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
             >
-              <FaChevronRight className="w-4 h-4" />
+              <FaChevronRight className="w-3 h-3" />
             </button>
           </nav>
         </div>
-      </div>
+      </>
+    )}
+  </div>
+</div>
 
       {/* Add/Edit Expense Modal */}
       {isModalOpen && (

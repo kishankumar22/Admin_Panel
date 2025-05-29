@@ -7,7 +7,6 @@ import { FaEdit, FaKey, FaEye, FaEyeSlash, FaUserPlus, FaFilter, FaSearch, FaTim
 import { MdDelete, MdEmail, MdSmartphone, MdPerson } from 'react-icons/md';
 import { HiOutlineUserCircle } from 'react-icons/hi';
 
-
 interface User {
   user_id: number;
   name: string;
@@ -15,6 +14,8 @@ interface User {
   mobileNo: string;
   roleId: string;
   created_by: string;
+  profile_pic_url?: string;
+  profile_pic_public_id?: string;
 }
 
 interface Role {
@@ -53,7 +54,7 @@ const AddUser: React.FC = () => {
   const [isChangePassModalOpen, setIsChangePassModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [originalEmail, setOriginalEmail] = useState<string>(''); // Store the original email
+  const [originalEmail, setOriginalEmail] = useState<string>('');
   const [selectedEmail, setSelectedEmail] = useState<string>('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -71,6 +72,7 @@ const AddUser: React.FC = () => {
   const [passwordsMatch, setPasswordsMatch] = useState(true);
   const [selectedRole, setSelectedRole] = useState('');
   const [selectedMobile, setSelectedMobile] = useState('');
+  const [profilePic, setProfilePic] = useState<File | null>(null);
 
   const [user, setUser] = useState({
     name: '',
@@ -94,10 +96,8 @@ const AddUser: React.FC = () => {
     fetchroles();
     fetchPages();
     fetchPermissions();
-
   }, []);
-  
-  // Fetch Pages
+
   const fetchPages = async () => {
     try {
       const response = await axiosInstance.get("/pages");
@@ -108,7 +108,6 @@ const AddUser: React.FC = () => {
     }
   };
 
-  // Fetch Existing Permissions
   const fetchPermissions = async () => {
     try {
       const response = await axiosInstance.get("/permissions");
@@ -142,34 +141,31 @@ const AddUser: React.FC = () => {
     setUser((prevUser) => ({ ...prevUser, [name]: value }));
   };
 
-   // Use useLocation to get the current path
-    const location = useLocation();
-    const currentPageName = location.pathname.split('/').pop();
-    // console.log("currentPageName :", currentPageName);
-  console.log('Current role ID:', loggedInUser?.roleId);  
-  const loginUserRoleId = Number(loggedInUser?.roleId);
-    // Permissions and roles
-    // Prefixing currentPageName with '/' to match the database format
-    const prefixedPageUrl = `/${currentPageName}`;
-    const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
-    // const roleId = roles.find(role => role.role_id === loginUserRoleId)?.role_id;
-    const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === loginUserRoleId);
- const loggedroleId = loggedInUser?.roleId;
-// Set default permissions based on role ID
-const defaultPermission = loggedroleId === 2;
+  const handleProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setProfilePic(e.target.files[0]);
+    }
+  };
 
-// Use provided permissions if available, otherwise fall back to defaultPermission
-const canCreate = userPermissions?.canCreate ?? defaultPermission;
-const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
-const canDelete = userPermissions?.canDelete ?? defaultPermission;
-const canRead   = userPermissions?.canRead   ?? defaultPermission;
-  
-    // console.log('User Role ID:', user?.roleId);
-    // console.log('Page ID:', pageId);
-    // console.log('Permissions:', permissions);
-    // console.log('User Permissions:', userPermissions);
-    // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
-  
+  const handleEditProfilePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0] && editingUser) {
+      setProfilePic(e.target.files[0]);
+    }
+  };
+
+  const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop();
+  const loginUserRoleId = Number(loggedInUser?.roleId);
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find(page => page.pageUrl === prefixedPageUrl)?.pageId;
+  const userPermissions = permissions.find(perm => perm.pageId === pageId && perm.roleId === loginUserRoleId);
+  const loggedroleId = loggedInUser?.roleId;
+  const defaultPermission = loggedroleId === 2;
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
+  const canRead = userPermissions?.canRead ?? defaultPermission;
+
   const resetModalForm = () => {
     setUser({
       name: '',
@@ -183,6 +179,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     setPasswordsMatch(true);
     setShowPassword(false);
     setShowUserConfirmPassword(false);
+    setProfilePic(null);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -196,9 +193,19 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     setIsSubmitting(true);
 
     try {
-      const payload = { ...user, created_by: createdBy };
-      await axiosInstance.post('/users', payload, {
-        headers: { 'Content-Type': 'application/json' },
+      const formData = new FormData();
+      formData.append('name', user.name);
+      formData.append('email', user.email);
+      formData.append('mobileNo', user.mobileNo);
+      formData.append('password', user.password);
+      formData.append('roleId', user.roleId);
+      formData.append('created_by', createdBy);
+      if (profilePic) {
+        formData.append('profilePic', profilePic);
+      }
+
+      await axiosInstance.post('/users', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('User added successfully!');
       resetModalForm();
@@ -220,7 +227,8 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
-    setOriginalEmail(user.email); // Store the original email when opening the edit modal
+    setOriginalEmail(user.email);
+    setProfilePic(null);
     setIsEditModalOpen(true);
   };
 
@@ -230,19 +238,27 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
     setIsSubmitting(true);
     try {
-      const payload = { ...editingUser, modify_by: loggedInUser?.name || 'admin' };
-      await axiosInstance.put(`/users/${editingUser.user_id}`, payload, {
-        headers: { 'Content-Type': 'application/json' },
+      const formData = new FormData();
+      formData.append('name', editingUser.name);
+      formData.append('email', editingUser.email);
+      formData.append('mobileNo', editingUser.mobileNo);
+      formData.append('roleId', editingUser.roleId);
+      formData.append('modify_by', loggedInUser?.name || 'admin');
+      if (profilePic) {
+        formData.append('profilePic', profilePic);
+      }
+
+      await axiosInstance.put(`/users/${editingUser.user_id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('User updated successfully!');
 
-      // Check if the logged-in user changed their own email
       if (
         editingUser.email !== originalEmail &&
         originalEmail === loggedInUser?.email
       ) {
-        logout(); // Logout the user
-        navigate('/auth/signin'); // Redirect to sign-in page
+        logout();
+        navigate('/auth/signin');
       } else {
         setIsEditModalOpen(false);
         fetchUsers();
@@ -267,9 +283,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     setOldPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setIsChangePassModalOpen
-
-(true);
+    setIsChangePassModalOpen(true);
   };
 
   const handleCloseChangePassModal = () => {
@@ -280,7 +294,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     setSelectedEmail('');
   };
 
-  const handleChangePass = async (e: { preventDefault: () => void }) => {
+  const handleChangePass = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
@@ -291,19 +305,16 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     }
 
     try {
-      const response = await axiosInstance.put('/change-password',
-        {
-          email: selectedEmail,
-          oldPassword,
-          newPassword,
-          confirmPassword,
+      const response = await axiosInstance.put('/change-password', {
+        email: selectedEmail,
+        oldPassword,
+        newPassword,
+        confirmPassword,
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        }
-      );
+      });
       toast.success(response.data.message);
       handleCloseChangePassModal();
     } catch (error) {
@@ -377,84 +388,62 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     }
   };
 
-  // Determine if the Edit button should be enabled for a user
   const canEditUser = (user: User) => {
     const loggedInRoleId = Number(loggedInUser?.roleId);
     const userRoleId = Number(user.roleId);
 
     if (loggedInRoleId === 2) {
-      // Administrator can edit everyone
       return true;
     } else if (loggedInRoleId === 1) {
-      // Admin can edit themselves, other Admins, and Registered users, but not Administrators
       return userRoleId !== 2;
     } else if (loggedInRoleId === 3) {
-      // Registered user can only edit themselves
       return user.email === loggedInUser?.email;
     }
     return false;
   };
 
-  // Determine if the Password Change button should be enabled for a user
   const canChangePassword = (user: User) => {
     const loggedInRoleId = Number(loggedInUser?.roleId);
     const userRoleId = Number(user.roleId);
 
     if (loggedInRoleId === 2) {
-      // Administrator can change password for everyone
       return true;
     } else if (loggedInRoleId === 1) {
-      // Admin can change password for themselves, other Admins, and Registered users, but not Administrators
       return userRoleId !== 2;
     } else if (loggedInRoleId === 3) {
-      // Registered user can only change their own password
       return user.email === loggedInUser?.email;
     }
     return false;
   };
 
-  // Determine if the Delete button should be enabled for a user
   const canDeleteUser = (user: User) => {
     const loggedInRoleId = Number(loggedInUser?.roleId);
     const userRoleId = Number(user.roleId);
 
-    // No user can delete themselves
     if (user.email === loggedInUser?.email) {
       return false;
     }
 
     if (loggedInRoleId === 2) {
-      // Administrator can delete everyone except themselves (already checked above)
       return true;
     } else if (loggedInRoleId === 1) {
-      // Admin can delete other Admins and Registered users, but not Administrators or themselves
       return userRoleId !== 2;
     } else if (loggedInRoleId === 3) {
-      // Registered user cannot delete anyone
       return false;
     }
     return false;
   };
 
-  // Determine if the role field should be editable in the Edit modal
   const isRoleEditable = () => {
     const loggedInRoleId = Number(loggedInUser?.roleId);
     if (!editingUser) return false;
 
-    // Use the original email to check if the user is editing themselves
     if (originalEmail === loggedInUser?.email) {
-      return false; // Disable role editing for self
+      return false;
     }
 
-    if (loggedInRoleId === 2) {
-      // Administrator can change roles for others
+    if (loggedInRoleId === 2 || loggedInRoleId === 1) {
       return true;
-    } else if (loggedInRoleId === 1) {
-      // Admin can change roles for others
-      return true;
-    } else if (loggedInRoleId === 3) {
-      // Registered user cannot change their role (already handled by the self-edit check)
-      return false;
     }
     return false;
   };
@@ -529,23 +518,22 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
           <FaTimes size={12} className="mr-1" /> Clear Filters
         </button>
 
-    {Number(loggedInUser?.roleId) !== 3 && (
-  <button
-    className={`p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400
-      ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={() => {
-      if (!canCreate) {
-        toast.error('Access Denied: You do not have permission to add users.');
-        return;
-      }
-      resetModalForm();
-      setIsModalOpen(true);
-    }}
-  >
-    <FaUserPlus size={12} className="mr-1" /> Add User
-  </button>
-)}
-
+        {Number(loggedInUser?.roleId) !== 3 && (
+          <button
+            className={`p-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded flex items-center transition duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400
+              ${!canCreate ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => {
+              if (!canCreate) {
+                toast.error('Access Denied: You do not have permission to add users.');
+                return;
+              }
+              resetModalForm();
+              setIsModalOpen(true);
+            }}
+          >
+            <FaUserPlus size={12} className="mr-1" /> Add User
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-md overflow-hidden">
@@ -567,6 +555,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Mobile</th>
                   <th className="px-3 py-2">Role</th>
+                  <th className="px-3 py-2">Profile Pic</th>
                   <th className="px-3 py-2">Actions</th>
                 </tr>
               </thead>
@@ -592,59 +581,60 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                         {roles.find((role) => role.role_id === Number(user.roleId))?.name || 'N/A'}
                       </span>
                     </td>
+                    <td className="px-3 py-2">
+                      {user.profile_pic_url ? (
+                        <img src={user.profile_pic_url} alt="Profile" className="w-10 h-10 rounded-full mx-auto" />
+                      ) : (
+                        <span className="text-gray-500">No Image</span>
+                      )}
+                    </td>
                     <td className="px-1 py-1">
                       <div className="flex justify-stretch gap-1">
-                     {/* Edit Button */}
-{canEditUser(user) && (
-  <button
-    className={`bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded mr-1
-      ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={() => {
-      if (!canUpdate) {
-        toast.error('Access Denied: You do not have permission to edit users.');
-        return;
-      }
-      handleEdit(user);
-    }}
-  >
-    <FaEdit className="inline mr-1" size={10} /> Edit
-  </button>
-)}
-
-{/* Delete Button */}
-{canDeleteUser(user) && (
-  <button
-    className={`bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded mr-1
-      ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={() => {
-      if (!canDelete) {
-        toast.error('Access Denied: You do not have permission to delete users.');
-        return;
-      }
-      handleOpenDeleteModal(user.user_id);
-    }}
-  >
-    <MdDelete className="inline mr-1" size={10} /> Delete
-  </button>
-)}
-
-{/* Password Button */}
-{canChangePassword(user) && (
-  <button
-    className={`bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded
-      ${!canRead ? 'opacity-50 cursor-not-allowed' : ''}`}
-    onClick={() => {
-      if (!canRead) {
-        toast.error('Access Denied: You do not have permission to change passwords.');
-        return;
-      }
-      handleOpenChangePassModal(user.email);
-    }}
-  >
-    <FaKey className="inline mr-1" size={10} /> Password
-  </button>
-)}
-
+                        {canEditUser(user) && (
+                          <button
+                            className={`bg-yellow-500 hover:bg-yellow-600 text-white text-xs px-2 py-1 rounded mr-1
+                              ${!canUpdate ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => {
+                              if (!canUpdate) {
+                                toast.error('Access Denied: You do not have permission to edit users.');
+                                return;
+                              }
+                              handleEdit(user);
+                            }}
+                          >
+                            <FaEdit className="inline mr-1" size={10} /> Edit
+                          </button>
+                        )}
+                        {canDeleteUser(user) && (
+                          <button
+                            className={`bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded mr-1
+                              ${!canDelete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => {
+                              if (!canDelete) {
+                                toast.error('Access Denied: You do not have permission to delete users.');
+                                return;
+                              }
+                              handleOpenDeleteModal(user.user_id);
+                            }}
+                          >
+                            <MdDelete className="inline mr-1" size={10} /> Delete
+                          </button>
+                        )}
+                        {canChangePassword(user) && (
+                          <button
+                            className={`bg-blue-500 hover:bg-blue-600 text-white text-xs px-2 py-1 rounded
+                              ${!canRead ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={() => {
+                              if (!canRead) {
+                                toast.error('Access Denied: You do not have permission to change passwords.');
+                                return;
+                              }
+                              handleOpenChangePassModal(user.email);
+                            }}
+                          >
+                            <FaKey className="inline mr-1" size={10} /> Password
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -667,7 +657,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                 <FaUserPlus className="mr-2" size={16} /> Add New User
               </h2>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form onSubmit={handleSubmit} className="space-y-3" encType="multipart/form-data">
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="name">
                   Name
@@ -694,7 +684,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                   Email
                 </label>
                 <input
-                  type=" email"
+                  type="email"
                   id="email"
                   name="email"
                   value={user.email}
@@ -804,7 +794,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                   <option value="">Select Role</option>
                   {roles && roles.length > 0 ? (
                     roles
-                      .filter((role) => role.role_id !== 2) // Exclude Admin role from Add User options
+                      .filter((role) => role.role_id !== 2)
                       .map((role) => (
                         <option key={role.role_id} value={role.role_id}>
                           {role.name}
@@ -818,6 +808,25 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                 </select>
                 {user.roleId === '' && (
                   <p className="text-red-500 text-xs mt-1">Select a role</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="profilePic">
+                  Profile Picture
+                </label>
+                <input
+                  type="file"
+                  id="profilePic"
+                  name="profilePic"
+                  accept="image/*"
+                  onChange={handleProfilePicChange}
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 text-black"
+                />
+                {profilePic && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Selected: {profilePic.name}
+                  </p>
                 )}
               </div>
 
@@ -853,7 +862,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                 <FaEdit className="mr-2" size={16} /> Edit User
               </h2>
             </div>
-            <form onSubmit={handleEditSubmit} className="space-y-3">
+            <form onSubmit={handleEditSubmit} className="space-y-3" encType="multipart/form-data">
               <div>
                 <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="name">
                   Name
@@ -915,7 +924,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                     <option value="">Select Role</option>
                     {roles && roles.length > 0 ? (
                       roles
-                        .filter((role) => role.role_id !== 2) // Exclude Admin role from options
+                        .filter((role) => role.role_id !== 2)
                         .map((role) => (
                           <option key={role.role_id} value={role.role_id}>
                             {role.name}
@@ -936,6 +945,30 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
                     disabled
                     className="w-full p-2 text-sm border border-gray-300 rounded bg-gray-100 text-black cursor-not-allowed"
                   />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium mb-1 text-gray-700" htmlFor="profilePic">
+                  Profile Picture
+                </label>
+                {editingUser.profile_pic_url && (
+                  <div className="mb-2">
+                    <img src={editingUser.profile_pic_url} alt="Current Profile" className="w-20 h-20 rounded-full mx-auto" />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  id="profilePic"
+                  name="profilePic"
+                  accept="image/*"
+                  onChange={handleEditProfilePicChange}
+                  className="w-full p-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500 text-black"
+                />
+                {profilePic && (
+                  <p className="text-gray-500 text-xs mt-1">
+                    Selected: {profilePic.name}
+                  </p>
                 )}
               </div>
 

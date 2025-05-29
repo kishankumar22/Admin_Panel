@@ -787,7 +787,7 @@ const ManageSupplier: React.FC = () => {
                           title="Payment"
                         >
                           <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                          Pay
+                          Payment History
                         </button>
                         <button
                           onClick={() => handleEditSupplier(supplier)}
@@ -803,9 +803,9 @@ const ManageSupplier: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleToggleStatus(supplier)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                          className={`inline-flex items-center px-2 py-1  text-white rounded transition text-[11px] ${
                             supplier.Deleted
-                              ? 'bg-green-600 hover:bg-green-700'
+                              ? 'bg-green-600 hover:bg-green-700 '
                               : 'bg-red-600 hover:bg-red-700'
                           }`}
                           title={supplier.Deleted ? 'Activate' : 'Deactivate'}

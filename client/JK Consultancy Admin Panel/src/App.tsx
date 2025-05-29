@@ -207,6 +207,15 @@ const App: React.FC = () => {
         </>
       ),
     },
+    {
+      path: '/settings',
+      element: (
+        <>
+          <PageTitle title="Profile  Setting" />
+          <Settings />
+        </>
+      ),
+    },
   ];
 
   // Return all routes for all authenticated users
