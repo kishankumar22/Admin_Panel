@@ -612,7 +612,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
       case 1:
         return (
           !!student.FName &&
-          !!student.LName &&
           !!student.RollNumber &&
           !!student.DOB &&
           !!student.Gender &&
@@ -749,7 +748,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700">
-                  Last Name <RequiredAsterisk />
+                  Last Name 
                 </label>
                 <input
                   type="text"
@@ -819,6 +818,8 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <option value="OBC">OBC</option>
                   <option value="SC">SC</option>
                   <option value="ST">ST</option>
+                  <option value="MINORITY">MINORITY</option>
+
                 </select>
               </div>
               <div>

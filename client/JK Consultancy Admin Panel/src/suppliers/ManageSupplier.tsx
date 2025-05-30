@@ -165,12 +165,12 @@ const ManageSupplier: React.FC = () => {
     if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
-    if (!formData.bankName) newErrors.bankName = 'Bank name is required';
-    if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
-    if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
-    else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
-      newErrors.ifscCode = 'Invalid IFSC code format';
-    if (!formData.comment) newErrors.comment = 'Comment is required';
+    // if (!formData.bankName) newErrors.bankName = 'Bank name is required';
+    // if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
+    // if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
+    // else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
+    //   newErrors.ifscCode = 'Invalid IFSC code format';
+    // if (!formData.comment) newErrors.comment = 'Comment is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -546,7 +546,7 @@ const ManageSupplier: React.FC = () => {
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                    Bank Name <RequiredAsterisk />
+                    Bank Name 
                   </label>
                   <input
                     type="text"
@@ -563,7 +563,7 @@ const ManageSupplier: React.FC = () => {
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                     <FaCreditCard className="text-indigo-500" />
-                    Account No. <RequiredAsterisk />
+                    Account No. 
                   </label>
                   <input
                     type="text"
@@ -580,7 +580,7 @@ const ManageSupplier: React.FC = () => {
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                     <FaCreditCard className="text-indigo-500" />
-                    IFSC Code <RequiredAsterisk />
+                    IFSC Code 
                   </label>
                   <input
                     type="text"
@@ -598,7 +598,7 @@ const ManageSupplier: React.FC = () => {
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaComment className="text-indigo-500" />
-                  Comment <RequiredAsterisk />
+                  Comment 
                 </label>
                 <textarea
                   name="comment"
@@ -728,162 +728,163 @@ const ManageSupplier: React.FC = () => {
           modifiedBy={createdBy}
         />
       )}
-      <div className="mt-2">
-        <div className="overflow-x-auto rounded-lg shadow-md">
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
-              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
-              <p className="text-sm font-medium text-gray-600">Loading suppliers...</p>
-            </div>
-          ) : (
-            <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-              <thead>
-                <tr className="bg-indigo-600 text-white">
-                  {[
-                    'Sr.',
-                    'Action',
-                    'Name',
-                    'Email',
-                    'Phone No.',
-                    'Address',
-                    'Bank Name',
-                    'Account No.',
-                    'IFSC Code',
-                    'Comment',
-                    'Created By',
-                    'Created On',
-                    'Status',
-                  ].map((title) => (
-                    <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
-                      {title}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {currentSuppliers.length > 0 ? (
-                  currentSuppliers.map((supplier, index) => (
-                    <tr
-                      key={supplier.SupplierId || index}
-                      className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
-                        supplier.Deleted
-                          ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
-                          : index % 2 === 0
-                          ? 'bg-gray-100 dark:bg-gray-800'
-                          : 'bg-white dark:bg-gray-900'
-                      } hover:bg-indigo-100 dark:hover:bg-gray-700`}
-                    >
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {indexOfFirstSupplier + index + 1}
-                      </td>
-                      <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        <button
-                          onClick={() => handlePaySupplier(supplier)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                            supplier.Deleted
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                          }`}
-                          title="Payment"
-                        >
-                          <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                          Payment History
-                        </button>
-                        <button
-                          onClick={() => handleEditSupplier(supplier)}
-                          className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                            supplier.Deleted
-                              ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-yellow-600 hover:bg-yellow-700'
-                          }`}
-                          title="Edit"
-                        >
-                          <FaEdit className="w-3 h-3 mr-1" />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(supplier)}
-                          className={`inline-flex items-center px-2 py-1  text-white rounded transition text-[11px] ${
-                            supplier.Deleted
-                              ? 'bg-green-600 hover:bg-green-700 '
-                              : 'bg-red-600 hover:bg-red-700'
-                          }`}
-                          title={supplier.Deleted ? 'Activate' : 'Deactivate'}
-                        >
-                          {supplier.Deleted ? (
-                            <FaToggleOff className="w-3 h-3 mr-1" />
-                          ) : (
-                            <FaToggleOn className="w-3 h-3 mr-1" />
-                          )}
-                          {supplier.Deleted ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.Name}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.Email}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.PhoneNo}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.Address}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.BankName}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.AccountNo}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.IFSCCode}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.Comment}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {supplier.CreatedBy}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        {new Date(supplier.CreatedOn).toLocaleString()}
-                      </td>
-                      <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                        <span
-                          className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                            supplier.Deleted
-                              ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                          }`}
-                        >
-                          {supplier.Deleted ? 'Inactive' : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td
-                      colSpan={13}
-                      className="text-center text-gray-600 dark:text-gray-400 text-xs"
-                    >
-                      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-                        <div className="mb-3">
-                          <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
-                        <p className="text-xs text-gray-400 text-center px-4">
-                          Try adjusting your filters or check back later
-                        </p>
-                      </div>
+    <div className="mt-2">
+  <div className="overflow-x-auto rounded-lg shadow-md" style={{ height: "76vh" }}>
+    {isLoading ? (
+      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
+        <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+        <p className="text-sm font-medium text-gray-600">Loading suppliers...</p>
+      </div>
+    ) : (
+      <div className="flex flex-col h-full">
+        <div className="overflow-y-auto flex-grow">
+          <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+            <thead>
+              <tr className="bg-indigo-600 text-white sticky top-0">
+                {[
+                  'Sr.',
+                  'Action',
+                  'Name',
+                  'Email',
+                  'Phone No.',
+                  'Address',
+                  'Bank Name',
+                  'Account No.',
+                  'IFSC Code',
+                  'Comment',
+                  'Created By',
+                  'Created On',
+                  'Status',
+                ].map((title) => (
+                  <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
+                    {title}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {currentSuppliers.length > 0 ? (
+                currentSuppliers.map((supplier, index) => (
+                  <tr
+                    key={supplier.SupplierId || index}
+                    className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
+                      supplier.Deleted
+                        ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
+                        : index % 2 === 0
+                        ? 'bg-gray-100 dark:bg-gray-800'
+                        : 'bg-white dark:bg-gray-900'
+                    } hover:bg-indigo-100 dark:hover:bg-gray-700`}
+                  >
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {indexOfFirstSupplier + index + 1}
+                    </td>
+                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      <button
+                        onClick={() => handlePaySupplier(supplier)}
+                        className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                          supplier.Deleted
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                        title="Payment"
+                      >
+                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                        Payment History
+                      </button>
+                      <button
+                        onClick={() => handleEditSupplier(supplier)}
+                        className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                          supplier.Deleted
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-yellow-600 hover:bg-yellow-700'
+                        }`}
+                        title="Edit"
+                      >
+                        <FaEdit className="w-3 h-3 mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleToggleStatus(supplier)}
+                        className={`inline-flex items-center px-2 py-1  text-white rounded transition text-[11px] ${
+                          supplier.Deleted
+                            ? 'bg-green-600 hover:bg-green-700 '
+                            : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                        title={supplier.Deleted ? 'Activate' : 'Deactivate'}
+                      >
+                        {supplier.Deleted ? (
+                          <FaToggleOff className="w-3 h-3 mr-1" />
+                        ) : (
+                          <FaToggleOn className="w-3 h-3 mr-1" />
+                        )}
+                        {supplier.Deleted ? 'Active' : 'Inactive'}
+                      </button>
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Name}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Email}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.PhoneNo}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Address}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.BankName}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.AccountNo}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.IFSCCode}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.Comment}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {supplier.CreatedBy}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      {new Date(supplier.CreatedOn).toLocaleString()}
+                    </td>
+                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                      <span
+                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                          supplier.Deleted
+                            ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        }`}
+                      >
+                        {supplier.Deleted ? 'Inactive' : 'Active'}
+                      </span>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          )}
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={13}
+                    className="text-center text-gray-600 dark:text-gray-400 text-xs"
+                  >
+                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                      <div className="mb-3">
+                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                      </div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
+                      <p className="text-xs text-gray-400 text-center px-4">
+                        Try adjusting your filters or check back later
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        <div className="flex items-center justify-between mt-4 px-3">
+        <div className="flex items-center justify-between mt-auto py-3 px-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
           <div className="text-xs text-gray-600 dark:text-gray-400">
             <span>
               Showing {indexOfFirstSupplier + 1} to{' '}
@@ -948,6 +949,9 @@ const ManageSupplier: React.FC = () => {
           </nav>
         </div>
       </div>
+    )}
+  </div>
+</div>
     </>
   );
 };

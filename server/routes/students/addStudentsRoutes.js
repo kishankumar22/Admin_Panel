@@ -95,7 +95,7 @@ router.post(
         isLateral,
       } = req.body;
 
-      console.log('Request Body:', req.body);
+      // console.log('Request Body:', req.body);
 
       // Parse EMI details
       const emiDetails = [];
@@ -183,39 +183,56 @@ router.post(
       }
 
       // Function to generate stdCollId base (without student ID)
-      const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
-        // Fetch course and college details
-        const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
-        const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
-        const courseResult = await executeQuery(courseQuery, courseParams);
-        const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
-        const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
-        const collegeResult = await executeQuery(collegeQuery, collegeParams);
+   const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
+  // Fetch course and college details
+  const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
+  const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
+  const courseResult = await executeQuery(courseQuery, courseParams);
+  const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
+  const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
+  const collegeResult = await executeQuery(collegeQuery, collegeParams);
 
-        const course = courseResult.recordset[0];
-        const college = collegeResult.recordset[0];
+  const course = courseResult.recordset[0];
+  const college = collegeResult.recordset[0];
 
-        // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
-        const courseName = course?.courseName || '';
-        const cleanedCourseName = courseName.replace(/[\s.]/g, '');
-        const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
+  // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
+  let courseName = course?.courseName || '';
+  
+  // Check if course name contains 'M' or 'm'
+  const hasM = /[Mm]/.test(courseName);
+  if (hasM) {
+    // Remove "Of" (case-insensitive) and extra spaces
+    courseName = courseName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
+  }
+  
+  const cleanedCourseName = courseName.replace(/[\s.]/g, '');
+  const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
 
-        // Step 2: Get college prefix (remove special characters and abbreviate)
-        let collegeName = college?.collegeName || '';
-        collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
-        const collegeWords = collegeName.split(/(?=[A-Z])/);
-        const collegePrefix =
-          collegeWords.length > 1
-            ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
-            : collegeName.substring(0, 5).toUpperCase();
+  // Step 2: Get college prefix (remove special characters and abbreviate)
+  let collegeName = college?.collegeName || '';
+  
+  // Check if college name contains 'M' or 'm' for skipping "Of"
+  const collegeHasM = /[Mm]/.test(collegeName);
+  if (collegeHasM) {
+    // Remove "Of" (case-insensitive) and extra spaces
+    collegeName = collegeName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
+  }
+  
+  // Remove special characters except letters and numbers
+  collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
+  const collegeWords = collegeName.split(/(?=[A-Z])/);
+  const collegePrefix =
+    collegeWords.length > 1
+      ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
+      : collegeName.substring(0, 5).toUpperCase();
 
-        // Step 3: Get year suffix from admission date
-        const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
-        const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
+  // Step 3: Get year suffix from admission date
+  const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
+  const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
 
-        // Step 4: Combine parts (without student ID)
-        return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
-      };
+  // Step 4: Combine parts (without student ID)
+  return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
+};
 
       // Generate stdCollId base
       const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
@@ -1314,7 +1331,6 @@ router.get('/students/:id/documents', async (req, res , next) => {
     res.status(500).json({ success: false, message: 'Failed to load student documents' });
   }
 });
-
 
 // POST /students/:studentId/promote - Handle student promotion
 router.post('/students/:studentId/promote', async (req, res, next) => {

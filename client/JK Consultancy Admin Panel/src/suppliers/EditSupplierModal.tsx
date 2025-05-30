@@ -96,12 +96,12 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
 
-    if (!formData.bankName) newErrors.bankName = 'Bank name is required';
-    if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
-    if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
-    else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
-      newErrors.ifscCode = 'Invalid IFSC code format';
-    if (!formData.comment) newErrors.comment = 'Comment is required';
+    // if (!formData.bankName) newErrors.bankName = 'Bank name is required';
+    // if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
+    // if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
+    // else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
+    //   newErrors.ifscCode = 'Invalid IFSC code format';
+    // if (!formData.comment) newErrors.comment = 'Comment is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -136,11 +136,11 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       const response = await axiosInstance.delete(`/documents/${publicId}`);
       console.log('Delete response:', response.data);
       setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
+      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 1500 });
     } catch (error: any) {
       console.error('Error deleting document:', error);
       const errorMessage = error.response?.data?.message || 'Failed to delete document';
-      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
     } finally {
       setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
     }
@@ -176,19 +176,19 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       });
 
       if (response.data.success) {
-        toast.success('Supplier updated successfully', { position: 'top-right', autoClose: 3000 });
+        toast.success('Supplier updated successfully', { position: 'top-right', autoClose: 1000 });
         onSuccess();
         onClose(); // Close the modal on successful update
       } else {
         toast.error(response.data.message || 'Failed to update supplier', {
           position: 'top-right',
-          autoClose: 3000,
+          autoClose: 1500,
         });
       }
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Error updating supplier', {
         position: 'top-right',
-        autoClose: 3000,
+        autoClose: 1500,
       });
     } finally {
       setIsSubmitting(false);
@@ -282,7 +282,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
           
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                  Bank Name <RequiredAsterisk />
+                  Bank Name 
                 </label>
                 <input
                   type="text"
@@ -299,7 +299,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaCreditCard className="text-indigo-500" />
-                  Account No. <RequiredAsterisk />
+                  Account No. 
                 </label>
                 <input
                   type="text"
@@ -316,7 +316,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaCreditCard className="text-indigo-500" />
-                  IFSC Code <RequiredAsterisk />
+                  IFSC Code 
                 </label>
                 <input
                   type="text"
@@ -334,7 +334,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
             <div className="mb-2">
               <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                 <FaComment className="text-indigo-500" />
-                Comment <RequiredAsterisk />
+                Comment 
               </label>
               <textarea
                 name="comment"

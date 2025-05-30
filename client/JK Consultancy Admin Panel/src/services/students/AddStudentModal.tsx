@@ -324,7 +324,6 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
       case 1:
         const isStep1Valid =
           !!student.FName &&
-          !!student.LName &&
           !!student.RollNumber &&
           !!student.DOB &&
           !!student.Gender &&
@@ -332,7 +331,6 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
           !!student.MotherName &&
           !!student.MobileNumber &&
           !!student.EmailId &&
-          !!student.FatherMobileNumber &&
           !!student.City &&
           !!student.State &&
           !!student.Pincode &&
@@ -533,7 +531,7 @@ const handleTabClick = (tabNumber: number) => {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  Last Name <RequiredAsterisk />
+                  Last Name
                 </label>
                 <input
                   type="text"
@@ -622,6 +620,7 @@ const handleTabClick = (tabNumber: number) => {
                   <option value="OBC">OBC</option>
                   <option value="SC">SC</option>
                   <option value="ST">ST</option>
+                  <option value="MINORITY">MINORITY</option>
                 </select>
               </div>
               <div>

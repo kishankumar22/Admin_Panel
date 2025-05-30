@@ -495,123 +495,113 @@ const ManageExpense: React.FC = () => {
   return (
     <>
       <Breadcrumb pageName="Manage Expenses" />
-      <div className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        {/* Main Container - Responsive Flex Layout */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-          {/* Statistics Section */}
-          <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm">
-            {/* Total Expenses */}
-            <div className="flex items-center gap-1">
-              <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
-              <span className="text-gray-600 dark:text-gray-400">Number of Expense:</span>
-              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
-                {isLoading ? '...' : totalDisplayExpenses}
-              </span>
-            </div>
-            {/* Total Amount */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-600 dark:text-gray-400">Total Expense  Amount:</span>
-              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
-                {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
-              </span>
-            </div>
-            {/* Pending Amount */}
-            <div className="flex items-center gap-1">
-              <span className="text-gray-600 dark:text-gray-400">Total Expense Pending:</span>
-              <span className="font-semibold text-red-600 dark:text-red-400">
-                {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
-              </span>
-            </div>
-          </div>
-          {/* Controls Section */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            {/* Search Input */}
-            <div className="relative w-full sm:w-auto">
-              <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-              <input
-                type="text"
-                name="search"
-                placeholder="Search by Name, Email, Phone"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                ref={searchInputRef}
-                autoComplete="new-search"
-                className="w-full sm:w-48 pl-6 pr-2 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white placeholder:text-xs"
-              />
-            </div>
-            {/* Filter Controls - Responsive Grid */}
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              {/* Date Range */}
-              <div className="flex items-center gap-1">
-                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">From:</span>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">To:</span>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              {/* Payment Status */}
-              <div className="flex items-center gap-1">
-                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Payment:</span>
-                <select
-                  value={paymentStatus}
-                  onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
-                  className="w-16 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="All">All</option>
-                  <option value="Paid">Paid</option>
-                  <option value="Unpaid">Unpaid</option>
-                </select>
-              </div>
-              {/* Status Filter */}
-              <div className="flex items-center gap-1">
-                <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Status:</span>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
-                  className="w-16 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="All">All</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
-              {/* Action Buttons */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={handleClearFilters}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
-                  title="Clear Filters"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => {
-                    setModalMode('add');
-                    setIsModalOpen(true);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <span className="hidden sm:inline">Add Expense</span>
-                  <span className="sm:hidden">Add</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="p-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-700">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5">
+    
+    {/* Stats Section */}
+    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+      <div className="flex items-center gap-1">
+        <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
+        <span className="text-gray-600 dark:text-gray-400">Number of Expense:</span>
+        <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+          {isLoading ? '...' : totalDisplayExpenses}
+        </span>
       </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-600 dark:text-gray-400">Total Expense Amount:</span>
+        <span className="font-semibold text-green-700 dark:text-green-400">
+          {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
+        </span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-600 dark:text-gray-400">Total Expense Pending:</span>
+        <span className="font-semibold text-red-600 dark:text-red-400">
+          {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
+        </span>
+      </div>
+    </div>
+
+    {/* Filters & Controls */}
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+      
+      {/* Search */}
+      <div className="relative w-full sm:w-44">
+        <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+        <input
+          type="text"
+          placeholder="Search..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          ref={searchInputRef}
+          className="w-full pl-6 pr-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+        />
+      </div>
+
+      {/* Date Filters */}
+      <div className="flex items-center gap-1">
+        <span className="text-gray-600 dark:text-gray-400">From:</span>
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+          className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-gray-600 dark:text-gray-400">To:</span>
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+          className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+        />
+      </div>
+
+      {/* Payment Filter */}
+      <select
+        value={paymentStatus}
+        onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
+        className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+      >
+        <option value="All">All</option>
+        <option value="Paid">Paid</option>
+        <option value="Unpaid">Unpaid</option>
+      </select>
+
+      {/* Status Filter */}
+      <select
+        value={statusFilter}
+        onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
+        className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+      >
+        <option value="All">All</option>
+        <option value="Active">Active</option>
+        <option value="Inactive">Inactive</option>
+      </select>
+
+      {/* Clear + Add Buttons */}
+      <button
+        onClick={handleClearFilters}
+        className="p-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded focus:outline-none"
+        title="Clear Filters"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <button
+        onClick={() => {
+          setModalMode('add');
+          setIsModalOpen(true);
+        }}
+        className="px-2 py-1 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-1 focus:ring-indigo-500"
+      >
+        + Add
+      </button>
+    </div>
+  </div>
+</div>
+
 
       <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-1">
@@ -647,7 +637,7 @@ const ManageExpense: React.FC = () => {
         <table className="min-w-full text-xs bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-indigo-600 dark:bg-indigo-700 text-white">
             <tr>
-              {['Sr.', 'Action', 'Supplier', 'Phone', 'Reason', 'Amount', 'Pending', 'Created On', 'Created By', 'Status'].map((title) => (
+              {['Sr.', 'Supplier', 'Phone', 'Reason', 'Amount', 'Pending', 'Created On', 'Created By', 'Status','Action', ].map((title) => (
                 <th 
                   key={title} 
                   className={`px-2 py-2 text-left font-medium whitespace-nowrap ${
@@ -687,7 +677,40 @@ const ManageExpense: React.FC = () => {
                   <td className="px-2 py-2 text-gray-700 dark:text-gray-300">
                     {indexOfFirstExpense + index + 1}
                   </td>
+                
+                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 font-medium">
+                    {expense.SupplierName}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                    {expense.SupplierPhone}
+                  </td>
+                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 max-w-[120px] truncate" title={expense.Reason}>
+                    {expense.Reason}
+                  </td>
+                  <td className="px-2 py-2 text-right font-medium text-green-600 dark:text-green-400">
+                    ₹{expense.Amount.toFixed(2)}
+                  </td>
+                  <td className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">
+                    ₹{(expense.PendingAmount || 0).toFixed(2)}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                    {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
+                  </td>
+                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                    {expense.CreatedBy}
+                  </td>
                   <td className="px-2 py-2">
+                    <span
+                      className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                        expense.Deleted
+                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      }`}
+                    >
+                      {expense.Deleted ? 'Inactive' : 'Active'}
+                    </span>
+                  </td>
+                    <td className="px-2 py-2">
                     <div className="flex gap-1">
                       <button
                         onClick={() => openPaymentModal(expense)}
@@ -738,38 +761,6 @@ const ManageExpense: React.FC = () => {
 </button>
 
                     </div>
-                  </td>
-                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 font-medium">
-                    {expense.SupplierName}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
-                    {expense.SupplierPhone}
-                  </td>
-                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 max-w-[120px] truncate" title={expense.Reason}>
-                    {expense.Reason}
-                  </td>
-                  <td className="px-2 py-2 text-right font-medium text-green-600 dark:text-green-400">
-                    ₹{expense.Amount.toFixed(2)}
-                  </td>
-                  <td className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">
-                    ₹{(expense.PendingAmount || 0).toFixed(2)}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
-                    {expense.CreatedBy}
-                  </td>
-                  <td className="px-2 py-2">
-                    <span
-                      className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                        expense.Deleted
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      }`}
-                    >
-                      {expense.Deleted ? 'Inactive' : 'Active'}
-                    </span>
                   </td>
                 </tr>
               ))

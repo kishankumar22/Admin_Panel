@@ -335,7 +335,7 @@ router.post('/supplier/add', upload.array('files', 10), async (req, res, next) =
     const files = req.files;
 
     // Validate required fields
-    if (!name || !email || !phoneNo || !address || !bankName || !accountNo || !ifscCode || !createdBy) {
+    if (!name || !email || !phoneNo || !address || !createdBy) {
       return res.status(400).json({ success: false, message: 'All required fields must be provided' });
     }
 

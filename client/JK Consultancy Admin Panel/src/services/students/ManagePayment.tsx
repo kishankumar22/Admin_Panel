@@ -124,7 +124,7 @@ const ManagePayment: React.FC = () => {
   const [selectedSessionYear, setSelectedSessionYear] = useState<string | null>(null);
   const [selectedCourseYear, setSelectedCourseYear] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
   const [showLoading, setShowLoading] = useState(true);
 
   const [error, setError] = useState('');
@@ -145,6 +145,8 @@ const ManagePayment: React.FC = () => {
   const [yearFilter, setYearFilter] = useState('');
   const [feesFilter, setFeesFilter] = useState('Pending');
   const [amountTypeFilter, setAmountTypeFilter] = useState('');
+  const [receivedFromFilter, setReceivedFromFilter] = useState<string>(''); // New state for "Received From" date
+  const [receivedToFilter, setReceivedToFilter] = useState<string>(''); // New state for "Received To" date
 
   // Summary data
   const [summaryData, setSummaryData] = useState<SummaryData>({
@@ -181,7 +183,7 @@ const ManagePayment: React.FC = () => {
 
   // Handle filtering with loader
   useEffect(() => {
-    setIsFilterLoading(true); // Show filter loader
+    setIsFilterLoading(true);
     const filtered = students
       .map((student) => {
         const filteredAcademicDetails = student.academicDetails.filter((academic) => {
@@ -197,6 +199,30 @@ const ManagePayment: React.FC = () => {
           const matchesSessionYear = !sessionYearFilter || academic.sessionYear === sessionYearFilter;
           const matchesYear = !yearFilter || academic.courseYear === yearFilter;
 
+          // Apply date range filter to payments
+          const relevantPayments = payments.filter(
+            (payment) =>
+              payment.studentId === student.id &&
+              payment.studentAcademic.id === academic.id &&
+              (payment.amountType === 'feesAmount' || payment.amountType === 'adminAmount' || payment.amountType === 'AmountFees')
+          );
+
+          const matchesDateRange = relevantPayments.some((payment) => {
+            if (!payment.receivedDate) return false;
+            const paymentDate = new Date(payment.receivedDate);
+            const fromDate = receivedFromFilter ? new Date(receivedFromFilter) : null;
+            const toDate = receivedToFilter ? new Date(receivedToFilter) : null;
+
+            if (fromDate && toDate) {
+              return paymentDate >= fromDate && paymentDate <= toDate;
+            } else if (fromDate) {
+              return paymentDate >= fromDate;
+            } else if (toDate) {
+              return paymentDate <= toDate;
+            }
+            return true;
+          });
+
           if (amountTypeFilter) {
             if (amountTypeFilter === 'adminAmount' || amountTypeFilter === 'feesAmount') {
               const hasPaymentOfType = payments.some(
@@ -205,23 +231,23 @@ const ManagePayment: React.FC = () => {
                   payment.studentAcademic.id === academic.id &&
                   payment.amountType === amountTypeFilter
               );
-              return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType;
+              return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
             } else if (amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount') {
               const hasPaymentOfType = payments.some(
                 (payment) => payment.studentId === student.id && payment.amountType === amountTypeFilter
               );
-              return matchesSessionYear && matchesYear && hasPaymentOfType;
+              return matchesSessionYear && matchesYear && hasPaymentOfType && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
             }
           }
 
-          return matchesFees && matchesSessionYear && matchesYear;
+          return matchesFees && matchesSessionYear && matchesYear && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
         });
 
-        if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter)) {
+        if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter || receivedFromFilter || receivedToFilter)) {
           return null;
         }
 
-        if (!sessionYearFilter && !yearFilter && !amountTypeFilter && feesFilter === 'Pending') {
+        if (!sessionYearFilter && !yearFilter && !amountTypeFilter && !receivedFromFilter && !receivedToFilter && feesFilter === 'Pending') {
           const pendingAcademicDetails = student.academicDetails.filter((academic) => {
             const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
             return pendingFees > 0;
@@ -265,7 +291,6 @@ const ManagePayment: React.FC = () => {
         return matchesSearch && matchesCourse && matchesCollege && matchesStatus;
       });
 
-    // Simulate processing delay for filter loader
     setTimeout(() => {
       setIsFilterLoading(false);
     }, 100);
@@ -278,11 +303,12 @@ const ManagePayment: React.FC = () => {
     yearFilter,
     feesFilter,
     amountTypeFilter,
+    receivedFromFilter,
+    receivedToFilter,
     students,
     payments,
   ]);
 
-  // Function to calculate pending fees for a student's academic detail
   const calculatePendingFees = (studentId: number, academicId: number, totalFees: number): number => {
     const relevantPayments = payments.filter(
       (payment) =>
@@ -412,7 +438,6 @@ const ManagePayment: React.FC = () => {
     });
 
     paymentData.forEach((payment) => {
-      // Only include payments for filtered students
       const isStudentIncluded = filteredStudents.some(
         (student) =>
           student.id === payment.studentId &&
@@ -420,14 +445,33 @@ const ManagePayment: React.FC = () => {
       );
 
       if (isStudentIncluded) {
-        if (payment.amountType === 'adminAmount') {
-          adminReceived += payment.amount || 0;
-        } else if (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees') {
-          feesReceived += payment.amount || 0;
-        } else if (payment.amountType === 'fineAmount') {
-          totalFine += payment.amount || 0;
-        } else if (payment.amountType === 'refundAmount') {
-          totalRefund += payment.amount || 0;
+        const paymentDate = payment.receivedDate ? new Date(payment.receivedDate) : null;
+        const fromDate = receivedFromFilter ? new Date(receivedFromFilter) : null;
+        const toDate = receivedToFilter ? new Date(receivedToFilter) : null;
+
+        let matchesDateRange = true;
+        if (paymentDate) {
+          if (fromDate && toDate) {
+            matchesDateRange = paymentDate >= fromDate && paymentDate <= toDate;
+          } else if (fromDate) {
+            matchesDateRange = paymentDate >= fromDate;
+          } else if (toDate) {
+            matchesDateRange = paymentDate <= toDate;
+          }
+        } else {
+          matchesDateRange = false;
+        }
+
+        if (matchesDateRange || (!receivedFromFilter && !receivedToFilter)) {
+          if (payment.amountType === 'adminAmount') {
+            adminReceived += payment.amount || 0;
+          } else if (payment.amountType === 'feesAmount' || payment.amountType === 'AmountFees') {
+            feesReceived += payment.amount || 0;
+          } else if (payment.amountType === 'fineAmount') {
+            totalFine += payment.amount || 0;
+          } else if (payment.amountType === 'refundAmount') {
+            totalRefund += payment.amount || 0;
+          }
         }
       }
     });
@@ -493,6 +537,8 @@ const ManagePayment: React.FC = () => {
     setYearFilter('');
     setFeesFilter('Pending');
     setAmountTypeFilter('');
+    setReceivedFromFilter(''); // Reset "Received From" filter
+    setReceivedToFilter(''); // Reset "Received To" filter
     setCurrentPage(1);
   };
 
@@ -536,6 +582,29 @@ const ManagePayment: React.FC = () => {
         const matchesSessionYear = !sessionYearFilter || academic.sessionYear === sessionYearFilter;
         const matchesYear = !yearFilter || academic.courseYear === yearFilter;
 
+        const relevantPayments = payments.filter(
+          (payment) =>
+            payment.studentId === student.id &&
+            payment.studentAcademic.id === academic.id &&
+            (payment.amountType === 'feesAmount' || payment.amountType === 'adminAmount' || payment.amountType === 'AmountFees')
+        );
+
+        const matchesDateRange = relevantPayments.some((payment) => {
+          if (!payment.receivedDate) return false;
+          const paymentDate = new Date(payment.receivedDate);
+          const fromDate = receivedFromFilter ? new Date(receivedFromFilter) : null;
+          const toDate = receivedToFilter ? new Date(receivedToFilter) : null;
+
+          if (fromDate && toDate) {
+            return paymentDate >= fromDate && paymentDate <= toDate;
+          } else if (fromDate) {
+            return paymentDate >= fromDate;
+          } else if (toDate) {
+            return paymentDate <= toDate;
+          }
+          return true;
+        });
+
         if (amountTypeFilter) {
           if (amountTypeFilter === 'adminAmount' || amountTypeFilter === 'feesAmount') {
             const hasPaymentOfType = payments.some(
@@ -544,23 +613,23 @@ const ManagePayment: React.FC = () => {
                 payment.studentAcademic.id === academic.id &&
                 payment.amountType === amountTypeFilter
             );
-            return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType;
+            return matchesFees && matchesSessionYear && matchesYear && hasPaymentOfType && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
           } else if (amountTypeFilter === 'fineAmount' || amountTypeFilter === 'refundAmount') {
             const hasPaymentOfType = payments.some(
               (payment) => payment.studentId === student.id && payment.amountType === amountTypeFilter
             );
-            return matchesSessionYear && matchesYear && hasPaymentOfType;
+            return matchesSessionYear && matchesYear && hasPaymentOfType && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
           }
         }
 
-        return matchesFees && matchesSessionYear && matchesYear;
+        return matchesFees && matchesSessionYear && matchesYear && (receivedFromFilter || receivedToFilter ? matchesDateRange : true);
       });
 
-      if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter)) {
+      if (filteredAcademicDetails.length === 0 && (sessionYearFilter || yearFilter || amountTypeFilter || receivedFromFilter || receivedToFilter)) {
         return null;
       }
 
-      if (!sessionYearFilter && !yearFilter && !amountTypeFilter && feesFilter === 'Pending') {
+      if (!sessionYearFilter && !yearFilter && !amountTypeFilter && !receivedFromFilter && !receivedToFilter && feesFilter === 'Pending') {
         const pendingAcademicDetails = student.academicDetails.filter((academic) => {
           const pendingFees = calculatePendingFees(student.id, academic.id, academic.feesAmount);
           return pendingFees > 0;
@@ -774,7 +843,7 @@ const ManagePayment: React.FC = () => {
           </div>
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
-              <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course
+              <FaBook className="mr-1 text-gray-600 text-[10px]" /> Course Name
             </label>
             <select
               value={courseFilter}
@@ -808,7 +877,7 @@ const ManagePayment: React.FC = () => {
           </div>
           <div className="flex-1 min-w-[100px]">
             <label className="text-xs font-semibold text-black flex items-center mb-0.5">
-              <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Year
+              <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Course Year
             </label>
             <select
               value={yearFilter}
@@ -853,6 +922,28 @@ const ManagePayment: React.FC = () => {
                 </option>
               ))}
             </select>
+          </div>
+          <div className="flex-1 min-w-[110px]">
+            <label className="text-xs font-semibold text-black flex items-center mb-0.5">
+              <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Received From
+            </label>
+            <input
+              type="date"
+              value={receivedFromFilter}
+              onChange={(e) => setReceivedFromFilter(e.target.value)}
+              className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+            />
+          </div>
+          <div className="flex-1 min-w-[110px]">
+            <label className="text-xs font-semibold text-black flex items-center mb-0.5">
+              <FaCalendarAlt className="mr-1 text-gray-600 text-[10px]" /> Received To
+            </label>
+            <input
+              type="date"
+              value={receivedToFilter}
+              onChange={(e) => setReceivedToFilter(e.target.value)}
+              className="border border-gray-200 rounded py-0.5 px-1 text-xs w-full bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300 transition-colors duration-150"
+            />
           </div>
           <div className="flex gap-1 min-w-[300px]">
             <div className="flex-1 min-w-[150px]">
@@ -1028,22 +1119,22 @@ const ManagePayment: React.FC = () => {
         <div className="relative overflow-x-auto max-h-[70vh] flex justify-between items-center p-1">
           <div>
             <div className="flex items-center text-gray-600 space-x-1 mb-2 md:mb-0">
-          <span className="text-xs">Show:</span>
-          <select
-            value={entriesPerPage}
-            onChange={(e) => {
-              setEntriesPerPage(parseInt(e.target.value));
-              setCurrentPage(1);
-            }}
-            className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
-          >
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={75}>75</option>
-            <option value={100}>100</option>
-          </select>
-          <span className="text-xs">entries</span>
-        </div>
+              <span className="text-xs">Show:</span>
+              <select
+                value={entriesPerPage}
+                onChange={(e) => {
+                  setEntriesPerPage(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border border-gray-200 rounded py-0.5 px-1 text-xs bg-white focus:ring-1 focus:ring-blue-300 focus:border-blue-300"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={75}>75</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-xs">entries</span>
+            </div>
           </div>
           <button
             onClick={handleExportToExcel}
@@ -1053,7 +1144,7 @@ const ManagePayment: React.FC = () => {
             Export to Excel
           </button>
         </div>
-        <div className="relative overflow-x-auto max-h-[70vh]">
+        <div className="relative overflow-x-auto max-h-[60vh]">
           <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
             <thead className="bg-gradient-to-r from-blue-200 to-indigo-200 text-gray-600 sticky top-0 z-10">
               <tr>
@@ -1292,7 +1383,6 @@ const ManagePayment: React.FC = () => {
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center mt-2 p-2 bg-white rounded shadow-md border border-gray-200">
-        
         <div className="flex items-center space-x-0.5">
           <button
             onClick={() => handlePageChange(1)}
@@ -1340,7 +1430,6 @@ const ManagePayment: React.FC = () => {
             setCurrentStudentId(null);
             setSelectedSessionYear(null);
             setSelectedCourseYear(null);
-            // fetchStudents();
           }}
         />
       )}

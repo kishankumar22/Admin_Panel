@@ -23,9 +23,11 @@ interface PaginationProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  itemsPerPage: number;
+  onItemsPerPageChange: (items: number) => void;
 }
 
-const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
+const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange, itemsPerPage, onItemsPerPageChange }) => {
   return (
     <div className="flex items-center justify-between border-t border-gray-200 bg-white px-2 py-1 sm:px-3">
       <div className="flex flex-1 justify-between sm:hidden">
@@ -45,11 +47,24 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         </button>
       </div>
       <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-        <div>
+        <div className="flex items-center space-x-2">
           <p className="text-xs text-gray-700">
             Showing <span className="font-medium">{currentPage}</span> of{' '}
             <span className="font-medium">{totalPages}</span> pages
           </p>
+          <div className="flex items-center space-x-1">
+            <label className="text-xs text-gray-700">Entries per page:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+              className="border border-gray-300 rounded-md px-1 py-0.5 text-xs text-black"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={75}>75</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
         </div>
         <div>
           <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
@@ -207,8 +222,8 @@ const PaymentHandover: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showLoading, setShowLoading] = useState(true);
-  const [isFilterLoading, setIsFilterLoading] = useState(false); // Added for filter loader
-  const [isPaymentLoading, setIsPaymentLoading] = useState(false); // Added for payment fetching loader
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -229,7 +244,7 @@ const PaymentHandover: React.FC = () => {
   const [passwordError, setPasswordError] = useState('');
   const [handoverCurrentPage, setHandoverCurrentPage] = useState(1);
   const [paymentsCurrentPage, setPaymentsCurrentPage] = useState(1);
-  const itemsPerPage = 50;
+  const [itemsPerPage, setItemsPerPage] = useState(50); // Default to 50
   const [selectedReceivedBy, setSelectedReceivedBy] = useState('');
   const [selectedHandedOverTo, setSelectedHandedOverTo] = useState('');
 
@@ -270,7 +285,7 @@ const PaymentHandover: React.FC = () => {
 
   // Handle filtering with loader
   useEffect(() => {
-    setIsFilterLoading(true); // Show filter loader
+    setIsFilterLoading(true);
     const filtered = cashHandovers.filter(handover => {
       let matchesFilter = true;
       if (selectedReceivedBy) {
@@ -281,12 +296,12 @@ const PaymentHandover: React.FC = () => {
       }
       const matchesSearch =
         (handover.student?.fName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (handover.student?.lName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (handover.receivedBy?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
         (handover.handedOverTo?.toLowerCase() || '').includes(searchTerm.toLowerCase());
       return matchesFilter && matchesSearch;
     });
 
-    // Simulate processing delay for filter loader
     setTimeout(() => {
       setIsFilterLoading(false);
     }, 300);
@@ -316,7 +331,7 @@ const PaymentHandover: React.FC = () => {
   useEffect(() => {
     const fetchPayments = async () => {
       if (formData.receivedBy) {
-        setIsPaymentLoading(true); // Show payment loader
+        setIsPaymentLoading(true);
         try {
           const paymentsRes = await axiosInstance.get(`/payments-by-staff/${encodeURIComponent(formData.receivedBy)}`);
           if (paymentsRes.data.success) {
@@ -352,6 +367,7 @@ const PaymentHandover: React.FC = () => {
     }
     const matchesSearch =
       (handover.student?.fName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (handover.student?.lName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (handover.receivedBy?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (handover.handedOverTo?.toLowerCase() || '').includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -535,7 +551,7 @@ const PaymentHandover: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error creating handovers:', error);
-      toast.error(error.response?.data?.message || 'Failed to create handovers');
+      toast.error(error.data.message || 'Failed to create handovers');
       setPasswordError('Invalid credential. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -544,6 +560,12 @@ const PaymentHandover: React.FC = () => {
 
   const handoverTotalPages = Math.ceil(filteredHandovers.length / itemsPerPage);
   const paymentsTotalPages = Math.ceil(Object.keys(paymentsByStudent).length / itemsPerPage);
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setHandoverCurrentPage(1);
+    setPaymentsCurrentPage(1);
+  };
 
   const ReceiptViewerModal = () => {
     const modalFooter = (
@@ -896,6 +918,8 @@ const PaymentHandover: React.FC = () => {
                             currentPage={paymentsCurrentPage}
                             totalPages={paymentsTotalPages}
                             onPageChange={setPaymentsCurrentPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={handleItemsPerPageChange}
                           />
                         )}
                       </div>
@@ -924,19 +948,18 @@ const PaymentHandover: React.FC = () => {
                         )}
                       </div>
                     )}
-             {selectedPayments.length > 0 && (
-  <div className="mt-2">
-    <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
-    <textarea
-      name="remarks"
-      value={formData.remarks}
-      onChange={handleFormChange}
-      className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
-      rows={2}
-    ></textarea>
-  </div>
-)}
-
+                    {selectedPayments.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Remarks</label>
+                        <textarea
+                          name="remarks"
+                          value={formData.remarks}
+                          onChange={handleFormChange}
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-xs"
+                          rows={2}
+                        ></textarea>
+                      </div>
+                    )}
                     <div className="flex justify-end space-x-2 mt-3">
                       <button
                         type="button"
@@ -969,7 +992,7 @@ const PaymentHandover: React.FC = () => {
               ) : (
                 <>
                   <div className="bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 text-white rounded-md px-4 py-2 flex items-center justify-between shadow-sm mb-2">
-                    <h1 className="text-lg font-semibold text-white">Payment Handover List</h1>
+                    <h1 className="text-lg font-semibold text-white">Payment Handover List {filteredHandovers.length}</h1>
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
                         <label className="text-xs font-medium text-white">Handed Over To:</label>
@@ -1129,6 +1152,8 @@ const PaymentHandover: React.FC = () => {
                           currentPage={handoverCurrentPage}
                           totalPages={handoverTotalPages}
                           onPageChange={setHandoverCurrentPage}
+                          itemsPerPage={itemsPerPage}
+                          onItemsPerPageChange={handleItemsPerPageChange}
                         />
                       )}
                     </>

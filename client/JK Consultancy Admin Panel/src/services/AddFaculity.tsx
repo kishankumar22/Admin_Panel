@@ -622,10 +622,10 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
 
                 {/* Documents - Full Width */}
                 <div className="md:col-span-2">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block font-medium text-gray-700">Documents (Max 10)</label>
+                  <div className="flex items-center justify-center mb-1.5">
+                    <label className=" font-medium hidden bg-blue-600 text-gray-700"> Upload Documents</label>
                     <button
-                      className="text-sm bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md hover:bg-blue-100 transition-colors"
+                      className="text-md w-full py-2 bg-blue-400 text-black  px-2 p rounded-md hover:bg-blue-500 transition-colors"
                       onClick={() => {
                         if (documents.length >= 10) {
                           toast.error("Maximum 10 documents allowed");
@@ -634,7 +634,7 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
                         documentInputRef.current?.click();
                       }}
                     >
-                      + Add ({documents.length}/10)
+                      Upload Documents({documents.length}/10)
                     </button>
                   </div>
                   
@@ -648,9 +648,10 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
                   />
                   
                   {documents.length > 0 && (
-                    <div className="grid gap-1.5 max-h-28 overflow-y-auto border rounded-lg p-1.5 bg-gray-50">
+                    <div className="grid gap-1.5 max-h-32 overflow-y-auto border rounded-lg p-1.5 bg-gray-50">
                       {documents.map((doc, index) => (
                         <div key={index} className="flex items-center gap-1.5 p-1.5 bg-white rounded border">
+                          <span>{index+1}.</span>
                           <input
                             type="text"
                             className="flex-1 p-1 border border-gray-300 rounded text-xs"
