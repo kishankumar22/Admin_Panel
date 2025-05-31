@@ -40,20 +40,20 @@ const DropdownUser = () => {
           </span>
           {/* <span className="block text-xs">UX Designer</span> */}
         </span>
-<span className="h-10 w-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm">
-  <img
-    src={user?.profile_pic_url || UserOne}
-    alt="User Profile"
-    className="h-full w-full object-cover"
-  />
-</span>
+          <span className="h-10 w-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm">
+          <img
+            src={user?.profile_pic_url || UserOne}
+            alt="User Profile"
+            className="h-full w-full object-cover"
+          />
+          </span>
 
         
-      </Link>
+        </Link>
 
-      {/* <!-- Dropdown Start --> */}
-      {dropdownOpen && (
-        <div
+        {/* <!-- Dropdown Start --> */}
+         {dropdownOpen && (
+         <div
           className={`absolute right-0 mt-2   flex w-62.5 flex-col rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-white dark:text-black`}
         >
           <ul className="flex flex-col gap-2 border-b border-stroke px-6 py-3 dark:border-strokedark">

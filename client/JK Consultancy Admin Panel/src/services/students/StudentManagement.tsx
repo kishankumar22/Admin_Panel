@@ -11,6 +11,8 @@ import PromoteStudentModal from './PromoteStudentModal';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import { FileSearch } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { usePermissions } from '../../context/PermissionsContext';
 
 interface EmiDetail {
   id: number;
@@ -100,6 +102,45 @@ const StudentManagement: React.FC = () => {
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   const [showLoading, setShowLoading] = useState(true);
+
+  const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+
+      pages,
+      permissions,
+    } = usePermissions();
+  
+    // Use useEffect to fetch data when the component mounts
+    useEffect(() => {
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
+      fetchData();
+    }, []);
+    // Use useLocation to get the current path
+    const location = useLocation();
+    const currentPageName = location.pathname.split('/').pop();
+    // console.log("currentPageName :", currentPageName);
+  
+    // Permissions and roles
+    // Prefixing currentPageName with '/' to match the database format
+    const prefixedPageUrl = `/${currentPageName}`;
+    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+   const loggedroleId = user?.roleId;
+  // Set default permissions based on role ID
+  const defaultPermission = loggedroleId === 2;
+  
+  // Use provided permissions if available, otherwise fall back to defaultPermission
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
+  const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   // Refs for scroll container and table
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -603,12 +644,20 @@ const StudentManagement: React.FC = () => {
         Clear
       </button>
       
-      <button
-        onClick={() => setIsAddModalOpen(true)}
-        className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 focus:ring-1 focus:ring-blue-500 transition-colors"
-      >
-        Add Student
-      </button>
+     <button
+  onClick={
+    canCreate
+      ? () => setIsAddModalOpen(true)
+      : () => toast.error('Access Denied: You do not have permission to add students.')
+  }
+  className={`px-3 py-1.5 text-sm text-white rounded transition-colors ${
+    canCreate
+      ? 'bg-blue-600 hover:bg-blue-700 focus:ring-1 focus:ring-blue-500'
+      : 'bg-blue-600 opacity-50 cursor-not-allowed'
+  }`}
+>
+  Add Student
+</button>
       
       <button
         onClick={exportToExcel}
@@ -704,22 +753,38 @@ const StudentManagement: React.FC = () => {
                       <td className="py-2 px-2 text-center font-medium">{student.category}</td>
                       <td className="py-2 px-2">
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handlePromoteClick(student.id)}
-                            type='button'
-                            title="Promote Student"
-                            className="px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 transition duration-150 flex items-center justify-center"
-                          >
-                            Promote
-                          </button>
-                          <button
-                            onClick={() => handleEditClick(student.id)}
-                            className="p-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition duration-150 flex items-center justify-center"
-                            title="Edit"
-                            type='button'
-                          >
-                            <FaEdit className="w-3.5 h-3.5" />
-                          </button>
+                        <button
+  onClick={
+    canUpdate
+      ? () => handlePromoteClick(student.id)
+      : () => toast.error('Access Denied: You do not have permission to promote students.')
+  }
+  type='button'
+  title="Promote Student"
+  className={`px-2 py-1 text-xs font-medium text-white rounded transition duration-150 flex items-center justify-center ${
+    canUpdate
+      ? 'bg-green-600 hover:bg-green-700'
+      : 'bg-green-600 opacity-50 cursor-not-allowed'
+  }`}
+>
+  Promote
+</button>
+                         <button
+  onClick={
+    canRead
+      ? () => handleEditClick(student.id)
+      : () => toast.error('Access Denied: You do not have permission to edit students.')
+  }
+  className={`p-1 rounded transition duration-150 flex items-center justify-center ${
+    canRead
+      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+      : 'bg-blue-100 text-blue-700 opacity-50 cursor-not-allowed'
+  }`}
+  title="Edit"
+  type='button'
+>
+  <FaEdit className="w-3.5 h-3.5" />
+</button>
                           <button
                             onClick={() => handleDeleteClick(student.id)}
                             className="p-1 hidden bg-red-100 text-red-700 rounded hover:bg-red-200 transition duration-150 items-center justify-center"
@@ -727,17 +792,30 @@ const StudentManagement: React.FC = () => {
                           >
                             <FaTrash className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleToggleStatusClick(student.id)}
-                            className={`p-1 rounded transition duration-150 flex items-center justify-center ${student.status ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                            title="Active/Inactive"
-                          >
-                            {student.status ? (
-                              <FaToggleOn className="w-3.5 h-3.5" />
-                            ) : (
-                              <FaToggleOff className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                         <button
+  onClick={
+    canDelete
+      ? () => handleToggleStatusClick(student.id)
+      : () => toast.error('Access Denied: You do not have permission to toggle student status.')
+  }
+  className={`p-1 rounded transition duration-150 flex items-center justify-center ${
+    canDelete
+      ? student.status
+        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+      : student.status
+      ? 'bg-green-100 text-green-700 opacity-50 cursor-not-allowed'
+      : 'bg-gray-100 text-gray-700 opacity-50 cursor-not-allowed'
+  }`}
+  title="Active/Inactive"
+  type='button'
+>
+  {student.status ? (
+    <FaToggleOn className="w-3.5 h-3.5" />
+  ) : (
+    <FaToggleOff className="w-3.5 h-3.5" />
+  )}
+</button>
                         </div>
                       </td>
                     </tr>

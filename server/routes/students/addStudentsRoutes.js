@@ -2329,12 +2329,11 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
       amountType,
       courseYear,
       sessionYear,
-      email,
-      password,
+      userId, // Changed from email to userId
     } = req.body;
 
     // Validate required fields
-    const requiredFields = { email, password, amountType, amount, paymentMode, receivedDate };
+    const requiredFields = { userId, amountType, amount, paymentMode, receivedDate };
     const missingFields = Object.keys(requiredFields).filter((key) => !requiredFields[key]);
     if (missingFields.length > 0) {
       return res.status(400).json({ success: false, error: `Missing required fields: ${missingFields.join(', ')}` });
@@ -2372,18 +2371,18 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
       }
     }
 
-    // Authenticate user
+    // Verify user exists
     const userQuery = `
-      SELECT *
+      SELECT name, email
       FROM [User]
-      WHERE email = @email
+      WHERE user_id = @userId
     `;
-    const userParams = { email: { type: sql.NVarChar, value: email } };
+    const userParams = { userId: { type: sql.Int, value: parseInt(userId) } };
     const userResult = await executeQuery(userQuery, userParams);
     const user = userResult.recordset[0];
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'User not found' });
     }
 
     let receiptData = { receiptUrl: null, receiptPublicId: null };
@@ -2402,7 +2401,7 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
 
     // Create payment record
     let newPayment;
-    const pool = await poolConnect; // Use the existing poolConnect
+    const pool = await poolConnect;
     const transaction = new sql.Transaction(pool);
     try {
       await transaction.begin();
@@ -2431,7 +2430,7 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
       request.input('amountType', sql.NVarChar, amountType);
       request.input('courseYear', sql.NVarChar, courseYear || null);
       request.input('sessionYear', sql.NVarChar, sessionYear || null);
-      request.input('createdBy', sql.NVarChar, user.name || email);
+      request.input('createdBy', sql.NVarChar, user.name || user.email);
       request.input('createdOn', sql.DateTime, new Date());
       request.input('receiptUrl', sql.NVarChar, receiptData.receiptUrl);
       request.input('receiptPublicId', sql.NVarChar, receiptData.receiptPublicId);
@@ -2443,18 +2442,14 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
     } catch (error) {
       await transaction.rollback();
       throw error;
-    } finally {
-      // Do NOT close the global pool here; let it persist for other requests
     }
+
     res.status(201).json({ success: true, data: newPayment });
   } catch (err) {
-    // console.error('Payment creation error:', error.stack);
-    next(err);
-
+    console.error('Payment creation error:', err);
     res.status(500).json({ success: false, error: `Failed to create payment: ${err.message}` });
   }
 });
-
 // GET payments for a specific student by studentId
 router.get('/studentPayment/:studentId', async (req, res, next) => {
   try {
@@ -2698,6 +2693,70 @@ router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
   }
 });
 
+
+// Check Payment Handover Route
+router.get('/paymentHandover/check/:paymentId', async (req ,res) => {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId || isNaN(parseInt(paymentId))) {
+      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+    }
+
+    const query = `
+      SELECT id
+      FROM PaymentHandover
+      WHERE paymentId = @paymentId
+    `;
+    const params = { paymentId: { type: sql.Int, value: parseInt(paymentId) } };
+    const result = await executeQuery(query, params);
+
+    return res.status(200).json({
+      success: true,
+      hasHandover: result.recordset.length > 0,
+    });
+  } catch (error) {
+    console.error('Error checking payment handover:', error);
+    return res.status(500).json({ success: false, error: 'Failed to check payment handover' });
+  }
+});
+
+// Delete Student Payment Route
+router.delete('/studentPayment/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+
+    if (!paymentId || isNaN(parseInt(paymentId))) {
+      return res.status(400).json({ success: false, error: 'Invalid payment ID' });
+    }
+
+    // Check if payment exists
+    const checkQuery = `
+      SELECT id
+      FROM StudentPayment
+      WHERE id = @paymentId
+    `;
+    const checkParams = { paymentId: { type: sql.Int, value: parseInt(paymentId) } };
+    const checkResult = await executeQuery(checkQuery, checkParams);
+
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Delete the payment
+    const deleteQuery = `
+      DELETE FROM StudentPayment
+      WHERE id = @paymentId
+    `;
+    await executeQuery(deleteQuery, checkParams);
+
+    return res.status(200).json({ success: true, message: 'Payment deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting payment:', error);
+    return res.status(500).json({ success: false, error: 'Failed to delete payment' });
+  }
+});
+
 // GET /amountType - Fetch all payments
 router.get('/amountType', async (req, res, next) => {
   try {
@@ -2825,9 +2884,7 @@ router.post('/register', async (req, res, next) => {
       console.log('Student registration successful:', newRegistration);
       res.status(201).json({ message: 'Registration successful', data: newRegistration });
   } catch (err) {
-      // console.error('Error registering student:', error.stack);
-          next(err);
-      res.status(500).json({ message: 'Error registering student', error: error.message });
+      next(err); // Pass the error to Express error-handling middleware
   }
 });
 

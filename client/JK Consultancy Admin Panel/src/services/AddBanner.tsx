@@ -50,7 +50,7 @@ const AddBanner: React.FC = () => {
   // Use useLocation to get the current path
   const location = useLocation();
   const currentPageName = location.pathname.split('/').pop();
-  console.log("currentPageName :", currentPageName);
+  // console.log("currentPageName :", currentPageName);
 
   // Permissions and roles
   // Prefixing currentPageName with '/' to match the database format
@@ -67,11 +67,11 @@ const canCreate = userPermissions?.canCreate ?? defaultPermission;
 const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
 const canDelete = userPermissions?.canDelete ?? defaultPermission;
 const canRead   = userPermissions?.canRead   ?? defaultPermission;
-  console.log('User Role ID:', user?.roleId);
-  console.log('Page ID:', pageId);
-  console.log('Permissions:', permissions);
-  console.log('User Permissions:', userPermissions);
-  console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
+  // console.log('User Role ID:', user?.roleId);
+  // console.log('Page ID:', pageId);
+  // console.log('Permissions:', permissions);
+  // console.log('User Permissions:', userPermissions);
+  // console.log('Permission Values:', { canCreate, canUpdate, canDelete, canRead });
 
   // Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,7 +180,6 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
       toast.error('Access Denied: You do not have permission to update banners.');
       return;
     }
-
     await toggleVisibility(id, user?.name || 'admin');
   };
 

@@ -21,6 +21,9 @@ import StudentPaymentModal from './StudentPaymentModal';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import { FileSearch } from 'lucide-react';
+import { usePermissions } from '../../context/PermissionsContext';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 interface EmiDetail {
   id: number;
@@ -147,6 +150,45 @@ const ManagePayment: React.FC = () => {
   const [amountTypeFilter, setAmountTypeFilter] = useState('');
   const [receivedFromFilter, setReceivedFromFilter] = useState<string>(''); // New state for "Received From" date
   const [receivedToFilter, setReceivedToFilter] = useState<string>(''); // New state for "Received To" date
+  const { user } = useAuth();
+   const {
+        fetchRoles,
+        fetchPages,
+        fetchPermissions,
+  
+        pages,
+        permissions,
+      } = usePermissions();
+    
+      // Use useEffect to fetch data when the component mounts
+      useEffect(() => {
+        const fetchData = async () => {
+          await fetchRoles();
+          await fetchPages();
+          await fetchPermissions();
+        };
+        fetchData();
+      }, []);
+      // Use useLocation to get the current path
+      const location = useLocation();
+      const currentPageName = location.pathname.split('/').pop();
+      // console.log("currentPageName :", currentPageName);
+    
+      // Permissions and roles
+      // Prefixing currentPageName with '/' to match the database format
+      const prefixedPageUrl = `/${currentPageName}`;
+      const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+      // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+      const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+     const loggedroleId = user?.roleId;
+    // Set default permissions based on role ID
+    const defaultPermission = loggedroleId === 2;
+    
+    // Use provided permissions if available, otherwise fall back to defaultPermission
+    const canCreate = userPermissions?.canCreate ?? defaultPermission;
+    const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+    const canDelete = userPermissions?.canDelete ?? defaultPermission;
+    const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   // Summary data
   const [summaryData, setSummaryData] = useState<SummaryData>({
@@ -1136,13 +1178,22 @@ const ManagePayment: React.FC = () => {
               <span className="text-xs">entries</span>
             </div>
           </div>
-          <button
-            onClick={handleExportToExcel}
-            className="flex items-center text-green-600 hover:text-green-800 text-xs px-2 py-1 bg-white border border-green-300 rounded hover:bg-green-50 transition-all duration-150"
-          >
-            <FaFileExcel className="mr-1 text-base" />
-            Export to Excel
-          </button>
+        <button
+  onClick={
+    canRead
+      ? handleExportToExcel
+      : () => toast.error('Access Denied: You do not have permission to export to Excel.')
+  }
+  className={`flex items-center text-xs px-2 py-1 border border-green-300 rounded transition-all duration-150 ${
+    canRead
+      ? 'text-green-600 bg-white hover:text-green-800 hover:bg-green-50'
+      : 'text-green-600 bg-white opacity-50 cursor-not-allowed'
+  }`}
+  type='button'
+>
+  <FaFileExcel className="mr-1 text-base" />
+  Export to Excel
+</button>
         </div>
         <div className="relative overflow-x-auto max-h-[60vh]">
           <table className="min-w-full bg-white text-xs text-black-2 border-collapse">
@@ -1268,15 +1319,22 @@ const ManagePayment: React.FC = () => {
                         <td className="px-1.5 py-1">
                           <div className="flex space-x-1">
                             <button
-                              onClick={() =>
-                                handlePaymentClick(student.id, academic.sessionYear, academic.courseYear)
-                              }
-                              className="flex items-center justify-center px-2 py-0.5 text-xs font-medium text-green-600 bg-white rounded-full border border-green-300 hover:bg-green-50 transition-all duration-150 shadow-sm"
-                              title="Make Payments"
-                            >
-                              <FaMoneyBill className="mr-1 text-green-500" size={10} />
-                              <span>Pay</span>
-                            </button>
+  onClick={
+    canCreate
+      ? () => handlePaymentClick(student.id, academic.sessionYear, academic.courseYear)
+      : () => toast.error('Access Denied: You do not have permission to do payment.')
+  }
+  className={`flex items-center justify-center px-2 py-0.5 text-xs font-medium text-green-600 rounded-full border border-green-300 transition-all duration-150 shadow-sm ${
+    canCreate
+      ? 'bg-white hover:bg-green-50'
+      : 'bg-white opacity-50 cursor-not-allowed'
+  }`}
+  title="Make Payments"
+  type='button'
+>
+  <FaMoneyBill className="mr-1 text-green-500" size={10} />
+  <span>Pay</span>
+</button>
                           </div>
                         </td>
                         <td className="px-1.5 py-1 font-medium truncate max-w-[150px]" title="Click karne par payment slip download hogi">

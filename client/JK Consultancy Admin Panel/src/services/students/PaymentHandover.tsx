@@ -7,6 +7,8 @@ import { toast } from 'react-toastify';
 import { RequiredAsterisk } from './AddStudentModal';
 import * as XLSX from 'xlsx';
 import { FaSpinner } from 'react-icons/fa';
+import { usePermissions } from '../../context/PermissionsContext';
+import { useLocation } from 'react-router-dom';
 
 // User interface
 interface User {
@@ -26,6 +28,7 @@ interface PaginationProps {
   itemsPerPage: number;
   onItemsPerPageChange: (items: number) => void;
 }
+
 
 const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange, itemsPerPage, onItemsPerPageChange }) => {
   return (
@@ -248,6 +251,44 @@ const PaymentHandover: React.FC = () => {
   const [selectedReceivedBy, setSelectedReceivedBy] = useState('');
   const [selectedHandedOverTo, setSelectedHandedOverTo] = useState('');
 
+   const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+
+      pages,
+      permissions,
+    } = usePermissions();
+  
+    // Use useEffect to fetch data when the component mounts
+    useEffect(() => {
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
+      fetchData();
+    }, []);
+    // Use useLocation to get the current path
+    const location = useLocation();
+    const currentPageName = location.pathname.split('/').pop();
+    // console.log("currentPageName :", currentPageName);
+  
+    // Permissions and roles
+    // Prefixing currentPageName with '/' to match the database format
+    const prefixedPageUrl = `/${currentPageName}`;
+    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+   const loggedroleId = user?.roleId;
+  // Set default permissions based on role ID
+  const defaultPermission = loggedroleId === 2;
+  
+  // Use provided permissions if available, otherwise fall back to defaultPermission
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
+  const canRead   = userPermissions?.canRead   ?? defaultPermission;
   const fetchUsers = async () => {
     try {
       const response = await axiosInstance.get('/getusers');
@@ -703,6 +744,8 @@ const PaymentHandover: React.FC = () => {
     );
   }
 
+  
+
   return (
     <>
       <Breadcrumb pageName="Payment Handover" />
@@ -720,26 +763,48 @@ const PaymentHandover: React.FC = () => {
               />
             </div>
             <div className="flex items-center space-x-2 order-1 sm:order-2 w-full sm:w-auto justify-end">
-              <button
-                className={`inline-flex items-center px-2 py-1 ${showAddForm ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded text-xs font-medium transition-colors duration-150`}
-                onClick={() => {
-                  if (showAddForm) {
-                    handleCancelForm();
-                  } else {
-                    setShowAddForm(true);
-                  }
-                }}
-              >
-                {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
-                {showAddForm ? 'Cancel' : 'New Handover'}
-              </button>
-              <button
-                onClick={exportToExcel}
-                className="inline-flex items-center px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors duration-150"
-              >
-                <ArrowLeftRight className="w-3 h-3 mr-1" />
-                Export to Excel
-              </button>
+             <button
+  onClick={
+    canCreate
+      ? () => {
+          if (showAddForm) {
+            handleCancelForm();
+          } else {
+            setShowAddForm(true);
+          }
+        }
+      : () => toast.error('Access Denied: You do not have permission to create a new handover.')
+  }
+  className={`inline-flex items-center px-2 py-1 text-xs font-medium text-white rounded transition-colors duration-150 ${
+    canCreate
+      ? showAddForm
+        ? 'bg-red-600 hover:bg-red-700'
+        : 'bg-blue-600 hover:bg-blue-700'
+      : showAddForm
+      ? 'bg-red-600 opacity-50 cursor-not-allowed'
+      : 'bg-blue-600 opacity-50 cursor-not-allowed'
+  }`}
+  type='button'
+>
+  {showAddForm ? <X className="w-3 h-3 mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+  {showAddForm ? 'Cancel' : 'New Handover'}
+</button>
+            <button
+  onClick={
+    canRead
+      ? exportToExcel
+      : () => toast.error('Access Denied: You do not have permission to export to Excel.')
+  }
+  className={`inline-flex items-center px-2 py-1 text-xs font-medium text-white rounded transition-colors duration-150 ${
+    canRead
+      ? 'bg-green-600 hover:bg-green-700'
+      : 'bg-green-600 opacity-50 cursor-not-allowed'
+  }`}
+  type='button'
+>
+  <ArrowLeftRight className="w-3 h-3 mr-1" />
+  Export to Excel
+</button>
             </div>
           </div>
         </header>

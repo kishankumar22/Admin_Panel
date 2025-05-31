@@ -10,66 +10,114 @@ interface Role {
   name: string;
 }
 
+interface User {
+  user_id: number;
+  name: string;
+  email: string;
+  mobileNo: string;
+  roleId: number;
+  profile_pic_url: string | null;
+  // Add other user properties as needed
+}
+
 const Settings = () => {
-  const { user, setUser } = useAuth();
+  const { user: authUser, setUser } = useAuth();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // State for personal info editing
   const [isEditingInfo, setIsEditingInfo] = useState(false);
-  const [fullName, setFullName] = useState(user?.name || '');
-  const [phoneNumber, setPhoneNumber] = useState(user?.mobileNo || '');
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   // State for photo editing
   const [isEditingPhoto, setIsEditingPhoto] = useState(false);
   const [profilePic, setProfilePic] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState(user?.profile_pic_url || userThree);
+  const [previewUrl, setPreviewUrl] = useState(userThree);
 
   // State for roles
   const [roles, setRoles] = useState<Role[]>([]);
   const [userRoleName, setUserRoleName] = useState<string>('');
 
-  // Fetch roles on component mount
+  // Fetch current user data and roles
   useEffect(() => {
-    const fetchRoles = async () => {
+    const fetchUserDataAndRoles = async () => {
       try {
-        const response = await axiosInstance.get('/getrole');
-        if (response.data.success) {
-          setRoles(response.data.role);
-          // Find the role name for the logged-in user's roleId
-          const role = response.data.role.find((r: Role) => r.role_id === user?.roleId);
-          setUserRoleName(role ? role.name : 'Unknown Role');
+        // Fetch all users
+        const usersResponse = await axiosInstance.get('/getusers');
+        
+        if (usersResponse.data.success && authUser) {
+          // Find the current user in the response
+          const foundUser = usersResponse.data.users.find(
+            (u: User) => u.user_id === authUser.user_id
+          );
+          
+          if (foundUser) {
+            setCurrentUser(foundUser);
+            setFullName(foundUser.name);
+            setPhoneNumber(foundUser.mobileNo);
+            setPreviewUrl(foundUser.profile_pic_url ||"https://static.vecteezy.com/system/resources/previews/024/983/914/non_2x/simple-user-default-icon-free-png.png" );
+          }
+        }
+
+        // Fetch roles
+        const rolesResponse = await axiosInstance.get('/getrole');
+        if (rolesResponse.data.success) {
+          setRoles(rolesResponse.data.role);
+          if (authUser) {
+            const role = rolesResponse.data.role.find(
+              (r: Role) => r.role_id === authUser.roleId
+            );
+            setUserRoleName(role ? role.name : 'Unknown Role');
+          }
         }
       } catch (error) {
-        console.error('Error fetching roles:', error);
-        toast.error('Failed to fetch roles');
+        console.error('Error fetching data:', error);
+        toast.error('Failed to fetch user data');
       }
     };
 
-    if (user) {
-      fetchRoles();
+    if (authUser) {
+      fetchUserDataAndRoles();
     }
-  }, [user]);
+  }, [authUser]);
 
   // Handle personal info update
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!authUser || !currentUser) return;
 
     try {
       const formData = new FormData();
       formData.append('name', fullName);
-      formData.append('email', user.email);
+      formData.append('email', currentUser.email);
       formData.append('mobileNo', String(phoneNumber));
-      formData.append('roleId', user.roleId.toString());
-      formData.append('modify_by', user.name || 'admin');
+      formData.append('roleId', currentUser.roleId.toString());
+      formData.append('modify_by', currentUser.name || 'admin');
 
-      const response = await axiosInstance.put(`/users/${user.user_id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await axiosInstance.put(
+        `/users/${currentUser.user_id}`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
 
-      // Update the user in context
-      setUser(response.data.user);
-      setIsEditingInfo(false);
-      toast.success('Personal information updated successfully!');
+      if (response.data.user) {
+        // Update both auth context and local state
+        setUser(response.data.user);
+        setCurrentUser(response.data.user);
+        setIsEditingInfo(false);
+        toast.success('Personal information updated successfully!');
+        
+        // Fetch fresh user data to ensure we have the latest
+        const usersResponse = await axiosInstance.get('/getusers');
+        if (usersResponse.data.success) {
+          const updatedUser = usersResponse.data.users.find(
+            (u: User) => u.user_id === currentUser.user_id
+          );
+          if (updatedUser) {
+            setCurrentUser(updatedUser);
+          }
+        }
+      }
     } catch (err) {
       let errorMessage = 'Failed to update personal information.';
       if (err instanceof Error) errorMessage = err.message;
@@ -84,27 +132,43 @@ const Settings = () => {
   // Handle photo update
   const handlePhotoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !profilePic) return;
+    if (!authUser || !currentUser || !profilePic) return;
 
     try {
       const formData = new FormData();
-      formData.append('name', user.name);
-      formData.append('email', user.email);
-      formData.append('mobileNo', String(user.mobileNo));
-      formData.append('roleId', user.roleId.toString());
-      formData.append('modify_by', user.name || 'admin');
+      formData.append('name', currentUser.name);
+      formData.append('email', currentUser.email);
+      formData.append('mobileNo', String(currentUser.mobileNo));
+      formData.append('roleId', currentUser.roleId.toString());
+      formData.append('modify_by', currentUser.name || 'admin');
       formData.append('profilePic', profilePic);
 
-      const response = await axiosInstance.put(`/users/${user.user_id}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await axiosInstance.put(
+        `/users/${currentUser.user_id}`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
 
-      // Update the user in context and preview
-      setUser(response.data.user);
-      setPreviewUrl(response.data.user.profile_pic_url);
-      setProfilePic(null);
-      setIsEditingPhoto(false);
-      toast.success('Profile picture updated successfully!');
+      if (response.data.user) {
+        // Update both auth context and local state
+        setUser(response.data.user);
+        setCurrentUser(response.data.user);
+        setPreviewUrl(response.data.user.profile_pic_url || userThree);
+        setProfilePic(null);
+        setIsEditingPhoto(false);
+        toast.success('Profile picture updated successfully!');
+        
+        // Fetch fresh user data to ensure we have the latest
+        const usersResponse = await axiosInstance.get('/getusers');
+        if (usersResponse.data.success) {
+          const updatedUser = usersResponse.data.users.find(
+            (u: User) => u.user_id === currentUser.user_id
+          );
+          if (updatedUser) {
+            setCurrentUser(updatedUser);
+          }
+        }
+      }
     } catch (err) {
       let errorMessage = 'Failed to update profile picture.';
       if (err instanceof Error) errorMessage = err.message;
@@ -127,27 +191,29 @@ const Settings = () => {
 
   // Handle cancel for personal info
   const handleInfoCancel = () => {
-    setFullName(user?.name || '');
-    setPhoneNumber(user?.mobileNo || '');
+    if (currentUser) {
+      setFullName(currentUser.name);
+      setPhoneNumber(currentUser.mobileNo);
+    }
     setIsEditingInfo(false);
   };
 
   // Handle cancel for photo
   const handlePhotoCancel = () => {
     setProfilePic(null);
-    setPreviewUrl(user?.profile_pic_url || userThree);
+    setPreviewUrl(currentUser?.profile_pic_url || userThree);
     setIsEditingPhoto(false);
   };
 
   return (
     <>
-      <div className=" max-w-8xl mx-8">
+      <div className="max-w-8xl mx-8">
         <Breadcrumb pageName="Settings" />
         <div className="grid grid-cols-5 gap-8">
           <div className="col-span-5 xl:col-span-3">
             <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
               <div className="border-b border-stroke py-4 px-7 dark:border-strokedark">
-                <h3 className="font-bold  text-black dark:text-white">
+                <h3 className="font-bold text-black dark:text-white">
                   Personal Information
                 </h3>
               </div>
@@ -265,7 +331,7 @@ const Settings = () => {
                         name="emailAddress"
                         id="emailAddress"
                         placeholder="Enter your email address"
-                        value={user?.email || ''}
+                        value={currentUser?.email || ''}
                         disabled
                       />
                     </div>
@@ -279,12 +345,12 @@ const Settings = () => {
                       User Role
                     </label>
                     <input
-                      className="w-full rounded border tex bg-gray-300 border-stroke  py-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary cursor-not-allowed"
+                      className="w-full rounded border tex bg-gray-300 border-stroke py-3 px-4.5 text-black focus:border-primary focus-visible:outline-none dark:border-strokedark dark:bg-meta-4 dark:text-white dark:focus:border-primary cursor-not-allowed"
                       type="text"
                       name="Username"
                       id="Username"
                       placeholder="User Role"
-                      value={userRoleName} // Dynamically set the role name
+                      value={userRoleName}
                       disabled
                     />
                   </div>
@@ -324,7 +390,7 @@ const Settings = () => {
             <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
               <div className="border-b border-stroke py-4 px-7 dark:border-strokedark">
                 <h3 className="font-bold text-black dark:text-white">
-                  Your Photo
+                  Profile Picture
                 </h3>
               </div>
               <div className="p-7 flex flex-col items-center">
@@ -338,37 +404,37 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="mb-4">
-  <span className="flex gap-2.5 justify-center mt-2">
-    {isEditingPhoto ? (
-      <>
-        <button
-          className="text-sm px-4 py-2 rounded-md bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition"
-          type="button"
-          onClick={handlePhotoCancel}
-        >
-          Cancel
-        </button>
-        {profilePic && (
-          <button
-            className="text-sm px-4 py-2 rounded-md bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 transition"
-            type="submit"
-            form="photoForm"
-          >
-            Save
-          </button>
-        )}
-      </>
-    ) : (
-      <button
-        className="text-sm px-4 py-2 rounded-md bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition"
-        type="button"
-        onClick={() => setIsEditingPhoto(true)}
-      >
-        Edit your photo
-      </button>
-    )}
-  </span>
-</div>
+                  <span className="flex gap-2.5 justify-center mt-2">
+                    {isEditingPhoto ? (
+                      <>
+                        <button
+                          className="text-sm px-4 py-2 rounded-md bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition"
+                          type="button"
+                          onClick={handlePhotoCancel}
+                        >
+                          Cancel
+                        </button>
+                        {profilePic && (
+                          <button
+                            className="text-sm px-4 py-2 rounded-md bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700 transition"
+                            type="submit"
+                            form="photoForm"
+                          >
+                            Save
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button
+                        className="text-sm px-4 py-2 rounded-md bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition"
+                        type="button"
+                        onClick={() => setIsEditingPhoto(true)}
+                      >
+                        Edit your photo
+                      </button>
+                    )}
+                  </span>
+                </div>
 
                 {isEditingPhoto && (
                   <form id="photoForm" onSubmit={handlePhotoSubmit} className="w-full">

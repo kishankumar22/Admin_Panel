@@ -9,12 +9,13 @@ const router = express.Router();
 // Load STORAGE_PATH from environment variable
 require('dotenv').config();
 const STORAGE_PATH = process.env.STORAGE_PATH;
+const FACULTY_STORAGE_PATH = path.join(STORAGE_PATH, 'faculties');
 
 // Ensure storage directory exists with proper permissions
 const initializeStorage = () => {
-  if (!fs.existsSync(STORAGE_PATH)) {
-    fs.mkdirSync(STORAGE_PATH, { recursive: true, mode: 0o755 });
-    fs.chmodSync(STORAGE_PATH, 0o755);
+  if (!fs.existsSync(FACULTY_STORAGE_PATH)) {
+    fs.mkdirSync(FACULTY_STORAGE_PATH, { recursive: true, mode: 0o755 });
+    fs.chmodSync(FACULTY_STORAGE_PATH, 0o755);
   }
 };
 
@@ -62,7 +63,7 @@ router.get('/faculty', async (req, res) => {
               return true;
             }
             const fileName = path.basename(url);
-            const filePath = path.resolve(STORAGE_PATH, 'faculties', fileName);
+            const filePath = path.resolve(FACULTY_STORAGE_PATH, fileName);
             const exists = fs.existsSync(filePath);
             if (!exists) {
               console.log(`Local file not found: ${filePath}`);
@@ -83,7 +84,6 @@ router.get('/faculty', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Error fetching faculties', error: err.message });
   }
 });
-
 
 // 2. POST Add Faculty
 router.post('/faculty/add', upload.fields([
@@ -124,22 +124,22 @@ router.post('/faculty/add', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
-    // Save documents locally with original names or unique names
+    // Save documents locally in faculties directory
     const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
         const originalFileName = file.originalname;
-        const uniqueFileName = getUniqueFileName(originalFileName, STORAGE_PATH);
-        const filePath = path.join(STORAGE_PATH, uniqueFileName);
+        const uniqueFileName = getUniqueFileName(originalFileName, FACULTY_STORAGE_PATH);
+        const filePath = path.join(FACULTY_STORAGE_PATH, uniqueFileName);
 
         // Save file with read-only permissions
         fs.writeFileSync(filePath, file.buffer);
         fs.chmodSync(filePath, 0o444); // Read-only permissions
 
         const title = titles[i] || originalFileName;
-        documents.push({ title, url: `/${uniqueFileName}` });
+        documents.push({ title, url: `/faculties/${uniqueFileName}` });
       }
     }
 
@@ -173,7 +173,7 @@ router.post('/faculty/add', upload.fields([
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err); // Pass error to middleware
+    next(err);
   }
 });
 
@@ -223,21 +223,21 @@ router.put('/faculty/update/:id', upload.fields([
       profilePicUrl = uploadResult.secure_url;
     }
 
-    // Save new documents locally with original names or unique names
+    // Save new documents locally in faculties directory
     const titles = documentTitles ? JSON.parse(documentTitles) : [];
     if (req.files && req.files.documents) {
       const documentFiles = req.files.documents;
       for (let i = 0; i < documentFiles.length; i++) {
         const file = documentFiles[i];
         const originalFileName = file.originalname;
-        const uniqueFileName = getUniqueFileName(originalFileName, STORAGE_PATH);
-        const filePath = path.join(STORAGE_PATH, uniqueFileName);
+        const uniqueFileName = getUniqueFileName(originalFileName, FACULTY_STORAGE_PATH);
+        const filePath = path.join(FACULTY_STORAGE_PATH, uniqueFileName);
 
         fs.writeFileSync(filePath, file.buffer);
         fs.chmodSync(filePath, 0o444); // Read-only permissions
 
         const title = titles[i] || originalFileName;
-        documents.push({ title, url: `/${uniqueFileName}` });
+        documents.push({ title, url: `/faculties/${uniqueFileName}` });
       }
     }
 
@@ -277,7 +277,7 @@ router.put('/faculty/update/:id', upload.fields([
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err); // Pass error to middleware
+    next(err);
   }
 });
 
@@ -300,7 +300,7 @@ router.delete('/faculty/delete/:id', protectFolder, async (req, res, next) => {
       const documents = JSON.parse(result.recordset[0].documents);
       for (const doc of documents) {
         const fileName = path.basename(doc.url);
-        const filePath = path.join(STORAGE_PATH, fileName);
+        const filePath = path.join(FACULTY_STORAGE_PATH, fileName);
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
@@ -314,7 +314,7 @@ router.delete('/faculty/delete/:id', protectFolder, async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Faculty deleted successfully' });
   } catch (err) {
-    next(err); // Pass error to middleware
+    next(err);
   }
 });
 
@@ -354,22 +354,45 @@ router.put('/faculty/toggle-visibility/:id', protectFolder, async (req, res, nex
       faculty: result.recordset[0]
     });
   } catch (err) {
-    next(err); // Pass error to middleware
+    next(err);
   }
 });
 
-// 6. Serve Documents (Check File Existence)
-router.get('/upload/:fileName', (req, res, next) => {
+// 6. Serve Faculty Documents
+router.get('/uploads/faculties/:fileName', (req, res, next) => {
   try {
     const fileName = req.params.fileName;
-    const filePath = path.join(STORAGE_PATH, fileName);
+    const filePath = path.join(FACULTY_STORAGE_PATH, fileName);
+    
+    console.log(`Attempting to serve file: ${filePath}`); // Log file access
+    
     if (fs.existsSync(filePath)) {
+      // Set appropriate headers based on file type
+      const ext = path.extname(fileName).toLowerCase();
+      let contentType = 'application/octet-stream';
+      
+      if (ext === '.jpg' || ext === '.jpeg') {
+        contentType = 'image/jpeg';
+      } else if (ext === '.png') {
+        contentType = 'image/png';
+      } else if (ext === '.pdf') {
+        contentType = 'application/pdf';
+      }
+      
+      res.setHeader('Content-Type', contentType);
       res.sendFile(filePath);
     } else {
-      res.status(404).json({ success: false, message: 'File not found' });
+      console.warn(`File not found: ${filePath}`);
+      res.status(404).json({ 
+        success: false, 
+        message: 'File not found',
+        attemptedPath: filePath,
+        availableFiles: fs.readdirSync(FACULTY_STORAGE_PATH)
+      });
     }
   } catch (err) {
-    next(err); // Pass error to middleware
+    console.error('Error serving file:', err);
+    next(err);
   }
 });
 
@@ -379,7 +402,6 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
     const { id } = req.params;
     const { docIndex, newTitle } = req.body;
 
-    // Validate inputs
     if (!id || isNaN(id)) {
       return res.status(400).json({ success: false, message: 'Invalid faculty ID' });
     }
@@ -390,7 +412,6 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'New title must be a non-empty string' });
     }
 
-    // Fetch the faculty record
     const result = await executeQuery('SELECT * FROM Faculty WHERE id = @id', {
       id: { type: sql.Int, value: parseInt(id) }
     });
@@ -402,7 +423,6 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
     const faculty = result.recordset[0];
     let documents;
 
-    // Handle the documents field
     try {
       documents = faculty.documents ? JSON.parse(faculty.documents) : [];
       if (!Array.isArray(documents)) {
@@ -413,15 +433,12 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
       documents = [];
     }
 
-    // Validate document index
     if (docIndex >= documents.length) {
       return res.status(400).json({ success: false, message: 'Document index out of bounds' });
     }
 
-    // Update the document title
     documents[docIndex].title = newTitle;
 
-    // Update the faculty record in the database
     const documentsString = JSON.stringify(documents);
     await executeQuery(
       'UPDATE Faculty SET documents = @documents WHERE id = @id',
@@ -431,7 +448,6 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
       }
     );
 
-    // Fetch the updated faculty record to return
     const updatedResult = await executeQuery('SELECT * FROM Faculty WHERE id = @id', {
       id: { type: sql.Int, value: parseInt(id) }
     });
@@ -439,11 +455,11 @@ router.put('/faculty/:id/update-document-title', async (req, res, next) => {
 
     res.status(200).json(updatedFaculty);
   } catch (err) {
-    next(err); // Pass error to middleware
+    next(err);
   }
 });
 
-// Serve static files (optional, for fallback)
-router.use('/', express.static(STORAGE_PATH));
+// Serve static files from faculties directory
+router.use('/faculties', express.static(FACULTY_STORAGE_PATH));
 
 module.exports = router;

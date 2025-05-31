@@ -71,7 +71,7 @@ router.put('/banner/update/:id', upload.single('file'), async (req, res, next) =
     const file = req.file;
 
     const existing = await executeQuery(
-      `SELECT * FROM Bann WHERE id = @id`,
+      `SELECT * FROM Banner WHERE id = @id`,
       { id: { type: sql.Int, value: parseInt(id) } }
     );
 

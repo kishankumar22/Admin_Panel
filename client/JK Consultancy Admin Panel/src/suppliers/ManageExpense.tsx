@@ -9,6 +9,8 @@ import 'react-toastify/dist/ReactToastify.css';
 import ExpensePayment from './ExpensePayment';
 import { FileSearch } from 'lucide-react';
 import DocumentViewerModal from './DocumentViewerModal';
+import { useLocation } from 'react-router-dom';
+import { usePermissions } from '../context/PermissionsContext';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -83,6 +85,44 @@ const ManageExpense: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+   const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+
+      pages,
+      permissions,
+    } = usePermissions();
+  
+    // Use useEffect to fetch data when the component mounts
+    useEffect(() => {
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
+      fetchData();
+    }, []);
+    // Use useLocation to get the current path
+    const location = useLocation();
+    const currentPageName = location.pathname.split('/').pop();
+    // console.log("currentPageName :", currentPageName);
+  
+    // Permissions and roles
+    // Prefixing currentPageName with '/' to match the database format
+    const prefixedPageUrl = `/${currentPageName}`;
+    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+   const loggedroleId = user?.roleId;
+  // Set default permissions based on role ID
+  const defaultPermission = loggedroleId === 2;
+  
+  // Use provided permissions if available, otherwise fall back to defaultPermission
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
+  const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   // Set default "To" date to today
   useEffect(() => {
@@ -589,15 +629,24 @@ const ManageExpense: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
-      <button
-        onClick={() => {
+    <button
+  onClick={
+    canCreate
+      ? () => {
           setModalMode('add');
           setIsModalOpen(true);
-        }}
-        className="px-2 py-1 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-1 focus:ring-indigo-500"
-      >
-        + Add
-      </button>
+        }
+      : () => toast.error('Access Denied: You do not have permission to add Expenses.')
+  }
+  className={`px-2 py-1 text-xs font-medium rounded text-white transition-colors ${
+    canCreate
+      ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-1 focus:ring-indigo-500'
+      : 'bg-indigo-600 opacity-50 cursor-not-allowed'
+  }`}
+  type='button'
+>
+  + Add
+</button>
     </div>
   </div>
 </div>
@@ -712,19 +761,23 @@ const ManageExpense: React.FC = () => {
                   </td>
                     <td className="px-2 py-2">
                     <div className="flex gap-1">
-                      <button
-                        onClick={() => openPaymentModal(expense)}
-                        // disabled={expense.Deleted}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                          expense.Deleted
-                            ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                        title="Make Payment"
-                      >
-                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                        Pay
-                      </button>
+                     <button
+  onClick={
+    canUpdate && !expense.Deleted
+      ? () => openPaymentModal(expense)
+      : () => toast.error('Access Denied: You do not have permission to make payments or expense is deleted.')
+  }
+  className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+    canUpdate && !expense.Deleted
+      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+      : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
+  }`}
+  title="Make Payment"
+  type='button'
+>
+  <FaMoneyBillWave className="w-3 h-3 mr-1" />
+  Pay
+</button>
                       <button
                         onClick={() => openEditModal(expense)}
                         // disabled={expense.Deleted}

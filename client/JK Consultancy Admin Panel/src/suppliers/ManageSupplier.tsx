@@ -26,6 +26,8 @@ import * as XLSX from 'xlsx';
 import SupplierPayment from './SupplierPaymentHistory';
 import EditSupplierModal from './EditSupplierModal';
 import { FileSearch } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { usePermissions } from '../context/PermissionsContext';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -68,6 +70,44 @@ const ManageSupplier: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
+   const {
+      fetchRoles,
+      fetchPages,
+      fetchPermissions,
+
+      pages,
+      permissions,
+    } = usePermissions();
+  
+    // Use useEffect to fetch data when the component mounts
+    useEffect(() => {
+      const fetchData = async () => {
+        await fetchRoles();
+        await fetchPages();
+        await fetchPermissions();
+      };
+      fetchData();
+    }, []);
+    // Use useLocation to get the current path
+    const location = useLocation();
+    const currentPageName = location.pathname.split('/').pop();
+    // console.log("currentPageName :", currentPageName);
+  
+    // Permissions and roles
+    // Prefixing currentPageName with '/' to match the database format
+    const prefixedPageUrl = `/${currentPageName}`;
+    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
+    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+   const loggedroleId = user?.roleId;
+  // Set default permissions based on role ID
+  const defaultPermission = loggedroleId === 2;
+  
+  // Use provided permissions if available, otherwise fall back to defaultPermission
+  const canCreate = userPermissions?.canCreate ?? defaultPermission;
+  const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
+  const canDelete = userPermissions?.canDelete ?? defaultPermission;
+  const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -423,14 +463,23 @@ const ManageSupplier: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <FaUserPlus className="w-3 h-3" />
-                  <span className="hidden sm:inline">Add Supplier</span>
-                  <span className="sm:hidden">Add</span>
-                </button>
+               <button
+  onClick={
+    canCreate
+      ? () => setIsModalOpen(true)
+      : () => toast.error('Access Denied: You do not have permission to add suppliers.')
+  }
+  className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+    canCreate
+      ? 'bg-indigo-600 hover:bg-indigo-700'
+      : 'bg-indigo-600 opacity-50 cursor-not-allowed'
+  }`}
+  type='button'
+>
+  <FaUserPlus className="w-3 h-3" />
+  <span className="hidden sm:inline">Add Supplier</span>
+  <span className="sm:hidden">Add</span>
+</button>
               </div>
             </div>
           </div>
@@ -743,7 +792,6 @@ const ManageSupplier: React.FC = () => {
               <tr className="bg-indigo-600 text-white sticky top-0">
                 {[
                   'Sr.',
-                  'Action',
                   'Name',
                   'Email',
                   'Phone No.',
@@ -755,6 +803,7 @@ const ManageSupplier: React.FC = () => {
                   'Created By',
                   'Created On',
                   'Status',
+                   'Action',
                 ].map((title) => (
                   <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
                     {title}
@@ -778,48 +827,7 @@ const ManageSupplier: React.FC = () => {
                     <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                       {indexOfFirstSupplier + index + 1}
                     </td>
-                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      <button
-                        onClick={() => handlePaySupplier(supplier)}
-                        className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                          supplier.Deleted
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
-                        title="Payment"
-                      >
-                        <FaMoneyBillWave className="w-3 h-3 mr-1" />
-                        Payment History
-                      </button>
-                      <button
-                        onClick={() => handleEditSupplier(supplier)}
-                        className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-                          supplier.Deleted
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-yellow-600 hover:bg-yellow-700'
-                        }`}
-                        title="Edit"
-                      >
-                        <FaEdit className="w-3 h-3 mr-1" />
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(supplier)}
-                        className={`inline-flex items-center px-2 py-1  text-white rounded transition text-[11px] ${
-                          supplier.Deleted
-                            ? 'bg-green-600 hover:bg-green-700 '
-                            : 'bg-red-600 hover:bg-red-700'
-                        }`}
-                        title={supplier.Deleted ? 'Activate' : 'Deactivate'}
-                      >
-                        {supplier.Deleted ? (
-                          <FaToggleOff className="w-3 h-3 mr-1" />
-                        ) : (
-                          <FaToggleOn className="w-3 h-3 mr-1" />
-                        )}
-                        {supplier.Deleted ? 'Active' : 'Inactive'}
-                      </button>
-                    </td>
+                    
                     <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                       {supplier.Name}
                     </td>
@@ -860,6 +868,66 @@ const ManageSupplier: React.FC = () => {
                       >
                         {supplier.Deleted ? 'Inactive' : 'Active'}
                       </span>
+                    </td>
+                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                     <button
+  onClick={
+    canUpdate && !supplier.Deleted
+      ? () => handlePaySupplier(supplier)
+      : () => toast.error('Access Denied: You do not have permission to Create payment history.')
+  }
+  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+    canUpdate && !supplier.Deleted
+      ? 'bg-blue-600 hover:bg-blue-700'
+      : 'bg-gray-400 cursor-not-allowed opacity-50'
+  }`}
+  title="Payment"
+  type='button'
+>
+  <FaMoneyBillWave className="w-3 h-3 mr-1" />
+  Payment History
+</button>
+                <button
+  onClick={
+    canRead && !supplier.Deleted
+      ? () => handleEditSupplier(supplier)
+      : () => toast.error('Access Denied: You do not have permission to edit suppliers or supplier is deleted.')
+  }
+  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+    canRead && !supplier.Deleted
+      ? 'bg-yellow-600 hover:bg-yellow-700'
+      : 'bg-gray-400 cursor-not-allowed opacity-50'
+  }`}
+  title="Edit"
+  type='button'
+>
+  <FaEdit className="w-3 h-3 mr-1" />
+  Edit
+</button><button
+  onClick={
+    canDelete
+      ? () => handleToggleStatus(supplier)
+      : () => toast.error('Access Denied: You do not have permission to toggle supplier status.')
+  }
+  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+    canDelete
+      ? supplier.Deleted
+        ? 'bg-green-600 hover:bg-green-700'
+        : 'bg-red-600 hover:bg-red-700'
+      : supplier.Deleted
+      ? 'bg-green-600 opacity-50 cursor-not-allowed'
+      : 'bg-red-600 opacity-50 cursor-not-allowed'
+  }`}
+  title={supplier.Deleted ? 'Activate' : 'Deactivate'}
+  type='button'
+>
+  {supplier.Deleted ? (
+    <FaToggleOff className="w-3 h-3 mr-1" />
+  ) : (
+    <FaToggleOn className="w-3 h-3 mr-1" />
+  )}
+  {supplier.Deleted ? 'Active' : 'Inactive'}
+</button>
                     </td>
                   </tr>
                 ))

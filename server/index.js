@@ -73,7 +73,7 @@ app.use('/api', assignroleRoutes);
 app.use('/api', addStudentsRoutes);
 app.use('/api', paymentHandoverRoutes);
 app.use('/api', addSuppliersRoutes);
-app.use('/uploads', express.static(path.join(__dirname, 'public/Faculty')));
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 
 
