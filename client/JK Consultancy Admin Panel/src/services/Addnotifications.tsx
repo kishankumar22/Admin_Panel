@@ -239,7 +239,7 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
 
     return (
       <>
-        <Breadcrumb pageName="Add Notification" />
+        <Breadcrumb pageName="Manage Notification" />
         {/* Add Notification Button */}
         <div className="flex items-center justify-between space-x-2 p-2 mb-3 bg-gray-100 rounded-lg shadow-md dark:bg-meta-4">
           {/* Search Input */}

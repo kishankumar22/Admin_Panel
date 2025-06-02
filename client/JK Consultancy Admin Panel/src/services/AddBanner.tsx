@@ -202,7 +202,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
  };
   return (
     <>
-      <Breadcrumb pageName="Add Banner" />
+      <Breadcrumb pageName="Manage Banner" />
       <div className="flex items-center justify-between p-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
   <input
     type="search"

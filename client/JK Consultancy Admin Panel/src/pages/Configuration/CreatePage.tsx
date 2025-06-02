@@ -213,10 +213,10 @@ const CreatePage: React.FC = () => {
 
   return (
     <>
-      <Breadcrumb pageName="Create Page" />
+      <Breadcrumb pageName="Manage Page" />
       
       {/* Header with search and actions */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mt-2 mb-4">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
             <FaSearch className="text-gray-400 text-xs" />

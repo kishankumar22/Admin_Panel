@@ -255,7 +255,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   return (
     <>
-      <Breadcrumb pageName="Add Latest Post" />
+      <Breadcrumb pageName="Manage Post" />
       <div className="w-full p-2 bg-white rounded-lg shadow-md dark:bg-gray-700">
         {/* Combined Search Input and Add Latest Post Button */}
         <div className="flex items-center justify-between p-2 mb-2 bg-gray-100 dark:bg-gray-600 rounded-lg shadow-md">

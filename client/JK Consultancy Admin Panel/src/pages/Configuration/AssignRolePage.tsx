@@ -74,7 +74,7 @@ const AssignRolePage: React.FC = () => {
 
   return (
     <>
-      <Breadcrumb pageName="Assign page to role" />
+      <Breadcrumb pageName="Manage Role Assign" />
       <div className="flex items-center justify-between mb-4">
         <input
           type="search"
@@ -106,6 +106,7 @@ const AssignRolePage: React.FC = () => {
         <table className="min-w-full bg-white border border-gray-200">
           <thead>
             <tr className="bg-gray-200 text-gray-600 uppercase text-xs leading-normal">
+              <th className="px-2 py-1 text-left">Sr.</th>
               <th className="px-2 py-1 text-left">Page</th>
               {roles.map(
                 (role) =>
@@ -120,7 +121,7 @@ const AssignRolePage: React.FC = () => {
           <tbody className="text-gray-600 text-sm">
             {isSearchLoading ? (
               <tr>
-                <td colSpan={roles.length + 1} className="py-4 text-center">
+                <td colSpan={roles.length + 1} className=" text-center">
                   <div className="flex flex-col items-center justify-center min-h-[200px] bg-gray-50 border-t border-gray-200">
                     <FaSpinner className="animate-spin h-8 w-8 text-blue-600 mb-3" />
                     <p className="text-sm font-medium text-gray-600">Searching...</p>
@@ -128,8 +129,9 @@ const AssignRolePage: React.FC = () => {
                 </td>
               </tr>
             ) : filteredPages.length > 0 ? (
-              filteredPages.map((page) => (
+              filteredPages.map((page, index) => (
                 <tr key={page.pageId} className="border-b border-gray-200 hover:bg-gray-100">
+                  <td className="py-1 px-2">{index+1}</td>
                   <td className="py-1 px-2">{page.pageName}</td>
                   {roles.map(
                     (role) =>

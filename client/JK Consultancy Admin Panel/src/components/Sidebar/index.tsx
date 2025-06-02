@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import SidebarLinkGroup from './SidebarLinkGroup';
-import { MdOutlineNotificationAdd, MdOutlinePostAdd } from "react-icons/md";
+import {  MdOutlineNotificationAdd, MdOutlinePostAdd, MdStore } from "react-icons/md";
 import { RiImageAddFill } from "react-icons/ri";
 import { BiSolidImageAdd } from "react-icons/bi";
 import { RxDashboard } from "react-icons/rx";
@@ -227,7 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                               }
                             >
                               <BiImageAdd className="w-3.5 h-3.5" />
-                              Manage Logo
+                              Manage Link
                             </NavLink>
                           </li>
                         )}
@@ -359,7 +359,8 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                         handleDropdownClick('managesupplier');
                       }}
                     >
-                      <MdOutlineMiscellaneousServices className="w-4 h-4" />
+                
+                  <MdStore className="w-4 h-4" />
                       Manage Supplier
                       <IoIosArrowDown
                         className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'managesupplier' && 'rotate-180'}`}
@@ -377,7 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                                 `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                               }
                             >
-                              <MdOutlineMiscellaneousServices className="w-3.5 h-3.5" />
+                              <MdOutlineManageHistory className="w-3.5 h-3.5" />
                               Manage Supplier
                             </NavLink>
                           </li>

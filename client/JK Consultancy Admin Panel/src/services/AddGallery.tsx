@@ -183,7 +183,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
   
   return (
     <>
-      <Breadcrumb pageName="Add Gallery" />
+      <Breadcrumb pageName="Manage Gallery" />
       <div className="flex items-center justify-between space-x-2 p-2 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">
       <div className="flex items-center">
   

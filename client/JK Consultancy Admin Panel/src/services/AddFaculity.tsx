@@ -269,22 +269,30 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
     return 'unknown';
   };
 
-  const handleDownloadDocument = async (url: string, name: string) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Download failed");
-      const blob = await response.blob();
-      const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.download = name;
-      link.click();
-      window.URL.revokeObjectURL(link.href);
-      setOpenDocsModal(false);
-    } catch (error) {
-      toast.error("Failed to download document");
-      console.error(error);
-    }
-  };
+ const handleDownloadDocument = async (url: string, name: string) => {
+  try {
+    const fullUrl = `${axiosInstance.defaults.baseURL}${url}`; // 👈 Prefix added here
+    const response = await fetch(fullUrl);
+    if (!response.ok) throw new Error("Download failed");
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = name;
+    document.body.appendChild(link);  // Needed for Firefox
+    link.click();
+    link.remove();
+
+    window.URL.revokeObjectURL(downloadUrl);
+    setOpenDocsModal(false);
+  } catch (error) {
+    toast.error("Failed to download document");
+    console.error(error);
+  }
+};
+
 
   const handleEditDocumentTitle = (index: number, currentTitle: string) => {
     setEditingDocIndex(index);
@@ -336,7 +344,7 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
 
   return (
     <>
-      <Breadcrumb pageName="Add Faculty" />
+      <Breadcrumb pageName="Manage Faculty" />
       <div className="flex flex-wrap items-center justify-between p-2 mb-4 bg-gray-100 dark:bg-gray-700 rounded-lg shadow-md">
         <input
           type="search"
@@ -987,7 +995,8 @@ const handleSaveDocumentTitle = async (facultyId: number, docIndex: number) => {
               </object>
             ) : (
               <img
-                src={selectedDocument.url}
+                src={`${axiosInstance.defaults.baseURL}${selectedDocument.url}`}
+
                 alt={selectedDocument.title}
                 className="max-w-full max-h-full object-contain rounded-md"
                 onError={(e) => {

@@ -778,27 +778,40 @@ const ManageExpense: React.FC = () => {
   <FaMoneyBillWave className="w-3 h-3 mr-1" />
   Pay
 </button>
-                      <button
-                        onClick={() => openEditModal(expense)}
-                        // disabled={expense.Deleted}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                          expense.Deleted
-                            ? 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
-                            : 'bg-yellow-600 hover:bg-yellow-700 text-white'
-                        }`}
-                        title="Edit Expense"
-                      >
-                        <FaEdit className="w-3 h-3 mr-1" />
-                        Edit
-                      </button>
-                   <button
-  onClick={() => handleToggleDeleted(expense)}
+                    <button
+  onClick={
+    canRead && !expense.Deleted
+      ? () => openEditModal(expense)
+      : () => toast.error('Access Denied: You do not have permission to edit expenses or expense is deleted.')
+  }
   className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-    expense.Deleted
-      ? 'bg-green-600 hover:bg-green-700 text-white'
-      : 'bg-red-600 hover:bg-red-700 text-white'
+    canRead && !expense.Deleted
+      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+      : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
+  }`}
+  title="Edit Expense"
+  type='button'
+>
+  <FaEdit className="w-3 h-3 mr-1" />
+  Edit
+</button>
+              <button
+  onClick={
+    canDelete
+      ? () => handleToggleDeleted(expense)
+      : () => toast.error('Access Denied: You do not have permission to toggle expense status.')
+  }
+  className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${
+    canDelete
+      ? expense.Deleted
+        ? 'bg-green-600 hover:bg-green-700'
+        : 'bg-red-600 hover:bg-red-700'
+      : expense.Deleted
+      ? 'bg-green-600 opacity-50 cursor-not-allowed'
+      : 'bg-red-600 opacity-50 cursor-not-allowed'
   }`}
   title={expense.Deleted ? 'Activate' : 'Deactivate'}
+  type='button'
 >
   {expense.Deleted ? (
     <>

@@ -225,7 +225,7 @@ const canRead   = userPermissions?.canRead   ?? defaultPermission;
 
   return (
     <>
-      <Breadcrumb pageName="Add Important Links" />
+      <Breadcrumb pageName="Manage  Links" />
 
       {/* Add Link Button */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-2 mb-4 dark:bg-meta-4 bg-gray-100 rounded-lg shadow-md">

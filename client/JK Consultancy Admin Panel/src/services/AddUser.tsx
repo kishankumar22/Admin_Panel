@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 import { FaEdit, FaKey, FaEye, FaEyeSlash, FaUserPlus, FaFilter, FaSearch, FaTimes } from 'react-icons/fa';
 import { MdDelete, MdEmail, MdSmartphone, MdPerson } from 'react-icons/md';
 import { HiOutlineUserCircle } from 'react-icons/hi';
+import Breadcrumb from '../components/Breadcrumbs/Breadcrumb';
 
 interface User {
   user_id: number;
@@ -449,7 +450,9 @@ const AddUser: React.FC = () => {
   };
 
   return (
-    <div className="bg-gray-50 text-black">
+    <>
+    <Breadcrumb pageName="Manage User" />
+    <div className="bg-gray-50 pt-2 text-black">
       <div className="bg-indigo-700 text-white p-3 rounded-lg shadow-lg flex items-center justify-between">
         <h1 className="text-xl font-bold flex items-center">
           <MdPerson className="mr-2" size={20} /> User Management
@@ -1134,6 +1137,7 @@ const AddUser: React.FC = () => {
         </div>
       )}
     </div>
+     </>
   );
 };
 

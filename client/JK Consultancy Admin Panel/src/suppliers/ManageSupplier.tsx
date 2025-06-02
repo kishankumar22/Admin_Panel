@@ -273,15 +273,15 @@ const ManageSupplier: React.FC = () => {
       });
 
       if (response.data.success) {
-        toast.success('Supplier added successfully', { position: 'top-right', autoClose: 3000 });
+        toast.success('Supplier added successfully', { position: 'top-right', autoClose: 1500 });
         setIsModalOpen(false);
         resetForm();
         fetchSuppliers();
       } else {
-        toast.error(response.data.message || 'Failed to add supplier', { position: 'top-right', autoClose: 3000 });
+        toast.error(response.data.message || 'Failed to add supplier', { position: 'top-right', autoClose: 1500 });
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error adding supplier', { position: 'top-right', autoClose: 3000 });
+      toast.error(error.response?.data?.message || 'Error adding supplier', { position: 'top-right', autoClose: 1500 });
     } finally {
       setIsSubmitting(false);
     }
@@ -291,7 +291,7 @@ const ManageSupplier: React.FC = () => {
     if (supplier.Deleted) {
       toast.warning('Supplier is inactive. Please activate to edit or make payment.', {
         position: 'top-right',
-        autoClose: 3000,
+        autoClose: 1500,
       });
       return;
     }
@@ -308,7 +308,7 @@ const ManageSupplier: React.FC = () => {
     if (supplier.Deleted) {
       toast.warning('Supplier is inactive. Please activate to edit or make payment.', {
         position: 'top-right',
-        autoClose: 3000,
+        autoClose: 1500,
       });
       return;
     }
@@ -356,7 +356,7 @@ const ManageSupplier: React.FC = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Suppliers');
     XLSX.writeFile(workbook, 'Suppliers_List.xlsx');
-    toast.success('Exported to Excel successfully', { position: 'top-right', autoClose: 3000 });
+    toast.success('Exported to Excel successfully', { position: 'top-right', autoClose: 1500 });
   };
 
   const handleClearFilters = () => {
@@ -456,7 +456,7 @@ const ManageSupplier: React.FC = () => {
               <div className="flex items-center gap-1">
                 <button
                   onClick={handleClearFilters}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 outline outline-1 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
                   title="Clear Filters"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
