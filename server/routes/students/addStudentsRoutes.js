@@ -2316,6 +2316,7 @@ router.get('/students/:studentId/academic-details/:academicId/emi', async (req, 
 });
 
 // Create new payment
+
 router.post('/studentPayment', upload.single('receipt'), async (req, res, next) => {
   try {
     const {
@@ -2504,6 +2505,61 @@ router.get('/studentPayment/:studentId', async (req, res, next) => {
     // console.error('Error fetching payments:', error);
         next(err);
     res.status(500).json({ success: false, error: 'Failed to fetch payments' });
+  }
+});
+
+// GET payment details by sa.ID
+router.get('/academic/:studentAcademicId', async (req, res, next) => {
+  try {
+    const { studentAcademicId } = req.params;
+
+    if (!studentAcademicId || isNaN(parseInt(studentAcademicId))) {
+      return res.status(400).json({ success: false, error: 'Invalid student academic ID' });
+    }
+
+    const paymentQuery = `
+      SELECT 
+        sp.*,
+        s.fName, s.lName, s.rollNumber, s.email, s.mobileNumber, s.fatherName,
+        c.courseName,
+        col.collegeName,
+        sa.sessionYear AS academicSessionYear, sa.courseYear AS academicCourseYear
+      FROM StudentPayment sp
+      LEFT JOIN Student s ON sp.studentId = s.id
+      LEFT JOIN Course c ON s.courseId = c.id
+      LEFT JOIN College col ON s.collegeId = col.id
+      LEFT JOIN StudentAcademicDetails sa ON sp.studentAcademicId = sa.id
+      WHERE sa.id = @id
+    `;
+    const paymentParams = { id: { type: sql.Int, value: parseInt(studentAcademicId) } };
+    const paymentResult = await executeQuery(paymentQuery, paymentParams);
+    const payments = paymentResult.recordset;
+
+    if (payments.length === 0) {
+      return res.status(404).json({ success: false, error: `No payments found for student academic ID ${studentAcademicId}` });
+    }
+
+    const formattedPayments = payments.map(payment => ({
+      ...payment,
+      student: {
+        fName: payment.fName,
+        lName: payment.lName,
+        rollNumber: payment.rollNumber,
+        email: payment.email,
+        mobileNumber: payment.mobileNumber,
+        fatherName: payment.fatherName,
+        course: { courseName: payment.courseName },
+        college: { collegeName: payment.collegeName },
+      },
+      studentAcademic: {
+        sessionYear: payment.academicSessionYear,
+        courseYear: payment.academicCourseYear,
+      },
+    }));
+
+    res.status(200).json({ success: true, data: formattedPayments });
+  } catch (err) {
+    next(err);
   }
 });
 

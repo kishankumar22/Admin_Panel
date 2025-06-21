@@ -833,7 +833,7 @@ const ManagePayment: React.FC = () => {
 
   if (loading || showLoading) {
     return (
-      <div className="flex justify-center -m-4 items-center h-screen bg-gradient-to-br from-blue-200 via-purple-100 to-pink-100">
+      <div className="flex justify-center items-center h-screen ">
         <div className="flex flex-col items-center">
           <FaSpinner className="animate-spin text-4xl text-purple-600" />
           <div className="text-xl font-semibold text-purple-700">Loading, please wait...</div>

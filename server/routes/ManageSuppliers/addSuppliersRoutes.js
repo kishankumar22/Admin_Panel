@@ -123,39 +123,40 @@ router.get('/supplier/:supplierId/payments', async (req, res, next) => {
 // DELETE document by PublicId
 router.delete('/documents/:publicId', async (req, res, next) => {
   try {
-    const { publicId } = req.params;
-    console.log('Deleting document with PublicId:', publicId);
+    const decodedPublicId = decodeURIComponent(req.params.publicId);
+    console.log('Deleting document with PublicId:', decodedPublicId);
 
-    // Check if document exists
     const documentCheck = await executeQuery(
       'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
-      {
-        PublicId: { type: sql.NVarChar, value: publicId },
-      }
+      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
     );
 
     if (documentCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Document not found' });
+      return res.status(404).json({ message: 'Document not found in DB' });
     }
 
     // Delete from Cloudinary
-    await cloudinary.uploader.destroy(publicId);
+    const cloudinaryResponse = await cloudinary.uploader.destroy(decodedPublicId);
+    console.log('Cloudinary delete result:', cloudinaryResponse); 
 
-    // Delete from SupplierDocuments
-    await executeQuery(
+    // Delete from DB
+    const result = await executeQuery(
       'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
-      {
-        PublicId: { type: sql.NVarChar, value: publicId },
-      }
+      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
     );
 
-    console.log('Document deleted successfully');
+    if (result.rowsAffected[0] === 0) {
+      return res.status(500).json({ message: 'Delete failed in DB' });
+    }
+
     res.status(200).json({ message: 'Document deleted successfully' });
   } catch (err) {
     console.error('Error deleting document:', err);
     next(err);
   }
 });
+
+
 
 // PUT update supplier
 router.put('/supplier/:id', upload.array('files'), async (req, res, next) => {
@@ -498,12 +499,10 @@ router.get('/expenses/:id/documents', async (req, res, next) => {
     const { id } = req.params;
     console.log('Fetching documents for expense ID:', id);
 
-    // Get SupplierId from SupplierExpenses
+    // Get SupplierId for this expense
     const expenseCheck = await executeQuery(
       'SELECT SupplierId FROM SupplierExpenses WHERE SuppliersExpenseID = @Id',
-      {
-        Id: { type: sql.Int, value: parseInt(id) },
-      }
+      { Id: { type: sql.Int, value: parseInt(id) } }
     );
 
     if (expenseCheck.recordset.length === 0) {
@@ -512,21 +511,26 @@ router.get('/expenses/:id/documents', async (req, res, next) => {
 
     const supplierId = expenseCheck.recordset[0].SupplierId;
 
-    // Fetch documents
+    // Fetch only documents for this Supplier's expense
     const result = await executeQuery(
-      'SELECT DocumentId, DocumentUrl, PublicId, CreatedOn FROM SupplierDocuments WHERE SupplierId = @SupplierId',
+      `SELECT DocumentId, DocumentUrl, PublicId, CreatedOn
+       FROM SupplierDocuments
+       WHERE SupplierId = @SupplierId
+         AND SuppliersExpenseID = @SuppliersExpenseID
+         AND DocumentType = 'ExpenseDocument'`,
       {
         SupplierId: { type: sql.Int, value: supplierId },
+        SuppliersExpenseID: { type: sql.Int, value: parseInt(id) },
       }
     );
 
-    console.log('Fetched documents:', result.recordset);
     res.status(200).json(result.recordset);
   } catch (err) {
     console.error('Error fetching documents:', err);
     next(err);
   }
 });
+
 
 // POST expense
 router.post('/expenses', upload.array('files'), async (req, res, next) => {
@@ -587,43 +591,49 @@ router.post('/expenses', upload.array('files'), async (req, res, next) => {
 
     const expenseId = expenseResult.recordset[0].SuppliersExpenseID;
 
-    // Process file uploads and insert into SupplierDocuments with DocumentType
-    const documentPromises = files.map(async (file) => {
-      try {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'suppliers', resource_type: 'auto' },
-          async (error, result) => {
-            if (error) {
-              console.error('Cloudinary upload error:', error);
-              throw new Error('Failed to upload file to Cloudinary');
-            }
+  // Process file uploads and insert into SupplierDocuments with DocumentType and SuppliersExpenseID
+const documentPromises = files.map(async (file) => {
+  try {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'suppliers', resource_type: 'auto' },
+      async (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          throw new Error('Failed to upload file to Cloudinary');
+        }
 
-            console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
+        console.log('Cloudinary upload result:', {
+          url: result.secure_url,
+          publicId: result.public_id,
+        });
 
-            // Insert document with DocumentType set to 'ExpenseDocument'
-            await executeQuery(
-              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, DocumentType, CreatedOn)
-               VALUES (@SupplierId, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
-              {
-                SupplierId: { type: sql.Int, value: supplierIdNum },
-                DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
-                PublicId: { type: sql.NVarChar, value: result.public_id },
-                DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' }, // Default value
-                CreatedOn: { type: sql.DateTime, value: currentDate },
-              }
-            );
+        // Insert document with SuppliersExpenseID and DocumentType set to 'ExpenseDocument'
+        await executeQuery(
+          `INSERT INTO SupplierDocuments 
+             (SupplierId, SuppliersExpenseID, DocumentUrl, PublicId, DocumentType, CreatedOn)
+           VALUES
+             (@SupplierId, @SuppliersExpenseID, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
+          {
+            SupplierId: { type: sql.Int, value: supplierIdNum },
+            SuppliersExpenseID: { type: sql.Int, value: expenseId }, // ✅ Added this
+            DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
+            PublicId: { type: sql.NVarChar, value: result.public_id },
+            DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' },
+            CreatedOn: { type: sql.DateTime, value: currentDate },
           }
         );
-
-        const bufferStream = require('stream').Readable.from(file.buffer);
-        bufferStream.pipe(uploadStream);
-      } catch (err) {
-        console.error('Error processing file:', err);
-        throw err;
       }
-    });
+    );
 
-    await Promise.all(documentPromises);
+    const bufferStream = require('stream').Readable.from(file.buffer);
+    bufferStream.pipe(uploadStream);
+  } catch (err) {
+    console.error('Error processing file:', err);
+    throw err;
+  }
+});
+
+await Promise.all(documentPromises);
 
     res.status(201).json({ message: 'Expense and documents saved successfully', expenseId });
   } catch (err) {
@@ -714,40 +724,45 @@ router.put('/expenses/:id', upload.array('files'), async (req, res, next) => {
     }
 
     // Process file uploads and insert into SupplierDocuments with DocumentType
-    const documentPromises = files.map(async (file) => {
-      try {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: 'suppliers', resource_type: 'auto' },
-          async (error, result) => {
-            if (error) {
-              console.error('Cloudinary upload error:', error);
-              throw new Error('Failed to upload file to Cloudinary');
-            }
+// Process file uploads and insert into SupplierDocuments with DocumentType
+const documentPromises = files.map(async (file) => {
+  try {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: 'suppliers', resource_type: 'auto' },
+      async (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          throw new Error('Failed to upload file to Cloudinary');
+        }
 
-            console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
+        console.log('Cloudinary upload result:', { url: result.secure_url, publicId: result.public_id });
 
-            // Insert document with DocumentType set to 'ExpenseDocument'
-            await executeQuery(
-              `INSERT INTO SupplierDocuments (SupplierId, DocumentUrl, PublicId, DocumentType, CreatedOn)
-               VALUES (@SupplierId, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
-              {
-                SupplierId: { type: sql.Int, value: parseInt(SupplierId || currentExpense.SupplierId) },
-                DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
-                PublicId: { type: sql.NVarChar, value: result.public_id },
-                DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' }, // Default value
-                CreatedOn: { type: sql.DateTime, value: new Date() },
-              }
-            );
+        // Insert document with DocumentType and SuppliersExpenseID
+        await executeQuery(
+          `INSERT INTO SupplierDocuments 
+             (SupplierId, SuppliersExpenseID, DocumentUrl, PublicId, DocumentType, CreatedOn)
+           VALUES
+             (@SupplierId, @SuppliersExpenseID, @DocumentUrl, @PublicId, @DocumentType, @CreatedOn)`,
+          {
+            SupplierId: { type: sql.Int, value: parseInt(SupplierId || currentExpense.SupplierId) },
+            SuppliersExpenseID: { type: sql.Int, value: parseInt(id) },
+            DocumentUrl: { type: sql.NVarChar, value: result.secure_url },
+            PublicId: { type: sql.NVarChar, value: result.public_id },
+            DocumentType: { type: sql.NVarChar, value: 'ExpenseDocument' },
+            CreatedOn: { type: sql.DateTime, value: new Date() },
           }
         );
-
-        const bufferStream = require('stream').Readable.from(file.buffer);
-        bufferStream.pipe(uploadStream);
-      } catch (err) {
-        console.error('Error processing file:', err);
-        throw err;
       }
-    });
+    );
+
+    const bufferStream = require('stream').Readable.from(file.buffer);
+    bufferStream.pipe(uploadStream);
+  } catch (err) {
+    console.error('Error processing file:', err);
+    throw err;
+  }
+});
+
 
     await Promise.all(documentPromises);
 

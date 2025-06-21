@@ -12,7 +12,6 @@ import { useAuth } from '../../context/AuthContext';
 import axiosInstance from '../../config';
 import { RequiredAsterisk } from '../students/AddStudentModal';
 
-// Interface definitions remain the same
 interface StudentPayment {
   id: number;
   studentId: number;
@@ -139,7 +138,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const [paymentError, setPaymentError] = useState('');
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyPassword, setVerifyPassword] = useState('');
-  // New state for confirmation modal
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [paymentIdToDelete, setPaymentIdToDelete] = useState<number | null>(null);
 
@@ -149,11 +147,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       paymentMode: formData.paymentMode,
       amount: formData.amount,
       receivedDate: formData.receivedDate,
+      transactionNumber: formData.transactionNumber, // Mandatory for all
     };
-
-    if (formData.paymentMode !== 'cash' && formData.paymentMode) {
-      requiredFields.transactionNumber = formData.transactionNumber;
-    }
 
     return Object.values(requiredFields).every((field) => field && field.trim() !== '');
   };
@@ -189,6 +184,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
   useEffect(() => {
     const fetchPayments = async () => {
+      if (!matchingAcademic) {
+        setPaymentError('No academic details found for the selected session and year');
+        setLoadingPayments(false);
+        return;
+      }
       setLoadingPayments(true);
       setPaymentError('');
       try {
@@ -197,19 +197,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
           throw new Error('Authentication token missing');
         }
 
-        const response = await axiosInstance.get(`/studentPayment/${studentId}`, {
+        const response = await axiosInstance.get(`/academic/${matchingAcademic.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         });
 
         if (response.data.success) {
-          const filteredPayments = response.data.data.filter(
-            (payment: StudentPayment) =>
-              (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
-              (!yearFilter || payment.courseYear === yearFilter)
-          );
-          setPayments(filteredPayments);
+          setPayments(response.data.data);
         } else {
           throw new Error(response.data.error || 'Failed to fetch payments');
         }
@@ -221,10 +216,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       }
     };
 
-    if (isLoggedIn) {
+    if (isLoggedIn && matchingAcademic) {
       fetchPayments();
     }
-  }, [studentId, isLoggedIn, sessionYearFilter, yearFilter]);
+  }, [matchingAcademic, isLoggedIn]);
 
   const totalPaidAdminAmount = payments
     .filter(
@@ -352,10 +347,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       'Payment Mode': formData.paymentMode,
       'Amount Type': formData.amountType,
       'Received Date': formData.receivedDate,
+      'Transaction Number': formData.transactionNumber, // Mandatory for all
     };
-    if (formData.paymentMode !== 'cash' && formData.paymentMode) {
-      requiredFields['Transaction Number'] = formData.transactionNumber;
-    }
     const missingFields = Object.keys(requiredFields).filter(
       (key) => !requiredFields[key]
     );
@@ -406,9 +399,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       formDataToSend.append('studentId', studentId.toString());
       formDataToSend.append('studentAcademicId', matchingAcademic.id.toString());
       formDataToSend.append('paymentMode', formData.paymentMode);
-      if (formData.paymentMode !== 'cash') {
-        formDataToSend.append('transactionNumber', formData.transactionNumber);
-      }
+      formDataToSend.append('transactionNumber', formData.transactionNumber);
       formDataToSend.append('amount', formData.amount);
       formDataToSend.append('refundAmount', formData.refundAmount);
       formDataToSend.append('receivedDate', formData.receivedDate);
@@ -431,16 +422,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
       if (response.data.success) {
         toast.success('Payment saved successfully', { autoClose: 3000 });
-        const fetchResponse = await axiosInstance.get(`/studentPayment/${studentId}`, {
+        const fetchResponse = await axiosInstance.get(`/studentPayment/academic/${matchingAcademic.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (fetchResponse.data.success) {
-          const filteredPayments = fetchResponse.data.data.filter(
-            (payment: { sessionYear: string; courseYear: string }) =>
-              (!sessionYearFilter || payment.sessionYear === sessionYearFilter) &&
-              (!yearFilter || payment.courseYear === yearFilter)
-          );
-          setPayments(filteredPayments);
+          setPayments(fetchResponse.data.data);
         }
         resetForm();
       } else {
@@ -449,8 +435,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       }
     } catch (err) {
       let errorMessage = 'Failed to save payment';
-      if (err && typeof err === 'object' && 'response' in err && (err as any).response?.data?.error) {
-        errorMessage = (err as any).response.data.error;
+      if (
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof err.response === 'object' &&
+        'data' in err.response &&
+        err.response.data &&
+        typeof err.response.data === 'object' &&
+        'error' in err.response.data
+      ) {
+        errorMessage = (err.response.data as { error?: string }).error as string;
       }
       setError(errorMessage);
       toast.error(errorMessage, { autoClose: 3000 });
@@ -498,13 +494,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   };
 
-  // New function to open confirmation modal
   const confirmDeletePayment = (paymentId: number) => {
     setPaymentIdToDelete(paymentId);
     setShowDeleteConfirmModal(true);
   };
 
-  // New function to handle confirmation
   const handleConfirmDelete = async () => {
     if (paymentIdToDelete !== null) {
       await handleDeletePayment(paymentIdToDelete);
@@ -551,21 +545,23 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
   const getTransactionLabel = () => {
     switch (formData.paymentMode) {
+      case 'cash':
+        return 'Receipt Number';
       case 'cheque':
-        return 'Cheque Transaction No.';
+        return 'Cheque Transaction Number';
       case 'bank transfer':
-        return 'Bank Transaction No.';
+        return 'Bank Transaction Number';
       case 'upi':
-        return 'UPI Transaction No.';
+        return 'UPI Transaction Number';
       default:
-        return 'Transaction Number';
+        return 'Choose Payment Method';
     }
   };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-99">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-md border border-gray-200">
-        <div className="bg-gradient-to-r from-blue-600 to-blue- acompanhando-800 p-2 rounded-t-lg flex justify-between items-center">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[85vh] overflow-y-auto shadow-md border border-gray-200">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-2 rounded-t-lg flex justify-between items-center">
           <div className="flex items-center">
             <FaFileInvoiceDollar className="text-white mr-1 text-lg" />
             <h2 className="text-sm font-semibold text-white">Student Payment Details</h2>
@@ -671,16 +667,16 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                   </div>
                   <div className="space-y-0.5">
                     <label className="block text-xs font-medium text-gray-700">
-                      {getTransactionLabel()} {formData.paymentMode !== 'cash' && <RequiredAsterisk />}
+                      {getTransactionLabel()} <RequiredAsterisk />
                     </label>
                     <input
                       type="text"
                       name="transactionNumber"
                       value={formData.transactionNumber}
                       onChange={handleInputChange}
-                      disabled={formData.paymentMode === 'cash'}
+                      disabled={!formData.paymentMode} // Disabled until payment mode is selected
                       className={`w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs ${
-                        formData.paymentMode === 'cash' ? 'bg-gray-100 cursor-not-allowed' : ''
+                        !formData.paymentMode ? 'bg-gray-100 cursor-not-allowed' : ''
                       }`}
                     />
                   </div>
@@ -738,7 +734,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                   </div>
                   <div></div>
                   <div></div>
-                  <div className="flex   gap-2">
+                  <div className="flex gap-2">
                     <button
                       onClick={onClose}
                       className="flex-1 px-2 bg-red-400 text-black rounded-md hover:bg-red-500 transition duration-200 font-bold text-xs"
@@ -749,46 +745,46 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       onClick={() => setShowVerifyModal(true)}
                       disabled={!matchingAcademic || isSubmitting || !isFormValid()}
                       className={`flex-1 px-3 py-1 rounded-md transition duration-200 font-medium text-xs flex items-center justify-center ${
-                      matchingAcademic && !isSubmitting && isFormValid()
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                        matchingAcademic && !isSubmitting && isFormValid()
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-400 text-gray-700 cursor-not-allowed'
                       }`}
                       title={
-                      !matchingAcademic
-                        ? 'No academic details found'
-                        : isSubmitting
-                        ? 'Saving...'
-                        : !isFormValid()
-                        ? 'Please fill all required details'
-                        : ''
+                        !matchingAcademic
+                          ? 'No academic details found'
+                          : isSubmitting
+                          ? 'Saving...'
+                          : !isFormValid()
+                          ? 'Please fill all required details'
+                          : ''
                       }
                     >
                       {isSubmitting ? (
-                      <>
-                        <svg
-                        className="animate-spin h-4 w-4 mr-2 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                        </svg>
-                        Saving...
-                      </>
+                        <>
+                          <svg
+                            className="animate-spin h-4 w-4 mr-2 text-white"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Saving...
+                        </>
                       ) : (
-                      'Save Payment'
+                        'Save Payment'
                       )}
                     </button>
                   </div>
@@ -815,7 +811,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       </div>
                       <div className="space-y-0.5">
                         <div className="flex justify-between">
-                          <span className="text-black font-bold">Total  Fees Amount:</span>
+                          <span className="text-black font-bold">Total Fees Amount:</span>
                           <span className="font-bold">₹{matchingAcademic?.feesAmount || '0'}</span>
                         </div>
                         <div className="flex justify-between">
@@ -879,7 +875,6 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               </div>
             )}
 
-            {/* New Confirmation Modal for Delete */}
             {showDeleteConfirmModal && (
               <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-100">
                 <div className="bg-white rounded-lg p-4 w-full max-w-md">

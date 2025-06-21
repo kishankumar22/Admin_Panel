@@ -476,9 +476,9 @@ const canDelete = userPermissions?.canDelete ?? defaultPermission;
             </thead>
             <tbody>
               {filteredNotifications.length > 0 ? (
-                filteredNotifications.map((notification) => (
+                filteredNotifications.map((notification, index) => (
                   <tr key={notification.notification_id} className="hover:bg-gray-100 dark:hover:bg-gray-600 transition duration-150">
-                    <td className="py-1 px-2 border-b text-black dark:text-white">{notification.notification_id}</td>
+                    <td className="py-1 px-2 border-b text-black dark:text-white">{index+1}</td>
                     <td className="py-1 px-2 border-b text-black dark:text-white">{notification.notification_message}</td>
                     <td className="py-1 px-2 border-b text-black dark:text-white">
                       {notification.notification_url ? (

@@ -94,7 +94,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
     try {
       const response = await axiosInstance.get(`/expense/${expense.SupplierId}/payments`, {
         params: {
-          suppliersExpenseID: expense.SuppliersExpenseID, // Pass SuppliersExpenseID as query parameter
+          suppliersExpenseID: expense.SuppliersExpenseID,
         },
       });
       const history: PaymentHistory[] = response.data.map((payment: any) => ({
@@ -130,16 +130,18 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
 
   useEffect(() => {
     fetchPaymentHistory();
-  }, [expense.SupplierId, expense.SuppliersExpenseID]); // Added SuppliersExpenseID to dependency array
+  }, [expense.SupplierId, expense.SuppliersExpenseID]);
 
   const getTransactionLabel = () => {
     switch (paymentData.paymentMethod) {
+      case 'Cash':
+        return 'Receipt Number';
       case 'Cheque':
         return 'Cheque Transaction No.';
       case 'Bank Transfer':
         return 'Bank Transaction No.';
       default:
-        return 'Transaction No.';
+        return 'Choose Payment Method';
     }
   };
 
@@ -162,9 +164,9 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       newErrors.paymentMethod = 'Payment method is required';
     }
 
-    if (paymentData.paymentMethod !== 'Cash' && !paymentData.transactionNo) {
+    if (paymentData.paymentMethod && !paymentData.transactionNo) {
       newErrors.transactionNo = `${getTransactionLabel()} is required`;
-    } else if (paymentData.paymentMethod !== 'Cash' && paymentData.transactionNo) {
+    } else if (paymentData.transactionNo) {
       const isDuplicate = paymentHistory.some(
         (payment) => payment.transactionNo === paymentData.transactionNo
       );
@@ -185,7 +187,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       setPaymentData((prev) => ({
         ...prev,
         paymentMethod: value,
-        transactionNo: value === 'Cash' ? '' : prev.transactionNo,
+        transactionNo: '',
       }));
     } else {
       setPaymentData((prev) => ({
@@ -252,7 +254,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       formData.append('suppliersExpenseID', expense.SuppliersExpenseID.toString());
       formData.append('paidAmount', paymentData.paymentAmount);
       formData.append('paymentMode', paymentData.paymentMethod);
-      formData.append('transactionId', paymentData.paymentMethod === 'Cash' ? '' : paymentData.transactionNo);
+      formData.append('transactionId', paymentData.transactionNo);
       formData.append('paymentDate', paymentData.paymentDate);
       formData.append('isApproved', 'true');
       formData.append('approveBy', modifiedBy);
@@ -308,7 +310,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
       parseFloat(paymentData.paymentAmount) > 0 &&
       paymentData.paymentDate &&
       paymentData.paymentMethod &&
-      (paymentData.paymentMethod === 'Cash' || (paymentData.transactionNo && !errors.transactionNo))
+      (!paymentData.paymentMethod || paymentData.transactionNo)
     );
   };
 
@@ -455,7 +457,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                 </div>
                 <div className="mb-1">
                   <label className="flex items-center text-xs font-medium text-black dark:text-gray-200 mb-0.5">
-                    {getTransactionLabel()} {paymentData.paymentMethod !== 'Cash' && <RequiredAsterisk />}
+                    {getTransactionLabel()} {paymentData.paymentMethod && <RequiredAsterisk />}
                   </label>
                   <input
                     type="text"
@@ -465,11 +467,11 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                     className={`w-full p-1 text-xs rounded border ${
                       errors.transactionNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     } focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white ${
-                      paymentData.paymentMethod === 'Cash' ? 'cursor-not-allowed bg-gray-200' : ''
+                      !paymentData.paymentMethod ? 'bg-gray-100 cursor-not-allowed' : ''
                     }`}
-                    disabled={paymentData.paymentMethod === 'Cash'}
-                    required={paymentData.paymentMethod !== 'Cash'}
-                    title={paymentData.paymentMethod === 'Cash' ? 'Cash does not need transaction no' : ''}
+                    disabled={!paymentData.paymentMethod}
+                    required={!!paymentData.paymentMethod}
+                    title={!paymentData.paymentMethod ? 'Select a payment method first' : ''}
                   />
                   {errors.transactionNo && (
                     <p className="text-red-500 text-xs mt-0.5">{errors.transactionNo}</p>

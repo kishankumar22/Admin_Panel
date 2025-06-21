@@ -223,27 +223,30 @@ const ManageExpense: React.FC = () => {
   }, [searchTerm, fromDate, toDate, paymentStatus, statusFilter, expenses]);
 
   // Fetch documents when editing an expense
-  useEffect(() => {
-    if (modalMode === 'edit' && editingExpense) {
-      const fetchDocuments = async () => {
-        setIsLoading(true);
-        try {
-          const response = await axiosInstance.get(`/supplier/${editingExpense.SupplierId}/documents`, {
-            params: { documentType: 'ExpenseDocument' },
-          });
-          setDocuments(response.data);
-        } catch (error) {
-          console.error('Error fetching documents:', error);
-          toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 1000 });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchDocuments();
-    } else {
-      setDocuments([]);
-    }
-  }, [modalMode, editingExpense]);
+useEffect(() => {
+  if (modalMode === 'edit' && editingExpense) {
+    const fetchDocuments = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch documents for this specific expense
+        const response = await axiosInstance.get(`/expenses/${editingExpense.SuppliersExpenseID}/documents`);
+        setDocuments(response.data); // response contains only this expense's docs
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+        toast.error('Failed to fetch documents', {
+          position: 'top-right',
+          autoClose: 1000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchDocuments();
+  } else {
+    setDocuments([]);
+  }
+}, [modalMode, editingExpense]);
+
 
   // Handle rows per page change
   const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -289,19 +292,22 @@ const ManageExpense: React.FC = () => {
     });
   };
 
-  const handleDeleteDocument = async (publicId: string) => {
-    setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
-    try {
-      const response = await axiosInstance.delete(`/documents/${publicId}`);
-      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to delete document';
-      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
-    } finally {
-      setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
-    }
-  };
+const handleDeleteDocument = async (publicId: string) => {
+  setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
+  try {
+    // Encode the publicId so `/` is safe in the URL
+    const encodedPublicId = encodeURIComponent(publicId);
+    const response = await axiosInstance.delete(`/documents/${encodedPublicId}`);
+
+    setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
+    toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || 'Failed to delete document';
+    toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
+  } finally {
+    setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
+  }
+};
 
   const handleViewDocument = (doc: Document) => {
     setViewDocument(doc);

@@ -129,22 +129,27 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     }));
   };
 
-  const handleDeleteDocument = async (publicId: string) => {
-    console.log('Attempting to delete document with PublicId:', publicId);
-    setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
-    try {
-      const response = await axiosInstance.delete(`/documents/${publicId}`);
-      console.log('Delete response:', response.data);
-      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 1500 });
-    } catch (error: any) {
-      console.error('Error deleting document:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to delete document';
-      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
-    } finally {
-      setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
-    }
-  };
+ const handleDeleteDocument = async (publicId: string) => {
+  console.log('Attempting to delete document with PublicId:', publicId);
+  setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
+  try {
+    // Encode publicId to make sure `/` and other special chars don’t break the URL
+    const encodedPublicId = encodeURIComponent(publicId);
+
+    const response = await axiosInstance.delete(`/documents/${encodedPublicId}`);
+    console.log('Delete response:', response.data);
+
+    setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
+    toast.success('Document deleted successfully', { position: 'top-right', autoClose: 1500 });
+  } catch (error: any) {
+    console.error('Error deleting document:', error);
+    const errorMessage = error.response?.data?.message || 'Failed to delete document';
+    toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
+  } finally {
+    setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
+  }
+};
+
 
   const handleViewDocument = (doc: Document) => {
     setViewDocument(doc);

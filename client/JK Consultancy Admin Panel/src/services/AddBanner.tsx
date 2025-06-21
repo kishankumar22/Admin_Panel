@@ -33,7 +33,6 @@ const AddBanner: React.FC = () => {
     fetchRoles,
     fetchPages,
     fetchPermissions,
-    roles,
     pages,
     permissions,
   } = usePermissions();
