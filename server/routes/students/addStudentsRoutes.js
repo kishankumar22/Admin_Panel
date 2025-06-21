@@ -4,12 +4,27 @@ const uploadToCloudinary = require('../../utils/cloudinaryUpload');
 const bcrypt = require('bcrypt');
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const PDFDocument = require('pdfkit');const { sql, poolConnect, executeQuery } = require('../../config/db'); 
+const PDFDocument = require('pdfkit');
+const { sql, poolConnect, executeQuery } = require('../../config/db');
 const router = express.Router();
 const path = require('path');
-// Configure Multer for in-memory storage
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const fs = require('fs').promises;
+
+// Configure Multer for in-memory storage (for Cloudinary) and disk storage (for local)
+const cloudinaryStorage = multer.memoryStorage();
+const localStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../public/uploads/StudentPayment');
+    fs.mkdir(uploadPath, { recursive: true })
+      .then(() => cb(null, uploadPath))
+      .catch((err) => cb(err));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
+const upload = multer({ storage: localStorage }); // Default to local storag
 
 // GET /colleges - Fetch all colleges
 router.get('/colleges', async (req, res, next) => {
@@ -2315,6 +2330,7 @@ router.get('/students/:studentId/academic-details/:academicId/emi', async (req, 
   }
 });
 
+
 // Create new payment
 
 router.post('/studentPayment', upload.single('receipt'), async (req, res, next) => {
@@ -2330,7 +2346,8 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
       amountType,
       courseYear,
       sessionYear,
-      userId, // Changed from email to userId
+      userId,
+      isLocal = true, // Enforce local storage only
     } = req.body;
 
     // Validate required fields
@@ -2388,16 +2405,12 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
 
     let receiptData = { receiptUrl: null, receiptPublicId: null };
     if (req.file) {
-      try {
-        const result = await uploadToCloudinary(req.file.buffer, 'PaymentReceipt');
-        receiptData = {
-          receiptUrl: result.secure_url,
-          receiptPublicId: result.public_id,
-        };
-      } catch (uploadError) {
-        console.error('Cloudinary upload error:', uploadError);
-        return res.status(500).json({ success: false, error: 'Failed to upload receipt' });
-      }
+      // Local storage only
+      const filePath = `/StudentPayment/${req.file.filename}`;
+      receiptData = {
+        receiptUrl: filePath,
+        receiptPublicId: null,
+      };
     }
 
     // Create payment record
@@ -2445,12 +2458,73 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
       throw error;
     }
 
-    res.status(201).json({ success: true, data: newPayment });
+    return res.status(201).json({ success: true, data: newPayment });
   } catch (err) {
     console.error('Payment creation error:', err);
-    res.status(500).json({ success: false, error: `Failed to create payment: ${err.message}` });
+    next(err); // Pass to error handler
   }
 });
+// New GET endpoint for local files
+
+router.get('/studentPayment/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(__dirname, '../../public/uploads/StudentPayment', filename);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.error('Error serving local file:', err);
+      res.status(404).json({ success: false, error: 'File not found' });
+    }
+  });
+});
+
+
+// Edit Cloudinary file
+router.post('/studentPayment/edit/:paymentId', async (req, res, next) => {
+  try {
+    const { paymentId } = req.params;
+    const { edits } = req.body; // Expect edits object (e.g., { width, height, crop })
+
+    const paymentQuery = `
+      SELECT receiptUrl, receiptPublicId
+      FROM StudentPayment
+      WHERE id = @paymentId
+    `;
+    const paymentParams = { paymentId: { type: sql.Int, value: parseInt(paymentId) } };
+    const paymentResult = await executeQuery(paymentQuery, paymentParams);
+    const payment = paymentResult.recordset[0];
+
+    if (!payment || !payment.receiptPublicId) {
+      return res.status(404).json({ success: false, error: 'Payment or receipt not found' });
+    }
+
+    // Fetch original image from Cloudinary
+    const response = await fetch(payment.receiptUrl);
+    const buffer = await response.buffer();
+
+    // Apply edits (simplified example, use a library like sharp for actual editing)
+    const editedBuffer = buffer; // Placeholder: Replace with actual editing logic
+    const result = await uploadToCloudinary(editedBuffer, 'PaymentReceipt', payment.receiptPublicId, edits);
+
+    // Update database with new URL and public ID
+    const updateQuery = `
+      UPDATE StudentPayment
+      SET receiptUrl = @receiptUrl, receiptPublicId = @receiptPublicId
+      WHERE id = @paymentId
+    `;
+    const updateParams = {
+      receiptUrl: { type: sql.NVarChar, value: result.secure_url },
+      receiptPublicId: { type: sql.NVarChar, value: result.public_id },
+      paymentId: { type: sql.Int, value: parseInt(paymentId) },
+    };
+    await executeQuery(updateQuery, updateParams);
+
+    res.status(200).json({ success: true, data: { receiptUrl: result.secure_url } });
+  } catch (err) {
+    console.error('Error editing Cloudinary file:', err);
+    next(err);
+  }
+});
+
 // GET payments for a specific student by studentId
 router.get('/studentPayment/:studentId', async (req, res, next) => {
   try {

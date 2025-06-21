@@ -140,6 +140,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const [verifyPassword, setVerifyPassword] = useState('');
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [paymentIdToDelete, setPaymentIdToDelete] = useState<number | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
 
   const isFormValid = () => {
     const requiredFields: { [key: string]: string } = {
@@ -147,9 +149,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       paymentMode: formData.paymentMode,
       amount: formData.amount,
       receivedDate: formData.receivedDate,
-      transactionNumber: formData.transactionNumber, // Mandatory for all
+      transactionNumber: formData.transactionNumber,
     };
-
     return Object.values(requiredFields).every((field) => field && field.trim() !== '');
   };
 
@@ -193,37 +194,25 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       setPaymentError('');
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('Authentication token missing');
-        }
+        if (!token) throw new Error('Authentication token missing');
 
         const response = await axiosInstance.get(`/academic/${matchingAcademic.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
-        if (response.data.success) {
-          setPayments(response.data.data);
-        } else {
-          throw new Error(response.data.error || 'Failed to fetch payments');
-        }
+        if (response.data.success) setPayments(response.data.data);
+        else throw new Error(response.data.error || 'Failed to fetch payments');
       } catch (err: any) {
-        const errorMessage = err.message || 'Failed to fetch payments';
-        setPaymentError(errorMessage);
+        setPaymentError(err.message || 'Failed to fetch payments');
       } finally {
         setLoadingPayments(false);
       }
     };
-
-    if (isLoggedIn && matchingAcademic) {
-      fetchPayments();
-    }
+    if (isLoggedIn && matchingAcademic) fetchPayments();
   }, [matchingAcademic, isLoggedIn]);
 
   const totalPaidAdminAmount = payments
     .filter(
-      (payment: StudentPayment) =>
+      (payment) =>
         payment.amountType === 'adminAmount' &&
         payment.courseYear === matchingAcademic?.courseYear &&
         payment.sessionYear === matchingAcademic?.sessionYear
@@ -232,7 +221,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
   const totalPaidFeesAmount = payments
     .filter(
-      (payment: StudentPayment) =>
+      (payment) =>
         payment.amountType === 'feesAmount' &&
         payment.courseYear === matchingAcademic?.courseYear &&
         payment.sessionYear === matchingAcademic?.sessionYear
@@ -241,11 +230,10 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
 
   const remainingAdminAmount = (matchingAcademic?.adminAmount || 0) - totalPaidAdminAmount;
   const remainingFeesAmount = (matchingAcademic?.feesAmount || 0) - totalPaidFeesAmount;
-
   const totalFees = (matchingAcademic?.adminAmount || 0) + (matchingAcademic?.feesAmount || 0);
   const cumulativePayments = payments
     .filter(
-      (payment: StudentPayment) =>
+      (payment) =>
         (payment.amountType === 'adminAmount' || payment.amountType === 'feesAmount') &&
         payment.courseYear === matchingAcademic?.courseYear &&
         payment.sessionYear === matchingAcademic?.sessionYear
@@ -257,14 +245,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     const sortedEmis = student.emiDetails
       ?.filter((e) => e.studentAcademicId === matchingAcademic?.id)
       .sort((a, b) => a.emiNumber - b.emiNumber);
-
     let emiSum = 0;
     for (const e of sortedEmis || []) {
       emiSum += e.amount;
       if (e.emiNumber === emi.emiNumber) {
-        if (cumulativeAmount >= emiSum) {
-          return 'Paid';
-        }
+        if (cumulativeAmount >= emiSum) return 'Paid';
         const dueDate = new Date(emi.dueDate);
         const today = new Date();
         return dueDate < today ? 'Pending' : 'Upcoming';
@@ -273,25 +258,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     return 'Upcoming';
   };
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) setError('');
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setReceiptFile(e.target.files[0]);
-    }
+    if (e.target.files) setReceiptFile(e.target.files[0]);
   };
 
   const resetForm = () => {
-    setFormData({
-      ...initialFormData,
-      receivedDate: getTodayDate(),
-    });
+    setFormData({ ...initialFormData, receivedDate: getTodayDate() });
     setReceiptFile(null);
     setVerifyPassword('');
   };
@@ -302,23 +280,14 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       toast.error('Password is required', { autoClose: 3000 });
       return;
     }
-
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token missing');
-      }
-
+      if (!token) throw new Error('Authentication token missing');
       const response = await axiosInstance.post(
         '/verify-password',
         { userId: user?.user_id, password: verifyPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       if (response.data.success) {
         setFormData((prev) => ({ ...prev, approvedBy: user?.name || '' }));
         await handleSubmit();
@@ -329,9 +298,8 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
         toast.error(response.data.message || 'Invalid password', { autoClose: 3000 });
       }
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to verify password';
-      setError(errorMessage);
-      toast.error(errorMessage, { autoClose: 3000 });
+      setError(err.response?.data?.message || 'Failed to verify password');
+      toast.error(err.response?.data?.message || 'Failed to verify password', { autoClose: 3000 });
     }
   };
 
@@ -341,58 +309,48 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       toast.error('Please login to save payment', { autoClose: 3000 });
       return;
     }
-
     const requiredFields: Record<string, string> = {
       Amount: formData.amount,
       'Payment Mode': formData.paymentMode,
       'Amount Type': formData.amountType,
       'Received Date': formData.receivedDate,
-      'Transaction Number': formData.transactionNumber, // Mandatory for all
+      'Transaction Number': formData.transactionNumber,
     };
-    const missingFields = Object.keys(requiredFields).filter(
-      (key) => !requiredFields[key]
-    );
+    const missingFields = Object.keys(requiredFields).filter((key) => !requiredFields[key]);
     if (missingFields.length > 0) {
       const errorMessage = `${missingFields.join(', ')} ${missingFields.length > 1 ? 'are' : 'is'} required`;
       setError(errorMessage);
       toast.error(errorMessage, { autoClose: 3000 });
       return;
     }
-
     const parsedAmount = parseFloat(formData.amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Amount must be a valid positive number');
       toast.error('Amount must be a valid positive number', { autoClose: 3000 });
       return;
     }
-
-    const validPaymentModes = ['cash', 'cheque', 'bank transfer', 'upi'];
-    if (!validPaymentModes.includes(formData.paymentMode)) {
+    if (!['cash', 'check', 'bank transfer', 'upi'].includes(formData.paymentMode)) {
       setError('Please select a valid payment mode');
       toast.error('Please select a valid payment mode', { autoClose: 3000 });
       return;
     }
-
     const parsedDate = new Date(formData.receivedDate);
     if (isNaN(parsedDate.getTime())) {
       setError('Received Date must be a valid date');
       toast.error('Received Date must be a valid date', { autoClose: 3000 });
       return;
     }
-
     if (!matchingAcademic) {
       setError('No academic details found for the selected session and year');
       toast.error('No academic details found', { autoClose: 3000 });
       return;
     }
-
     const token = localStorage.getItem('token');
     if (!token) {
       setError('Authentication token missing');
       toast.error('Authentication token missing', { autoClose: 3000 });
       return;
     }
-
     setIsSubmitting(true);
     try {
       const formDataToSend = new FormData();
@@ -409,25 +367,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
       formDataToSend.append('courseYear', matchingAcademic.courseYear || '');
       formDataToSend.append('sessionYear', matchingAcademic.sessionYear || '');
       formDataToSend.append('userId', user.user_id.toString());
-      if (receiptFile) {
-        formDataToSend.append('receipt', receiptFile);
-      }
+      formDataToSend.append('isLocal', 'true');
+      if (receiptFile) formDataToSend.append('receipt', receiptFile);
 
       const response = await axiosInstance.post('/studentPayment', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` },
       });
-
       if (response.data.success) {
         toast.success('Payment saved successfully', { autoClose: 3000 });
-        const fetchResponse = await axiosInstance.get(`/studentPayment/academic/${matchingAcademic.id}`, {
+        const fetchResponse = await axiosInstance.get(`/academic/${matchingAcademic.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (fetchResponse.data.success) {
-          setPayments(fetchResponse.data.data);
-        }
+        if (fetchResponse.data.success) setPayments(fetchResponse.data.data);
         resetForm();
       } else {
         setError(response.data.error || 'Failed to save payment');
@@ -436,17 +387,17 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     } catch (err) {
       let errorMessage = 'Failed to save payment';
       if (
-        err &&
         typeof err === 'object' &&
+        err !== null &&
         'response' in err &&
-        err.response &&
-        typeof err.response === 'object' &&
-        'data' in err.response &&
-        err.response.data &&
-        typeof err.response.data === 'object' &&
-        'error' in err.response.data
+        typeof (err as any).response === 'object' &&
+        (err as any).response !== null &&
+        'data' in (err as any).response &&
+        typeof (err as any).response.data === 'object' &&
+        (err as any).response.data !== null &&
+        'error' in (err as any).response.data
       ) {
-        errorMessage = (err.response.data as { error?: string }).error as string;
+        errorMessage = (err as any).response.data.error;
       }
       setError(errorMessage);
       toast.error(errorMessage, { autoClose: 3000 });
@@ -459,38 +410,23 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const handleDeletePayment = async (paymentId: number) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token missing');
-      }
-
+      if (!token) throw new Error('Authentication token missing');
       const handoverResponse = await axiosInstance.get(`/paymentHandover/check/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (handoverResponse.data.hasHandover) {
-        toast.error('This amount has been handed over. Please delete handover entry first.', {
-          autoClose: 3000,
-        });
+        toast.error('This amount has been handed over. Please delete handover entry first.', { autoClose: 3000 });
         return;
       }
-
       const response = await axiosInstance.delete(`/studentPayment/${paymentId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
-
       if (response.data.success) {
         toast.success('Payment deleted successfully', { autoClose: 3000 });
         setPayments(payments.filter((payment) => payment.id !== paymentId));
-      } else {
-        throw new Error(response.data.error || 'Failed to delete payment');
-      }
+      } else throw new Error(response.data.error || 'Failed to delete payment');
     } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to delete payment';
-      toast.error(errorMessage, { autoClose: 3000 });
+      toast.error(err.response?.data?.error || 'Failed to delete payment', { autoClose: 3000 });
     }
   };
 
@@ -510,17 +446,11 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
   const handleDownloadSlip = async (paymentId: number) => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Authentication token missing');
-      }
-
+      if (!token) throw new Error('Authentication token missing');
       const response = await axiosInstance.get(`/studentPayment/${paymentId}/slip`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob',
       });
-
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -543,11 +473,24 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
     }
   };
 
+  const getFileUrl = (payment: StudentPayment): string | undefined => {
+    if (payment.receiptUrl) {
+      return `${axiosInstance.defaults.baseURL}${payment.receiptUrl}`;
+    }
+    return undefined;
+  };
+
+  const handleViewReceipt = (payment: StudentPayment) => {
+    const url = getFileUrl(payment);
+    if (url) setSelectedReceiptUrl(url);
+    setShowReceiptModal(true);
+  };
+
   const getTransactionLabel = () => {
     switch (formData.paymentMode) {
       case 'cash':
         return 'Receipt Number';
-      case 'cheque':
+      case 'check':
         return 'Cheque Transaction Number';
       case 'bank transfer':
         return 'Bank Transaction Number';
@@ -660,7 +603,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                         Select Payment Mode
                       </option>
                       <option value="cash">Cash</option>
-                      <option value="cheque">Cheque</option>
+                      <option value="check">Check</option>
                       <option value="bank transfer">Bank Transfer</option>
                       <option value="upi">UPI</option>
                     </select>
@@ -674,7 +617,7 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                       name="transactionNumber"
                       value={formData.transactionNumber}
                       onChange={handleInputChange}
-                      disabled={!formData.paymentMode} // Disabled until payment mode is selected
+                      disabled={!formData.paymentMode}
                       className={`w-full border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs ${
                         !formData.paymentMode ? 'bg-gray-100 cursor-not-allowed' : ''
                       }`}
@@ -910,6 +853,38 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
               </div>
             )}
 
+          {showReceiptModal && selectedReceiptUrl && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+    <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+      {/* Close button */}
+      <button
+        onClick={() => {
+          setShowReceiptModal(false);
+          setSelectedReceiptUrl(null);
+        }}
+        className="absolute top-3 right-3 text-2xl text-gray-500 hover:text-red-500 z-10"
+      >
+        <FaTimes />
+      </button>
+
+      {/* Modal header */}
+      <h3 className="text-xl font-bold p-4 border-b border-gray-200">Receipt</h3>
+
+      {/* Modal content */}
+      <div className="p-4 overflow-auto max-h-[80vh] flex justify-center items-center bg-gray-50">
+        {/* The iframe or image */}
+        <iframe
+          src={selectedReceiptUrl}
+          title="Receipt"
+          className="w-full h-full max-h-[80vh] max-w-full   border border-gray-200 rounded-xl shadow-lg"
+          style={{ minHeight: '700px' }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+
             {matchingAcademic?.paymentMode === 'EMI' && student.emiDetails && student.emiDetails.length > 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div className="bg-gray-50 px-2 py-1 border-b border-gray-200 rounded-t-lg">
@@ -1019,6 +994,9 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                             Created on
                           </th>
                           <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
+                            Receipt
+                          </th>
+                          <th className="px-2 py-1 text-left text-xs font-medium text-black uppercase tracking-tight">
                             Action
                           </th>
                         </tr>
@@ -1067,6 +1045,18 @@ const StudentPaymentModal: React.FC<StudentPaymentModalProps> = ({
                                 minute: '2-digit',
                                 second: '2-digit',
                               })}
+                            </td>
+                            <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
+                              {getFileUrl(payment) ? (
+                                <button
+                                  onClick={() => handleViewReceipt(payment)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  View Receipt
+                                </button>
+                              ) : (
+                                'N/A'
+                              )}
                             </td>
                             <td className="px-2 py-1 whitespace-nowrap text-xs text-black">
                               <div className="flex gap-2">
