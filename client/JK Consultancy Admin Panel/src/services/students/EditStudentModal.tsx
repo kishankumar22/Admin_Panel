@@ -1476,382 +1476,443 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
           </div>
         </form>
 
-        {isPreviewOpen && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-999">
-            <div className="bg-white p-3 rounded-lg max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-lg">
-              <h2 className="text-lg font-bold mb-1 text-center text-blue-800">Student Details Preview</h2>
-              <div className="flex justify-center mb-2">
-                {documents.StudentImage.preview ? (
-                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-blue-200">
-                    <img src={documents.StudentImage.preview} alt="Student" className="h-full w-full object-cover" />
-                  </div>
-                ) : existingDocuments.StudentImage ? (
-                  <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-blue-200">
-                    <img src={existingDocuments.StudentImage.Url} alt="Student" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                    No Image
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2 text-xs">
-                <div className="space-y-0.5">
-                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Personal Details</h3>
-                  <div>
-                    <span className="font-medium text-gray-600">Name:</span>{' '}
-                    <span className={hasChanged('FName') || hasChanged('LName') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.FName} {student.LName}
-                    </span>
-                    {hasChanged('FName') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.FName})</span>
-                    )}
-                    {hasChanged('LName') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.LName})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Roll Number:</span>{' '}
-                    <span className={hasChanged('RollNumber') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.RollNumber}
-                    </span>
-                    {hasChanged('RollNumber') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.RollNumber})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">DOB:</span>{' '}
-                    <span className={hasChanged('DOB') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.DOB}
-                    </span>
-                    {hasChanged('DOB') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DOB})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Gender:</span>{' '}
-                    <span className={hasChanged('Gender') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.Gender}
-                    </span>
-                    {hasChanged('Gender') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Gender})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Mobile:</span>{' '}
-                    <span className={hasChanged('MobileNumber') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.MobileNumber}
-                    </span>
-                    {hasChanged('MobileNumber') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.MobileNumber})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Email:</span>{' '}
-                    <span className={hasChanged('EmailId') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.EmailId}
-                    </span>
-                    {hasChanged('EmailId') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.EmailId})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Father's Name:</span>{' '}
-                    <span className={hasChanged('FatherName') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.FatherName}
-                    </span>
-                    {hasChanged('FatherName') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.FatherName})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Mother's Name:</span>{' '}
-                    <span className={hasChanged('MotherName') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.MotherName}
-                    </span>
-                    {hasChanged('MotherName') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.MotherName})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Category:</span>{' '}
-                    <span className={hasChanged('Category') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.Category}
-                    </span>
-                    {hasChanged('Category') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Category})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Address:</span>{' '}
-                    <span className={hasChanged('Address') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.Address}
-                    </span>
-                    {hasChanged('Address') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Address})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">City:</span>{' '}
-                    <span className={hasChanged('City') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.City}
-                    </span>
-                    {hasChanged('City') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.City})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">State:</span>{' '}
-                    <span className={hasChanged('State') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.State}
-                    </span>
-                    {hasChanged('State') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.State})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Pincode:</span>{' '}
-                    <span className={hasChanged('Pincode') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.Pincode}
-                    </span>
-                    {hasChanged('Pincode') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.Pincode})</span>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  <h3 className="font-bold text-blue-600 border-b pb-0.5">Academic Details</h3>
-                  <div>
-                    <span className="font-medium text-gray-600">College:</span>{' '}
-                    <span className={hasChanged('CollegeId') ? 'text-blue-600' : 'text-gray-600'}>
-                      {colleges.find((c) => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}
-                    </span>
-                    {hasChanged('CollegeId') && (
-                      <span className="text-gray-400 ml-1">
-                        (Original: {colleges.find((c) => c.id === parseInt(originalStudentData?.CollegeId || ''))?.collegeName || 'N/A'})
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Course:</span>{' '}
-                    <span className={hasChanged('CourseId') ? 'text-blue-600' : 'text-gray-600'}>
-                      {courses.find((c) => c.id === parseInt(student.CourseId))?.courseName || 'N/A'}
-                    </span>
-                    {hasChanged('CourseId') && (
-                      <span className="text-gray-400 ml-1">
-                        (Original: {courses.find((c) => c.id === parseInt(originalStudentData?.CourseId || ''))?.courseName || 'N/A'})
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Course Year:</span>{' '}
-                    <span className={hasChanged('CourseYear') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.CourseYear}
-                    </span>
-                    {hasChanged('CourseYear') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.CourseYear})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Admission Mode:</span>{' '}
-                    <span className={hasChanged('AdmissionMode') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.AdmissionMode}
-                    </span>
-                    {hasChanged('AdmissionMode') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.AdmissionMode})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Admission Date:</span>{' '}
-                    <span className={hasChanged('AdmissionDate') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.AdmissionDate}
-                    </span>
-                    {hasChanged('AdmissionDate') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.AdmissionDate})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Session Year:</span>{' '}
-                    <span className={hasChanged('SessionYear') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.SessionYear}
-                    </span>
-                    {hasChanged('SessionYear') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.SessionYear})</span>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Is Discontinued:</span>{' '}
-                    <span className={hasChanged('IsDiscontinue') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.IsDiscontinue ? 'Yes' : 'No'}
-                    </span>
-                    {hasChanged('IsDiscontinue') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.IsDiscontinue ? 'Yes' : 'No'})</span>
-                    )}
-                  </div>
-                  {student.IsDiscontinue && (
-                    <>
-                      <div>
-                        <span className="font-medium text-gray-600">Discontinue Date:</span>{' '}
-                        <span className={hasChanged('DiscontinueOn') ? 'text-blue-600' : 'text-gray-600'}>
-                          {student.DiscontinueOn}
-                        </span>
-                        {hasChanged('DiscontinueOn') && (
-                          <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DiscontinueOn})</span>
-                        )}
-                      </div>
-                      <div>
-                        <span className="font-medium text-gray-600">Discontinued By:</span>{' '}
-                        <span className={hasChanged('DiscontinueBy') ? 'text-blue-600' : 'text-gray-600'}>
-                          {student.DiscontinueBy}
-                        </span>
-                        {hasChanged('DiscontinueBy') && (
-                          <span className="text-gray-400 ml-1">(Original: {originalStudentData?.DiscontinueBy})</span>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-0.5 mb-2 text-xs">
-                <h3 className="font-bold text-blue-600 border-b pb-0.5">Payment Details</h3>
-                <div>
-                  <span className="font-medium text-gray-600">Admin Amount:</span>{' '}
-                  <span className={hasChanged('FineAmount') ? 'text-blue-600' : 'text-gray-600'}>
-                    ₹{student.FineAmount.toLocaleString('en-IN')}
-                  </span>
-                  {hasChanged('FineAmount') && (
-                    <span className="text-gray-400 ml-1">(Original: ₹{originalStudentData?.FineAmount.toLocaleString('en-IN')})</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Fees Amount:</span>{' '}
-                  <span className={hasChanged('RefundAmount') ? 'text-blue-600' : 'text-gray-600'}>
-                    ₹{student.RefundAmount.toLocaleString('en-IN')}
-                  </span>
-                  {hasChanged('RefundAmount') && (
-                    <span className="text-gray-400 ml-1">(Original: ₹{originalStudentData?.RefundAmount.toLocaleString('en-IN')})</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Payment Mode:</span>{' '}
-                  <span className={hasChanged('PaymentMode') ? 'text-blue-600' : 'text-gray-600'}>
-                    {student.PaymentMode}
-                  </span>
-                  {hasChanged('PaymentMode') && (
-                    <span className="text-gray-400 ml-1">(Original: {originalStudentData?.PaymentMode})</span>
-                  )}
-                </div>
-                {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
-                  <div>
-                    <span className="font-medium text-gray-600">No of EMIs:</span>{' '}
-                    <span className={hasChanged('NumberOfEMI') ? 'text-blue-600' : 'text-gray-600'}>
-                      {student.NumberOfEMI}
-                    </span>
-                    {hasChanged('NumberOfEMI') && (
-                      <span className="text-gray-400 ml-1">(Original: {originalStudentData?.NumberOfEMI || 'N/A'})</span>
-                    )}
-                    <div className="mt-0.5">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">EMI</th>
-                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Amount</th>
-                            <th className="px-1 py-0.5 text-left text-xs font-medium text-gray-700">Due Date</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {emiDetails.map((emi, index) => (
-                            <tr key={index}>
-                              <td className="px-1 py-0.5 text-blue-600">EMI {emi.emiNumber}</td>
-                              <td className="px-1 py-0.5 text-blue-600">₹{emi.amount.toLocaleString('en-IN')}</td>
-                              <td className="px-1 py-0.5 text-blue-600">{emi.dueDate}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-0.5 mb-2 text-xs">
-                <h3 className="font-bold text-blue-600 border-b pb-0.5">Documents</h3>
-                <div>
-                  <span className="font-medium text-gray-600">Student Photo:</span>{' '}
-                  <span className={documents.StudentImage.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.StudentImage.file || existingDocuments.StudentImage ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.StudentImage.file && existingDocuments.StudentImage && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">10th Marksheet:</span>{' '}
-                  <span className={documents.TenthMarks.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.TenthMarks.file || existingDocuments.TenthMarks ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.TenthMarks.file && existingDocuments.TenthMarks && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">12th Marksheet:</span>{' '}
-                  <span className={documents.TwelfthMarks.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.TwelfthMarks.file || existingDocuments.TwelfthMarks ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.TwelfthMarks.file && existingDocuments.TwelfthMarks && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Caste Certificate:</span>{' '}
-                  <span className={documents.CasteCertificate.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.CasteCertificate.file || existingDocuments.CasteCertificate ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.CasteCertificate.file && existingDocuments.CasteCertificate && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Income Certificate:</span>{' '}
-                  <span className={documents.Income.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.Income.file || existingDocuments.Income ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.Income.file && existingDocuments.Income && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Residential Proof:</span>{' '}
-                  <span className={documents.Residential.file ? 'text-blue-600' : 'text-gray-600'}>
-                    {documents.Residential.file || existingDocuments.Residential ? 'Uploaded' : 'Not Uploaded'}
-                  </span>
-                  {documents.Residential.file && existingDocuments.Residential && (
-                    <span className="text-gray-400 ml-1">(Original: Uploaded)</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex justify-between">
-                <button
-                  onClick={() => setIsPreviewOpen(false)}
-                  className="px-2 py-0.5 bg-gray-300 text-xs text-gray-800 rounded hover:bg-gray-400"
-                >
-                  Back to Edit
-                </button>
-                <button
-                  onClick={(e) => {
-                    confirmUpdate(e);
-                    setIsPreviewOpen(false);
-                  }}
-                  className="px-2 py-0.5 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Updating...' : 'Confirm Update'}
-                </button>
-              </div>
-            </div>
+     {isPreviewOpen && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm z-[1000]">
+    <div className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-blue-200 dark:border-blue-900">
+      <h2 className="text-xl font-bold mb-4 text-center text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Student Details Preview
+      </h2>
+
+      <div className="flex justify-center mb-6">
+        {documents.StudentImage.preview || existingDocuments.StudentImage ? (
+          <div className="h-28 w-28 rounded-full overflow-hidden border-4 border-indigo-300 dark:border-indigo-700 shadow-lg">
+            <img
+              src={documents.StudentImage.preview || existingDocuments.StudentImage.Url}
+              alt="Student"
+              className="h-full w-full object-cover"
+            />
+          </div>
+        ) : (
+          <div className="h-28 w-28 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-500 dark:text-gray-400 border-4 border-gray-300 dark:border-gray-600 shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
           </div>
         )}
+      </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-sm">
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-blue-100 dark:border-blue-900">
+          <h3 className="font-bold text-blue-600 dark:text-blue-400 border-b border-blue-200 dark:border-blue-700 pb-2 text-base flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Personal Details
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Full Name</span>
+              <span className={hasChanged('FName') || hasChanged('LName') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.FName} {student.LName}
+                {(hasChanged('FName') || hasChanged('LName')) && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.FName} {originalStudentData?.LName})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Roll Number</span>
+              <span className={hasChanged('RollNumber') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.RollNumber}
+                {hasChanged('RollNumber') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.RollNumber})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Date of Birth</span>
+              <span className={hasChanged('DOB') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.DOB}
+                {hasChanged('DOB') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.DOB})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Gender</span>
+              <span className={hasChanged('Gender') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.Gender}
+                {hasChanged('Gender') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.Gender})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Mobile</span>
+              <span className={hasChanged('MobileNumber') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.MobileNumber}
+                {hasChanged('MobileNumber') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.MobileNumber})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Email</span>
+              <span className={hasChanged('EmailId') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.EmailId}
+                {hasChanged('EmailId') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.EmailId})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Father's Name</span>
+              <span className={hasChanged('FatherName') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.FatherName}
+                {hasChanged('FatherName') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.FatherName})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Mother's Name</span>
+              <span className={hasChanged('MotherName') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.MotherName}
+                {hasChanged('MotherName') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.MotherName})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Category</span>
+              <span className={hasChanged('Category') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.Category}
+                {hasChanged('Category') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.Category})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Address</span>
+              <span className={hasChanged('Address') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.Address}
+                {hasChanged('Address') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.Address})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Location</span>
+              <span className={hasChanged('City') || hasChanged('State') || hasChanged('Pincode') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.City}, {student.State} - {student.Pincode}
+                {(hasChanged('City') || hasChanged('State') || hasChanged('Pincode')) && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.City}, {originalStudentData?.State} - {originalStudentData?.Pincode})
+                  </span>
+                )}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-purple-100 dark:border-purple-900">
+          <h3 className="font-bold text-purple-600 dark:text-purple-400 border-b border-purple-200 dark:border-purple-700 pb-2 text-base flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path d="M12 14l9-5-9-5-9 5 9 5z" />
+              <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" />
+            </svg>
+            Academic Details
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">College</span>
+              <span className={hasChanged('CollegeId') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {colleges.find((c) => c.id === parseInt(student.CollegeId))?.collegeName || 'N/A'}
+                {hasChanged('CollegeId') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {colleges.find((c) => c.id === parseInt(originalStudentData?.CollegeId || ''))?.collegeName || 'N/A'})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Course</span>
+              <span className={hasChanged('CourseId') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {courses.find((c) => c.id === parseInt(student.CourseId))?.courseName || 'N/A'}
+                {hasChanged('CourseId') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {courses.find((c) => c.id === parseInt(originalStudentData?.CourseId || ''))?.courseName || 'N/A'})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Course Year</span>
+              <span className={hasChanged('CourseYear') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.CourseYear}
+                {hasChanged('CourseYear') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.CourseYear})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Admission Mode</span>
+              <span className={hasChanged('AdmissionMode') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.AdmissionMode}
+                {hasChanged('AdmissionMode') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.AdmissionMode})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Admission Date</span>
+              <span className={hasChanged('AdmissionDate') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.AdmissionDate}
+                {hasChanged('AdmissionDate') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.AdmissionDate})
+                  </span>
+              
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Session Year</span>
+              <span className={hasChanged('SessionYear') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.SessionYear}
+                {hasChanged('SessionYear') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.SessionYear})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Is Discontinued</span>
+              <span className={hasChanged('IsDiscontinue') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                {student.IsDiscontinue ? 'Yes' : 'No'}
+                {hasChanged('IsDiscontinue') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.IsDiscontinue ? 'Yes' : 'No'})
+                  </span>
+                )}
+              </span>
+            </div>
+            {student.IsDiscontinue && (
+              <>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Discontinue Date</span>
+                  <span className={hasChanged('DiscontinueOn') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                    {student.DiscontinueOn}
+                    {hasChanged('DiscontinueOn') && (
+                      <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                        (Original: {originalStudentData?.DiscontinueOn})
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Discontinued By</span>
+                  <span className={hasChanged('DiscontinueBy') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                    {student.DiscontinueBy}
+                    {hasChanged('DiscontinueBy') && (
+                      <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                        (Original: {originalStudentData?.DiscontinueBy})
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-pink-100 dark:border-pink-900">
+          <h3 className="font-bold text-pink-600 dark:text-pink-400 border-b border-pink-200 dark:border-pink-700 pb-2 text-base flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Payment Details
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Payment Mode</span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                student.PaymentMode === 'EMI' 
+                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                  : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+              }`}>
+                {student.PaymentMode}
+                {hasChanged('PaymentMode') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: {originalStudentData?.PaymentMode})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Admin Amount</span>
+              <span className={hasChanged('FineAmount') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                ₹{student.FineAmount.toLocaleString('en-IN')}
+                {hasChanged('FineAmount') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: ₹{originalStudentData?.FineAmount.toLocaleString('en-IN')})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-gray-500 dark:text-gray-400">Fees Amount</span>
+              <span className={hasChanged('RefundAmount') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                ₹{student.RefundAmount.toLocaleString('en-IN')}
+                {hasChanged('RefundAmount') && (
+                  <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                    (Original: ₹{originalStudentData?.RefundAmount.toLocaleString('en-IN')})
+                  </span>
+                )}
+              </span>
+            </div>
+            {student.PaymentMode === 'EMI' && student.NumberOfEMI && (
+              <>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Number of EMIs</span>
+                  <span className={hasChanged('NumberOfEMI') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-800 dark:text-gray-200'}>
+                    {student.NumberOfEMI}
+                    {hasChanged('NumberOfEMI') && (
+                      <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                        (Original: {originalStudentData?.NumberOfEMI || 'N/A'})
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mb-1 block">EMI Schedule</span>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-2 space-y-2">
+                    {emiDetails.map((emi, index) => (
+                      <div key={index} className="flex justify-between items-center border-b border-gray-200 dark:border-gray-600 pb-1 last:border-0 last:pb-0">
+                        <div className="flex items-center">
+                          <div className="w-6 h-6 rounded-full bg-pink-100 dark:bg-pink-900 text-pink-600 dark:text-pink-300 flex items-center justify-center text-xs font-bold mr-2">
+                            {emi.emiNumber}
+                          </div>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">EMI {emi.emiNumber}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Amount</span>
+                          <div className="text-sm font-medium text-gray-800 dark:text-gray-200">₹{emi.amount.toLocaleString('en-IN')}</div>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">Date</span>
+                          <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{emi.dueDate}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-green-100 dark:border-green-900">
+          <h3 className="font-bold text-green-600 dark:text-green-400 border-b border-green-200 dark:border-green-700 pb-2 text-base flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Document Details
+          </h3>
+          <div className="grid grid-cols-1 gap-2">
+            {Object.entries(documents).map(([key, value]) => (
+              <div key={key} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  {key === 'StudentImage' ? 'Student Photo' :
+                   key === 'TenthMarks' ? '10th Marksheet' :
+                   key === 'TwelfthMarks' ? '12th Marksheet' :
+                   key === 'CasteCertificate' ? 'Caste Certificate' :
+                   key === 'Income' ? 'Income Certificate' :
+                   key === 'Residential' ? 'Residential Proof' : key}
+                </span>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  value.file || existingDocuments[key] 
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                    : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                }`}>
+                  {value.file || existingDocuments[key] ? 'Uploaded' : 'Not Uploaded'}
+                  {(value.file && existingDocuments[key]) && (
+                    <span className="text-gray-400 dark:text-gray-500 text-xs ml-2">
+                      (Original: Uploaded)
+                    </span>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-3">
+        <button
+          onClick={() => setIsPreviewOpen(false)}
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+          </svg>
+          Back to Edit
+        </button>
+        <button
+          onClick={(e) => {
+            confirmUpdate(e);
+            setIsPreviewOpen(false);
+          }}
+          disabled={isSubmitting}
+          className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md flex items-center"
+        >
+          {isSubmitting ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              Updating...
+            </>
+          ) : (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Confirm Update
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
         <Modal
           show={showUpdateConfirmModal}
           onClose={() => setShowUpdateConfirmModal(false)}

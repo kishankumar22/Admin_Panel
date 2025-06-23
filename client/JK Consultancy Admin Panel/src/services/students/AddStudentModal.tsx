@@ -1274,7 +1274,7 @@ const handleTabClick = (tabNumber: number) => {
       </form>
     </div>
 
-    {isPreviewOpen && (
+{isPreviewOpen && (
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm z-[1000]">
         <div className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-blue-200 dark:border-blue-900">
           <h2 className="text-xl font-bold mb-4 text-center text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
