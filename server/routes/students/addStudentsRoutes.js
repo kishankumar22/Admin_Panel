@@ -9,6 +9,7 @@ const { sql, poolConnect, executeQuery } = require('../../config/db');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs').promises;
+const nodemailer = require('nodemailer');
 
 // Configure Multer for in-memory storage (for Cloudinary) and disk storage (for local)
 const cloudinaryStorage = multer.memoryStorage();
@@ -3037,12 +3038,20 @@ router.get('/getCourseEnquiry', async (req, res, next) => {
   }
 });
 
-// Update the enquiry status (e.g., mark as contacted
+// Configure email transporter (using Gmail as an example; replace with your email service)
+    // Nodemailer configuration
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: 'kishan143ku@gmail.com', // Replace with your email
+            pass: 'xebu ziey qhca vzxg', // Replace with your email password
+        },
+    });
+// Endpoint to update enquiry status
 router.post('/updateEnquiryStatus', async (req, res, next) => {
   const { id, isContacted, modifiedAt, modifiedby } = req.body;
 
   try {
-    // Validate inputs
     if (!id || isNaN(Number(id))) {
       return res.status(400).json({ message: 'Valid enquiry ID is required' });
     }
@@ -3068,7 +3077,7 @@ router.post('/updateEnquiryStatus', async (req, res, next) => {
       const params = {
         id: { type: sql.Int, value: Number(id) },
         isContacted: { type: sql.Bit, value: isContacted },
-        modifiedAt: { type: sql.DateTime, value: modifiedAt ? new Date(modifiedAt) : null },
+        modifiedAt: { type: sql.DateTime, value: modifiedAt ? new Date(modifiedAt) : new Date() },
         modifiedby: { type: sql.NVarChar, value: modifiedby || null },
       };
 
@@ -3079,19 +3088,171 @@ router.post('/updateEnquiryStatus', async (req, res, next) => {
     } catch (error) {
       await transaction.rollback();
       throw error;
-    } finally {
-      // Do NOT close the global pool here; let it persist for other requests
     }
-    console.log( 'Enquiry status updated successfully')
+
+    console.log('Enquiry status updated successfully');
     res.status(200).json({
       message: 'Enquiry status updated successfully',
       data: updatedEnquiry,
     });
   } catch (err) {
-    // console.error('Error updating enquiry status:', error.stack);
-        next(err);
-    res.status(500).json({ message: 'Error updating enquiry status', error: error.message });
+    console.error('Error updating enquiry status:', err.stack);
+    next(err);
+    res.status(500).json({ message: 'Error updating enquiry status', error: err.message });
   }
 });
 
+
+
+// Endpoint to send email reply
+router.post('/sendEnquiryReply', async (req, res) => {
+  const { to, subject, message, enquiryId } = req.body;
+
+  try {
+    if (!to || !subject || !message || !enquiryId) {
+      return res.status(400).json({ message: 'All fields (to, subject, message, enquiryId) are required' });
+    }
+
+    // Fetch course from the enquiry
+    const pool = await poolConnect;
+    const request = new sql.Request(pool);
+    const courseQuery = `SELECT course FROM CourseEnquiry WHERE id = @id`;
+    request.input('id', sql.Int, enquiryId);
+    const courseResult = await request.query(courseQuery);
+    const course = courseResult.recordset[0]?.course || 'your course';
+
+    // HTML email template
+   const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+          }
+          a {
+            text-decoration: none;
+          }
+          a:hover {
+            text-decoration: underline;
+          }
+          .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background-color: #1e3a8a;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .header img {
+            max-width: 100px;
+            margin-right: 15px;
+            border-radius: 50%;
+          }
+          .header a {
+            color: #ffffff; /* Ensure text is white */
+            font-size: 24px;
+            font-weight: bold;
+            text-decoration: none;
+            padding:15px;
+            margin-top:15px;
+          }
+          .header a:hover {
+            text-decoration: underline;
+          }
+          .content {
+            padding: 20px;
+            color: #333;
+            line-height: 1.6;
+          }
+          .content h2 {
+            color: #1e3a8a;
+            font-size: 18px;
+            margin-top: 0;
+          }
+          .content p {
+            margin: 10px 0;
+            font-size: 14px;
+          }
+          .footer {
+            background-color: #1e3a8a;
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            border-bottom-left-radius: 10px;
+            border-bottom-right-radius: 10px;
+          }
+          @media (max-width: 600px) {
+            .container {
+              margin: 10px;
+            }
+            .header img {
+              max-width: 80px;
+            }
+            .header a {
+              font-size: 20px;
+              padding:5px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <img src="cid:logo" alt="JK Institute Logo" />
+            <a href="https://jkiop.org/">JK Institute Of Pharmacy</a>
+          </div>
+          <div class="content">
+            <h2>Thank You for showing interest in ${course}</h2>
+            <p>${message}</p>
+          </div>
+          <div class="footer">
+            <p>Do not reply to this email</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: 'kishan143ku@gmail.com',
+      to: to,
+      subject: subject,
+      html: htmlContent,
+      attachments: [
+        {
+          filename: 'logo.jpg',
+          path: path.join(process.cwd(), 'public/images/logo.jpg'), // Adjusted path
+          cid: 'logo', // Matches the img src cid
+        },
+      ],
+    };
+
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent:', info.response);
+
+    res.status(200).json({ success: true, message: 'Email sent successfully' });
+  } catch (err) {
+    console.error('Error sending email:', err);
+    res.status(500).json({ success: false, message: 'Failed to send email', error: err.message });
+  }
+})
 module.exports = router;

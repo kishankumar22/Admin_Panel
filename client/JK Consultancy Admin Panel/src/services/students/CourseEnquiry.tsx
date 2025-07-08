@@ -3,7 +3,7 @@ import axiosInstance from '../../config';
 import { FaSpinner, FaReply, FaTimes, FaSearch, FaFilter } from 'react-icons/fa';
 import Breadcrumb from '../../components/Breadcrumbs/Breadcrumb';
 import { useAuth } from '../../context/AuthContext';
-
+import { toast } from "react-toastify";
 // Define TypeScript interface for the enquiry data
 interface CourseEnquiryData {
   id: number;
@@ -36,7 +36,7 @@ const CourseEnquiry = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const { user } = useAuth();
-  
+
   const modifiedBy = user?.name || null;
 
   // Fetch enquiries from API
@@ -46,7 +46,7 @@ const CourseEnquiry = () => {
         setLoading(true);
         setShowLoading(true);
         const response = await axiosInstance.get('/getCourseEnquiry');
-        
+
         if (response.data && response.data.data) {
           setEnquiries(response.data.data);
           setFilteredEnquiries(response.data.data);
@@ -129,50 +129,49 @@ const CourseEnquiry = () => {
     setReplyMessage('');
   };
 
-  const handleSendReply = async () => {
-    if (!selectedEnquiry || !replyMessage.trim()) return;
-    
-    setReplySending(true);
-    try {
-      const response = await axiosInstance.post('/updateEnquiryStatus', {
+const handleSendReply = async () => {
+  if (!selectedEnquiry || !replyMessage.trim()) return;
+
+  setReplySending(true);
+  try {
+    const emailResponse = await axiosInstance.post('/sendEnquiryReply', {
+      to: selectedEnquiry.email,
+      subject: `Reply to your enquiry about ${selectedEnquiry.course}`,
+      message: replyMessage,
+      enquiryId: selectedEnquiry.id,
+    });
+
+    if (emailResponse.data && emailResponse.data.success) {
+      const statusResponse = await axiosInstance.post('/updateEnquiryStatus', {
         id: selectedEnquiry.id,
         isContacted: true,
         modifiedAt: new Date().toISOString(),
-        modifiedby: modifiedBy
+        modifiedby: modifiedBy,
       });
-      
-      const emailResponse = await axiosInstance.post('/sendEnquiryReply', {
-        to: selectedEnquiry.email,
-        subject: `Reply to your enquiry about ${selectedEnquiry.course}`,
-        message: replyMessage,
-        enquiryId: selectedEnquiry.id
-      });
-      
-      if (response.data && emailResponse.data) {
-        const updatedEnquiries = enquiries.map(enquiry => {
-          if (enquiry.id === selectedEnquiry.id) {
-            return {
-              ...enquiry,
-              isContacted: true,
-              modifiedAt: new Date().toISOString(),
-              modifiedby: modifiedBy
-            };
-          }
-          return enquiry;
-        });
-        
+
+      if (statusResponse.data && statusResponse.data.data) {
+        const updatedEnquiry = statusResponse.data.data;
+        const updatedEnquiries = enquiries.map(enquiry =>
+          enquiry.id === updatedEnquiry.id ? updatedEnquiry : enquiry
+        );
         setEnquiries(updatedEnquiries);
         setShowReplyModal(false);
         setSelectedEnquiry(null);
         setReplyMessage('');
+       toast.success('Reply sent successfully and status updated!');
+      } else {
+        throw new Error('Failed to update status after sending email');
       }
-    } catch (err) {
-      console.error('Error sending reply:', err);
-      alert('Failed to send reply. Please try again.');
-    } finally {
-      setReplySending(false);
+    } else {
+      throw new Error('Failed to send email');
     }
-  };
+  } catch (err) {
+    console.error('Error sending reply:', err);
+    toast.error('Failed to send reply or update status. Please try again.');
+  } finally {
+    setReplySending(false);
+  }
+};
 
   const closeModal = () => {
     setShowReplyModal(false);
@@ -196,7 +195,7 @@ const CourseEnquiry = () => {
       <div className="text-center p-4 bg-red-50 rounded-lg mt-2 text-red-700 max-w-xl mx-auto">
         <h2 className="text-lg font-semibold mb-1">Error</h2>
         <p className="mb-2 text-sm">{error}</p>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="bg-blue-600 text-white py-1 px-3 rounded-lg hover:bg-blue-700 transition-colors text-sm"
         >
@@ -209,7 +208,7 @@ const CourseEnquiry = () => {
   return (
     <div className="">
       <Breadcrumb pageName="Manage Queries" />
-      
+
       {/* Filters Section */}
       <div className="bg-white shadow-sm rounded-lg p-2 mb-4">
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between">
@@ -233,7 +232,7 @@ const CourseEnquiry = () => {
               value={courseFilter}
               onChange={(e) => setCourseFilter(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-800"
-             title='Filter by course name'
+              title="Filter by course name"
             >
               {uniqueCourses.map(course => (
                 <option key={course} value={course}>
@@ -247,7 +246,7 @@ const CourseEnquiry = () => {
               value={activeFilter}
               onChange={(e) => setActiveFilter(e.target.value as FilterType)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-800"
-            title='Filter by enquiry status'
+              title="Filter by enquiry status"
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
@@ -261,14 +260,14 @@ const CourseEnquiry = () => {
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-800"
-                title='Filter by start date'
+                title="Filter by start date"
               />
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm text-gray-800"
-                title='Filter by end date'
+                title="Filter by end date"
               />
             </div>
 
@@ -276,7 +275,7 @@ const CourseEnquiry = () => {
             <button
               onClick={clearFilters}
               className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors flex items-center text-sm"
-            title='Clear all filters'
+              title="Clear all filters"
             >
               <FaFilter className="mr-1" size={12} />
               Clear
@@ -292,101 +291,106 @@ const CourseEnquiry = () => {
       </div>
 
       {/* Enquiries Table */}
-      <div className="w-full">
-        {isFilterLoading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="flex flex-col items-center space-y-1">
-              <FaSpinner className="animate-spin text-blue-600 text-4xl" />
-              <span className="text-sm text-gray-800">Filtering...</span>
-            </div>
-          </div>
-        ) : filteredEnquiries.length === 0 ? (
-          <div className="text-center p-4 bg-gray-100 rounded-lg text-gray-800 text-sm">
-            No enquiries found.
-          </div>
-        ) : (
-          <div className="overflow-x-auto shadow-sm rounded-lg bg-white">
-            <table className="min-w-full">
-              <thead>
-                <tr className="bg-blue-600 text-white text-sm font-semibold">
-                  <th className="py-2 px-3 text-left">ID</th>
-                  <th className="py-2 px-3 text-left">Full Name</th>
-                  <th className="py-2 px-3 text-left">Mobile</th>
-                  <th className="py-2 px-3 text-left">Email</th>
-                  <th className="py-2 px-3 text-left">Course</th>
-                  <th className="py-2 px-3 text-left">Status</th>
-                  <th className="py-2 px-3 text-left">Created At</th>
-                  <th className="py-2 px-3 text-left">Modified At</th>
-                  <th className="py-2 px-3 text-left">Modified By</th>
-                  <th className="py-2 px-3 text-left">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEnquiries.map((enquiry, index) => (
-                  <tr 
-                    key={enquiry.id}
-                    className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-200 transition-colors`}
-                  >
-                    <td className="py-2 px-3 text-sm text-gray-800">{index+1}</td>
-                    <td className="py-2 px-3 text-sm text-gray-800">{enquiry.fullName}</td>
-                    <td className="py-2 px-3 text-sm text-gray-800">{enquiry.mobileNumber}</td>
-                    <td className="py-2 px-3 text-sm text-gray-800">{enquiry.email}</td>
-                    <td className="py-2 px-3 text-sm text-gray-800">{enquiry.course}</td>
-                    <td className="py-2 px-3 text-sm">
-                      <span 
-                        className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                          enquiry.isContacted 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {enquiry.isContacted ? 'Contacted' : 'Pending'}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-sm text-gray-800">
-                      {new Date(enquiry.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-2 px-3 text-sm text-gray-800">
-                      {enquiry.modifiedAt ? new Date(enquiry.modifiedAt).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="py-2 px-3 text-sm text-gray-800">
-                      {enquiry.modifiedby || '-'}
-                    </td>
-                    <td className="py-2 px-3 text-sm">
-                      <button
-                        onClick={() => handleReplyClick(enquiry)}
-                        className="flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-200 transition-colors text-xs"
-                      >
-                        <FaReply className="mr-1" size={10} />
-                        Reply
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+<div className="w-full">
+  {isFilterLoading ? (
+    <div className="flex justify-center items-center py-8">
+      <div className="flex flex-col items-center space-y-1">
+        <FaSpinner className="animate-spin text-blue-600 text-4xl" />
+        <span className="text-sm text-gray-800">Filtering...</span>
       </div>
+    </div>
+  ) : filteredEnquiries.length === 0 ? (
+    <div className="text-center p-4 bg-gray-100 rounded-lg text-gray-800 text-sm">
+      No enquiries found.
+    </div>
+  ) : (
+    <div className="overflow-x-auto shadow-sm rounded-lg bg-white">
+      <table className="min-w-full">
+        <thead>
+          <tr className="bg-blue-600 text-white text-sm font-semibold">
+            <th className="py-2 px-3 text-left">ID</th>
+            <th className="py-2 px-3 text-left">Full Name</th>
+            <th className="py-2 px-3 text-left">Mobile</th>
+            <th className="py-2 px-3 text-left">Email</th>
+            <th className="py-2 px-3 text-left">Course</th>
+            <th className="py-2 px-3 text-left">Status</th>
+            <th className="py-2 px-3 text-left">Created At</th>
+            <th className="py-2 px-3 text-left">Modified At</th>
+            <th className="py-2 px-3 text-left">Modified By</th>
+            <th className="py-2 px-3 text-left">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredEnquiries.map((enquiry, index) => (
+            <tr
+              key={enquiry.id}
+              className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-gray-200 transition-colors`}
+            >
+              <td className="py-2 px-3 text-sm text-gray-800">{index + 1}</td>
+              <td className="py-2 px-3 text-sm text-gray-800">{enquiry.fullName}</td>
+              <td className="py-2 px-3 text-sm text-gray-800">{enquiry.mobileNumber}</td>
+              <td className="py-2 px-3 text-sm text-gray-800">{enquiry.email}</td>
+              <td className="py-2 px-3 text-sm text-gray-800">{enquiry.course}</td>
+              <td className="py-2 px-3 text-sm">
+                <span
+                  className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                    enquiry.isContacted
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}
+                >
+                  {enquiry.isContacted ? 'Contacted' : 'Pending'}
+                </span>
+              </td>
+              <td className="py-2 px-3 text-sm text-gray-800">
+                {new Date(enquiry.createdAt).toLocaleDateString()}
+              </td>
+              <td className="py-2 px-3 text-sm text-gray-800">
+                {enquiry.modifiedAt ? new Date(enquiry.modifiedAt).toLocaleDateString() : '-'}
+              </td>
+              <td className="py-2 px-3 text-sm text-gray-800">
+                {enquiry.modifiedby || '-'}
+              </td>
+              <td className="py-2 px-3 text-sm">
+                {!enquiry.isContacted && (
+                  <button
+                    onClick={() => handleReplyClick(enquiry)}
+                    className="flex items-center bg-blue-100 text-blue-700 px-2 py-1 rounded-lg hover:bg-blue-200 transition-colors text-xs"
+                  >
+                    <FaReply className="mr-1" size={10} />
+                    Reply
+                  </button>
+                )}
+                {enquiry.isContacted && (
+                  <span className="p-1.5 bg-gray-200 text-black  rounded-lg hover:bg-gray-400 transition-colors text-md">Completed</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</div>
 
       {/* Reply Modal */}
       {showReplyModal && selectedEnquiry && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-4">
-            <button 
+            <button
               onClick={closeModal}
               className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
             >
               <FaTimes size={16} />
             </button>
-            
+
             <h3 className="text-lg font-semibold mb-3 text-gray-800">Reply to Enquiry</h3>
-            
+
             <div className="mb-3 text-sm text-gray-600">
               <div className="mb-1"><strong>To:</strong> {selectedEnquiry.fullName} ({selectedEnquiry.email})</div>
               <div><strong>Course:</strong> {selectedEnquiry.course}</div>
             </div>
-            
+
             <div className="mb-3">
               <label className="block text-sm font-medium text-gray-700 mb-1">Your Reply</label>
               <textarea
@@ -396,7 +400,7 @@ const CourseEnquiry = () => {
                 placeholder="Type your reply here..."
               />
             </div>
-            
+
             <div className="flex justify-end gap-2">
               <button
                 onClick={closeModal}

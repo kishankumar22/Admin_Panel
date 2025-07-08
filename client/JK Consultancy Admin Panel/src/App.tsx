@@ -17,7 +17,7 @@ import AddPicInGallery from './services/AddGallery';
 import AddImportantLinks from './services/AddImportentLinks';
 import AddFaculity from './services/AddFaculity';
 import LatestPost from './services/LatestPost';
-import ECommerce from './pages/Dashboard/ECommerce';
+import ECommerce from './pages/Dashboard/Dashboard';
 import AddUser from './services/AddUser';
 import Unauthorized from './pages/Unauthorized';
 import { useAuth } from './context/AuthContext';
