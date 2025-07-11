@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes } from 'react-icons/fa';
+import { FaEye, FaTimes, FaTrash } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -63,8 +63,12 @@ interface Documents {
 }
 
 interface ExistingDocument {
+  fileUrl: any;
+  documentType: any;
+  fileName: any;
   DocumentType: string;
   Url: string;
+  id: number; // Added for deletion
 }
 
 interface AcademicHistory {
@@ -199,10 +203,12 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   const [existingDocuments, setExistingDocuments] = useState<Record<string, ExistingDocument>>({});
   const [isPromoteModalOpen, setIsPromoteModalOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+
   const handlePromoteClick = (studentId: number) => {
     setSelectedStudentId(studentId);
     setIsPromoteModalOpen(true);
   };
+
   const currentYear = new Date().getFullYear();
   const sessionYears = Array.from({ length: 10 }, (_, i) => {
     const startYear = currentYear - 5 + i;
@@ -210,6 +216,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
   });
 
   const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
+  
 
   const aggregatePaymentDetails = (transactions: PaymentTransaction[]): PaymentDetail[] => {
     const paymentMap: { [key: string]: PaymentDetail } = {};
@@ -243,74 +250,80 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     return Object.values(paymentMap);
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const studentResponse = await axiosInstance.get(`/students/${studentId}`);
-        const studentData = studentResponse.data;
-        setOriginalStudentData(studentData);
-        setStudent({
-          ...studentData,
-          DOB: studentData.DOB ? new Date(studentData.DOB).toISOString().split('T')[0] : '',
-          AdmissionDate: studentData.AdmissionDate ? new Date(studentData.AdmissionDate).toISOString().split('T')[0] : '',
-          DiscontinueOn: studentData.DiscontinueOn ? new Date(studentData.DiscontinueOn).toISOString().split('T')[0] : '',
-          ModifiedBy: modifiedBy,
-          NumberOfEMI: studentData.NumberOfEMI && [2, 3, 4, 5, 6].includes(studentData.NumberOfEMI) ? studentData.NumberOfEMI : null,
-          emiDetails: studentData.emiDetails || [],
-          PaymentMode: studentData.PaymentMode || 'One-Time',
-          FineAmount: studentData.FineAmount || 0,
-          RefundAmount: studentData.RefundAmount || 0,
-          LedgerNumber: studentData.LedgerNumber || '',
-          isLateral: studentData.isLateral || false,
-        });
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      const studentResponse = await axiosInstance.get(`/students/${studentId}`);
+      const studentData = studentResponse.data;
+      setOriginalStudentData(studentData);
+      setStudent({
+        ...studentData,
+        DOB: studentData.DOB ? new Date(studentData.DOB).toISOString().split('T')[0] : '',
+        AdmissionDate: studentData.AdmissionDate ? new Date(studentData.AdmissionDate).toISOString().split('T')[0] : '',
+        DiscontinueOn: studentData.DiscontinueOn ? new Date(studentData.DiscontinueOn).toISOString().split('T')[0] : '',
+        ModifiedBy: modifiedBy,
+        NumberOfEMI: studentData.NumberOfEMI && [2, 3, 4, 5, 6].includes(studentData.NumberOfEMI) ? studentData.NumberOfEMI : null,
+        emiDetails: studentData.emiDetails || [],
+        PaymentMode: studentData.PaymentMode || 'One-Time',
+        FineAmount: studentData.FineAmount || 0,
+        RefundAmount: studentData.RefundAmount || 0,
+        LedgerNumber: studentData.LedgerNumber || '',
+        isLateral: studentData.isLateral || false,
+      });
 
-        const collegeResponse = await axiosInstance.get('/colleges');
-        setColleges(collegeResponse.data);
+      const collegeResponse = await axiosInstance.get('/colleges');
+      setColleges(collegeResponse.data);
 
-        const courseResponse = await axiosInstance.get('/courses');
-        setCourses(courseResponse.data);
+      const courseResponse = await axiosInstance.get('/courses');
+      setCourses(courseResponse.data);
 
-        const docsResponse = await axiosInstance.get(`/students/${studentId}/documents`);
-        const docs: Record<string, ExistingDocument> = {};
-        docsResponse.data.forEach((doc: ExistingDocument) => {
-          docs[doc.DocumentType] = doc;
-        });
-        setExistingDocuments(docs);
+      const docsResponse = await axiosInstance.get(`/students/${studentId}/documents`);
+      const docs: Record<string, ExistingDocument> = {};
+      docsResponse.data.forEach((doc: ExistingDocument) => {
+        const fullUrl = `${axiosInstance.defaults.baseURL}${doc.fileUrl}`; // Use fileUrl from API response
+        docs[doc.documentType] = { ...doc, Url: fullUrl }; // Use documentType (lowercase 'd')
+        // Prefetch preview for all document types
+        setDocuments((prev) => ({
+          ...prev,
+          [doc.documentType]: { file: null, preview: fullUrl }, // Use documentType (lowercase 'd')
+        }));
+      });
+      setExistingDocuments(docs);
 
-        const academicResponse = await axiosInstance.get(`/students/${studentId}/academic-details`);
-        const fetchedAcademicData = academicResponse.data.data;
-        setAcademicData(fetchedAcademicData);
+      const academicResponse = await axiosInstance.get(`/students/${studentId}/academic-details`);
+      const fetchedAcademicData = academicResponse.data.data;
+      setAcademicData(fetchedAcademicData);
 
-        if (fetchedAcademicData.length === 1) {
-          const singleCourseYear = fetchedAcademicData[0].courseYear;
-          setStudent((prev) => ({ ...prev, CourseYear: singleCourseYear }));
-          await loadAcademicDetails(singleCourseYear, false);
-        }
-
-        try {
-          const paymentResponse = await axiosInstance.get('/amountType');
-          if (paymentResponse.data.success) {
-            const transactions: PaymentTransaction[] = paymentResponse.data.data;
-            const aggregatedPayments = aggregatePaymentDetails(transactions);
-            const studentPayments = aggregatedPayments.filter((payment) => payment.studentId === studentId);
-            setPaymentDetails(studentPayments);
-          } else {
-            console.warn('Payment details API did not return success:', paymentResponse.data);
-            setPaymentDetails([]);
-          }
-        } catch (paymentError: any) {
-          console.error('Failed to fetch payment details:', paymentError.message);
-          setPaymentDetails([]);
-          toast.warn('Unable to load payment details. Proceeding without payment information.');
-        }
-      } catch (error: any) {
-        setError(error.response?.data?.message || 'Failed to load student data');
-        toast.error(error.response?.data?.message || 'Failed to load student data');
+      if (fetchedAcademicData.length === 1) {
+        const singleCourseYear = fetchedAcademicData[0].courseYear;
+        setStudent((prev) => ({ ...prev, CourseYear: singleCourseYear }));
+        await loadAcademicDetails(singleCourseYear, false);
       }
-    };
 
-    fetchData();
-  }, [studentId, modifiedBy]);
+      try {
+        const paymentResponse = await axiosInstance.get('/amountType');
+        if (paymentResponse.data.success) {
+          const transactions: PaymentTransaction[] = paymentResponse.data.data;
+          const aggregatedPayments = aggregatePaymentDetails(transactions);
+          const studentPayments = aggregatedPayments.filter((payment) => payment.studentId === studentId);
+          setPaymentDetails(studentPayments);
+        } else {
+          console.warn('Payment details API did not return success:', paymentResponse.data);
+          setPaymentDetails([]);
+        }
+      } catch (paymentError: any) {
+        console.error('Failed to fetch payment details:', paymentError.message);
+        setPaymentDetails([]);
+        toast.warn('Unable to load payment details. Proceeding without payment information.');
+      }
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Failed to load student data');
+      toast.error(error.response?.data?.message || 'Failed to load student data');
+    }
+  };
+
+  fetchData();
+}, [studentId, modifiedBy]);
 
   const loadAcademicDetails = async (courseYear: string, useLoader: boolean = true) => {
     try {
@@ -370,7 +383,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(''), 5000);
+      const timer = setTimeout(() => setError(''), 15000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -560,6 +573,40 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
     }
   };
 
+// Inside your component
+const [showDeleteModal, setShowDeleteModal] = useState(false);
+const [showPreviewModal, setShowPreviewModal] = useState(false);
+const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
+const docURL = selectedDocType ? existingDocuments[selectedDocType]?.Url || '' : '';
+const confirmDelete = () => {
+  if (selectedDocType) {
+    
+    handleDeleteDocument(selectedDocType as keyof Documents);
+    setShowDeleteModal(false);
+    setSelectedDocType(null);
+  }
+};
+
+  const handleDeleteDocument = async (docType: keyof Documents) => {
+    if (!existingDocuments[docType]) return;
+
+    try {
+      await axiosInstance.delete(`/students/${studentId}/documents/${docType}`);
+      setExistingDocuments((prev) => {
+        const newDocs = { ...prev };
+        delete newDocs[docType];
+        return newDocs;
+      });
+      setDocuments((prev) => ({
+        ...prev,
+        [docType]: { file: null, preview: null },
+      }));
+      toast.success(`${docType} deleted successfully`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete document');
+    }
+  };
+
   const handleUpdateConfirm = () => {
     setIsPreviewOpen(true);
   };
@@ -644,7 +691,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             (student.NumberOfEMI !== null && student.NumberOfEMI > 0 && emiDetails.every((emi) => emi.amount > 0 && emi.dueDate)))
         );
       case 4:
-        // return Object.values(documents).some((doc) => doc.file !== null) || Object.values(existingDocuments).length > 0;
+        return true; // No strict validation for documents
       default:
         return true;
     }
@@ -747,16 +794,13 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700">
-                  Last Name 
-                </label>
+                <label className="block text-xs font-medium text-gray-700">Last Name</label>
                 <input
                   type="text"
                   name="LName"
                   value={student.LName}
                   onChange={handleChange}
                   className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300"
-                  required
                 />
               </div>
               <div>
@@ -819,7 +863,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
                   <option value="SC">SC</option>
                   <option value="ST">ST</option>
                   <option value="MINORITY">MINORITY</option>
-
                 </select>
               </div>
               <div>
@@ -1118,17 +1161,17 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
               </div>
 
               <div className="mt-1">
-                <div className=' flex justify-between p-1 mb-2 bg-gradient-to-r from-blue-500 to-purple-300 rounded '>
-                <h2 className="text-xl font-semibold text-white mb-0.5">Academic History</h2>
-                <button
-                  onClick={() => handlePromoteClick(student.StudentId)}
-                  title="Promote Student"
-                  className="px-2 py-1 text-sm font-semibold focus:ring-2  text-white bg-green-400 rounded-lg shadow-sm 
-                            hover:bg-green-500 transition duration-200 flex items-center justify-center"
+                <div className='flex justify-between p-1 mb-2 bg-gradient-to-r from-blue-500 to-purple-300 rounded'>
+                  <h2 className="text-xl font-semibold text-white mb-0.5">Academic History</h2>
+                  <button
+                    onClick={() => handlePromoteClick(student.StudentId)}
+                    title="Promote Student"
+                    className="px-2 py-1 text-sm font-semibold focus:ring-2 text-white bg-green-400 rounded-lg shadow-sm 
+                              hover:bg-green-500 transition duration-200 flex items-center justify-center"
                             type='button'
-                >
-                  Promote 
-                </button>
+                  >
+                    Promote
+                  </button>
                 </div>
                 <div className="overflow-x-auto rounded border border-gray-200 shadow-sm">
                   <table className="min-w-full divide-y divide-gray-200 text-xs">
@@ -1330,119 +1373,129 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, onClose,
             </div>
           )}
 
-          {step === 4 && (
-            <div className="bg-blue-50 p-2 rounded grid grid-cols-1 md:grid-cols-2 gap-1">
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Student Photo</label>
-                <input
-                  type="file"
-                  accept=".jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'StudentImage')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {documents.StudentImage.preview ? (
-                  <img src={documents.StudentImage.preview} alt="New Preview" className="h-10 w-10 object-cover rounded mt-0.5" />
-                ) : existingDocuments.StudentImage ? (
-                  <img src={existingDocuments.StudentImage.Url} alt="Current" className="h-10 w-10 object-cover rounded mt-0.5" />
-                ) : null}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700">10th Marksheet</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'TenthMarks')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {existingDocuments.TenthMarks && !documents.TenthMarks.file && (
-                  <a
-                    href={existingDocuments.TenthMarks.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 text-xs hover:underline"
-                  >
-                    View Current
-                  </a>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700">12th Marksheet</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'TwelfthMarks')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {existingDocuments.TwelfthMarks && !documents.TwelfthMarks.file && (
-                  <a
-                    href={existingDocuments.TwelfthMarks.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 text-xs hover:underline"
-                  >
-                    View Current
-                  </a>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Caste Certificate</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'CasteCertificate')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {existingDocuments.CasteCertificate && !documents.CasteCertificate.file && (
-                  <a
-                    href={existingDocuments.CasteCertificate.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 text-xs hover:underline"
-                  >
-                    View Current
-                  </a>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Income Certificate</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'Income')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {existingDocuments.Income && !documents.Income.file && (
-                  <a
-                    href={existingDocuments.Income.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 text-xs hover:underline"
-                  >
-                    View Current
-                  </a>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700">Residential Proof</label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'Residential')}
-                  className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
-                />
-                {existingDocuments.Residential && !documents.Residential.file && (
-                  <a
-                    href={existingDocuments.Residential.Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 text-xs hover:underline"
-                  >
-                    View Current
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
+
+
+
+
+{step === 4 && (
+  <div className="bg-blue-50 p-2 rounded grid grid-cols-1 md:grid-cols-2 gap-1">
+    
+    {Object.entries(documents).map(([docType, doc]) => (
+      
+      <div key={docType} className="flex items-center gap-2">
+        <div className="w-full">
+          <label className="block text-xs font-medium text-gray-700">
+            {{
+              StudentImage: "Student Photo",
+              TenthMarks: "10th Marksheet",
+              TwelfthMarks: "12th Marksheet",
+              CasteCertificate: "Caste Certificate",
+              Income: "Income Certificate",
+              Residential: "Residential Proof"
+            }[docType] || docType}
+          </label>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              accept={docType === "StudentImage" ? ".jpg,.jpeg,.png" : ".pdf,.jpg,.jpeg,.png"}
+              onChange={(e) => handleFileChange(e, docType as keyof Documents)}
+              className="w-full border p-1 rounded mt-0.5 text-xs focus:ring-2 focus:ring-blue-300 file:rounded-full file:bg-blue-300"
+            />
+            {(doc.preview || (existingDocuments[docType] && existingDocuments[docType].Url)) && (
+              <img
+                src={doc.preview || existingDocuments[docType].Url}
+                alt={`${docType} Preview`}
+                className="h-10 w-10 object-cover rounded mt-0.5"
+              />
+            )}
+
+            {existingDocuments[docType] && (
+              
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocType(docType);
+                    setShowDeleteModal(true);
+                  }}
+                  className="text-red-500 hover:text-red-700 text-xs p-1 rounded focus:ring-2 focus:ring-red-300"
+                  title="Delete Document"
+                >
+                  <FaTrash />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocType(docType);
+                    setShowPreviewModal(true);
+                  }}
+                  className="text-blue-500 hover:text-blue-700 text-xs p-1 rounded focus:ring-2 focus:ring-blue-300"
+                  title="View Document"
+                >
+                  <FaEye />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+
+{/* Delete Confirmation Modal */}
+{showDeleteModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="bg-white rounded shadow-lg p-5 w-full max-w-sm">
+      <h3 className="text-md font-semibold mb-3">Confirm Deletion</h3>
+      <p className="text-sm text-gray-600 mb-4">Are you sure you want to delete this document?</p>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => {
+            setShowDeleteModal(false);
+            setSelectedDocType(null);
+          }}
+          className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={confirmDelete}
+          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Preview Modal */}
+{showPreviewModal && selectedDocType && (
+  
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+    <div className="bg-white rounded-lg shadow-lg p-4 max-w-md w-full relative">
+      <button
+        onClick={() => {
+          setShowPreviewModal(false);
+          setSelectedDocType(null);
+        }}
+        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+        title="Close"
+      >
+        ✕
+      </button>
+      <h3 className="text-lg font-semibold mb-3">Document Preview</h3>
+      {docURL?.endsWith(".pdf") ? (
+        <iframe src={docURL} title="PDF Preview" className="w-full h-96 border rounded"></iframe>
+      ) : (
+        <img src={docURL} alt="Preview" className="w-full h-auto rounded shadow" />
+      )}
+    </div>
+  </div>
+)}
 
           <div className="flex justify-between pt-1">
             {step > 1 && (

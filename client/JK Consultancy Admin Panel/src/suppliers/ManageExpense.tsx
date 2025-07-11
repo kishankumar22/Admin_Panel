@@ -7,10 +7,10 @@ import * as XLSX from 'xlsx';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ExpensePayment from './ExpensePayment';
-import { FileSearch } from 'lucide-react';
 import DocumentViewerModal from './DocumentViewerModal';
 import { useLocation } from 'react-router-dom';
 import { usePermissions } from '../context/PermissionsContext';
+import { FileSearch } from 'lucide-react';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -27,6 +27,7 @@ interface Document {
   PublicId: string;
   CreatedOn: string;
   DocumentType: string;
+  SuppliersExpenseID: number;
 }
 
 interface Expense {
@@ -85,62 +86,48 @@ const ManageExpense: React.FC = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-   const {
-      fetchRoles,
-      fetchPages,
-      fetchPermissions,
+  const {
+    fetchRoles,
+    fetchPages,
+    fetchPermissions,
+    pages,
+    permissions,
+  } = usePermissions();
 
-      pages,
-      permissions,
-    } = usePermissions();
-  
-    // Use useEffect to fetch data when the component mounts
-    useEffect(() => {
-      const fetchData = async () => {
-        await fetchRoles();
-        await fetchPages();
-        await fetchPermissions();
-      };
-      fetchData();
-    }, []);
-    // Use useLocation to get the current path
-    const location = useLocation();
-    const currentPageName = location.pathname.split('/').pop();
-    // console.log("currentPageName :", currentPageName);
-  
-    // Permissions and roles
-    // Prefixing currentPageName with '/' to match the database format
-    const prefixedPageUrl = `/${currentPageName}`;
-    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
-    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
-   const loggedroleId = user?.roleId;
-  // Set default permissions based on role ID
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
+    fetchData();
+  }, []);
+
+  const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop();
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
+  const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
+  const loggedroleId = user?.roleId;
   const defaultPermission = loggedroleId === 2;
-  
-  // Use provided permissions if available, otherwise fall back to defaultPermission
   const canCreate = userPermissions?.canCreate ?? defaultPermission;
   const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
   const canDelete = userPermissions?.canDelete ?? defaultPermission;
-  const canRead   = userPermissions?.canRead   ?? defaultPermission;
+  const canRead = userPermissions?.canRead ?? defaultPermission;
 
-  // Set default "To" date to today
   useEffect(() => {
     const today = new Date();
     const formatDate = (date: Date) => date.toISOString().split('T')[0];
     setToDate(formatDate(today));
   }, []);
 
-  // Fetch suppliers and expenses with pending amounts
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Fetch suppliers
         const suppliersResponse = await axiosInstance.get('/suppliers');
         setSuppliers(suppliersResponse.data);
 
-        // Fetch expenses
         const expensesResponse = await axiosInstance.get('/expenses');
         const expensesWithPending = await Promise.all(
           expensesResponse.data.map(async (expense: Expense) => {
@@ -167,11 +154,9 @@ const ManageExpense: React.FC = () => {
         setIsLoading(false);
       }
     };
-
     fetchData();
   }, []);
 
-  // Handle search, date range, payment status, and active/inactive filtering
   useEffect(() => {
     if (expenses.length === 0) return;
 
@@ -222,33 +207,29 @@ const ManageExpense: React.FC = () => {
     setTimeout(() => setIsLoading(false), 100);
   }, [searchTerm, fromDate, toDate, paymentStatus, statusFilter, expenses]);
 
-  // Fetch documents when editing an expense
-useEffect(() => {
-  if (modalMode === 'edit' && editingExpense) {
-    const fetchDocuments = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch documents for this specific expense
-        const response = await axiosInstance.get(`/expenses/${editingExpense.SuppliersExpenseID}/documents`);
-        setDocuments(response.data); // response contains only this expense's docs
-      } catch (error) {
-        console.error('Error fetching documents:', error);
-        toast.error('Failed to fetch documents', {
-          position: 'top-right',
-          autoClose: 1000,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDocuments();
-  } else {
-    setDocuments([]);
-  }
-}, [modalMode, editingExpense]);
+  useEffect(() => {
+    if (modalMode === 'edit' && editingExpense) {
+      const fetchDocuments = async () => {
+        setIsLoading(true);
+        try {
+          const response = await axiosInstance.get(`/expenses/${editingExpense.SuppliersExpenseID}/documents`);
+          setDocuments(response.data);
+        } catch (error) {
+          console.error('Error fetching documents:', error);
+          toast.error('Failed to fetch documents', {
+            position: 'top-right',
+            autoClose: 1000,
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchDocuments();
+    } else {
+      setDocuments([]);
+    }
+  }, [modalMode, editingExpense]);
 
-
-  // Handle rows per page change
   const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRowsPerPage = parseInt(e.target.value);
     setRowsPerPage(newRowsPerPage);
@@ -260,7 +241,6 @@ useEffect(() => {
   const currentExpenses = filteredExpenses.slice(indexOfFirstExpense, indexOfLastExpense);
   const totalPages = Math.ceil(filteredExpenses.length / rowsPerPage);
 
-  // Calculate metrics based on statusFilter
   const activeFilteredExpenses = filteredExpenses.filter((expense) => !expense.Deleted);
   const displayExpenses = statusFilter === 'Inactive' ? filteredExpenses : activeFilteredExpenses;
   const totalDisplayExpenses = displayExpenses.length;
@@ -292,25 +272,25 @@ useEffect(() => {
     });
   };
 
-const handleDeleteDocument = async (publicId: string) => {
-  setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
-  try {
-    // Encode the publicId so `/` is safe in the URL
-    const encodedPublicId = encodeURIComponent(publicId);
-    const response = await axiosInstance.delete(`/documents/${encodedPublicId}`);
-
-    setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-    toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
-  } catch (error: any) {
-    const errorMessage = error.response?.data?.message || 'Failed to delete document';
-    toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
-  } finally {
-    setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
-  }
-};
+  const handleDeleteDocument = async (publicId: string) => {
+    setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
+    try {
+      const response = await axiosInstance.delete(`/documents/${encodeURIComponent(publicId)}`);
+      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
+      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || 'Failed to delete document';
+      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
+    } finally {
+      setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
+    }
+  };
 
   const handleViewDocument = (doc: Document) => {
-    setViewDocument(doc);
+    const fullUrl = doc.DocumentUrl.startsWith('/ExpenseDocs')
+      ? `http://localhost:3002/api/ExpenseDocs/${doc.PublicId}`
+      : doc.DocumentUrl;
+    setViewDocument({ ...doc, DocumentUrl: fullUrl });
   };
 
   const openEditModal = (expense: Expense) => {
@@ -538,125 +518,134 @@ const handleDeleteDocument = async (publicId: string) => {
     pageNumbers.push(i);
   }
 
+  const renderDocumentPreview = (doc: Document) => {
+    const isLocal = doc.DocumentUrl.startsWith('/ExpenseDocs');
+    const url = isLocal ? `http://localhost:3002/api/ExpenseDocs/${doc.PublicId}` : doc.DocumentUrl;
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(doc.PublicId.split('.').pop()?.toLowerCase() || '');
+    const isPdf = doc.PublicId.split('.').pop()?.toLowerCase() === 'pdf';
+
+    return (
+      <div className="flex items-center gap-1">
+        {isImage ? (
+          <img src={url} alt="Document" className="w-6 h-6 object-cover rounded" />
+        ) : isPdf ? (
+          <span className="text-blue-600">PDF</span>
+        ) : (
+          <span className="text-blue-600">File</span>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <Breadcrumb pageName="Manage Expenses" />
       <div className="p-1 bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-700">
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5">
-    
-    {/* Stats Section */}
-    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
-      <div className="flex items-center gap-1">
-        <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
-        <span className="text-gray-600 dark:text-gray-400">Number of Expense:</span>
-        <span className="font-semibold text-indigo-700 dark:text-indigo-400">
-          {isLoading ? '...' : totalDisplayExpenses}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-600 dark:text-gray-400">Total Expense Amount:</span>
-        <span className="font-semibold text-green-700 dark:text-green-400">
-          {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
-        </span>
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-600 dark:text-gray-400">Total Expense Pending:</span>
-        <span className="font-semibold text-red-600 dark:text-red-400">
-          {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
-        </span>
-      </div>
-    </div>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1.5">
+          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+            <div className="flex items-center gap-1">
+              <FaMoneyBillWave className="text-indigo-600 dark:text-indigo-400 w-3 h-3" />
+              <span className="text-gray-600 dark:text-gray-400">Number of Expense:</span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-400">
+                {isLoading ? '...' : totalDisplayExpenses}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">Total Expense Amount:</span>
+              <span className="font-semibold text-green-700 dark:text-green-400">
+                {isLoading ? '...' : `₹${totalDisplayAmount.toLocaleString()}`}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">Total Expense Pending:</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                {isLoading ? '...' : `₹${totalDisplayPendingAmount.toLocaleString()}`}
+              </span>
+            </div>
+          </div>
 
-    {/* Filters & Controls */}
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
-      
-      {/* Search */}
-      <div className="relative w-full sm:w-44">
-        <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-        <input
-          type="text"
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          ref={searchInputRef}
-          className="w-full pl-6 pr-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-        />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+            <div className="relative w-full sm:w-44">
+              <FaSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                ref={searchInputRef}
+                className="w-full pl-6 pr-2 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">From:</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-gray-600 dark:text-gray-400">To:</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+
+            <select
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
+              className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="All">All</option>
+              <option value="Paid">Paid</option>
+              <option value="Unpaid">Unpaid</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
+              className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="All">All</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+
+            <button
+              onClick={handleClearFilters}
+              className="p-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded focus:outline-none"
+              title="Clear Filters"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <button
+              onClick={
+                canCreate
+                  ? () => {
+                      setModalMode('add');
+                      setIsModalOpen(true);
+                    }
+                  : () => toast.error('Access Denied: You do not have permission to add Expenses.')
+              }
+              className={`px-2 py-1 text-xs font-medium rounded text-white transition-colors ${
+                canCreate
+                  ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-1 focus:ring-indigo-500'
+                  : 'bg-indigo-600 opacity-50 cursor-not-allowed'
+              }`}
+              type='button'
+            >
+              + Add
+            </button>
+          </div>
+        </div>
       </div>
-
-      {/* Date Filters */}
-      <div className="flex items-center gap-1">
-        <span className="text-gray-600 dark:text-gray-400">From:</span>
-        <input
-          type="date"
-          value={fromDate}
-          onChange={(e) => setFromDate(e.target.value)}
-          className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-        />
-      </div>
-      <div className="flex items-center gap-1">
-        <span className="text-gray-600 dark:text-gray-400">To:</span>
-        <input
-          type="date"
-          value={toDate}
-          onChange={(e) => setToDate(e.target.value)}
-          className="w-24 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
-        />
-      </div>
-
-      {/* Payment Filter */}
-      <select
-        value={paymentStatus}
-        onChange={(e) => setPaymentStatus(e.target.value as 'All' | 'Paid' | 'Unpaid')}
-        className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-      >
-        <option value="All">All</option>
-        <option value="Paid">Paid</option>
-        <option value="Unpaid">Unpaid</option>
-      </select>
-
-      {/* Status Filter */}
-      <select
-        value={statusFilter}
-        onChange={(e) => setStatusFilter(e.target.value as 'All' | 'Active' | 'Inactive')}
-        className="w-20 p-1 text-xs rounded border border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
-      >
-        <option value="All">All</option>
-        <option value="Active">Active</option>
-        <option value="Inactive">Inactive</option>
-      </select>
-
-      {/* Clear + Add Buttons */}
-      <button
-        onClick={handleClearFilters}
-        className="p-1 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded focus:outline-none"
-        title="Clear Filters"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    <button
-  onClick={
-    canCreate
-      ? () => {
-          setModalMode('add');
-          setIsModalOpen(true);
-        }
-      : () => toast.error('Access Denied: You do not have permission to add Expenses.')
-  }
-  className={`px-2 py-1 text-xs font-medium rounded text-white transition-colors ${
-    canCreate
-      ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-1 focus:ring-indigo-500'
-      : 'bg-indigo-600 opacity-50 cursor-not-allowed'
-  }`}
-  type='button'
->
-  + Add
-</button>
-    </div>
-  </div>
-</div>
-
 
       <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-1">
@@ -680,240 +669,237 @@ const handleDeleteDocument = async (publicId: string) => {
         </button>
       </div>
 
-    <div className="mt-2">
-  <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
-    {isLoading ? (
-      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 dark:bg-gray-800">
-        <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
-        <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Loading expenses...</p>
-      </div>
-    ) : (
-      <>
-        <table className="min-w-full text-xs bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-indigo-600 dark:bg-indigo-700 text-white">
-            <tr>
-              {['Sr.', 'Supplier', 'Phone', 'Reason', 'Amount', 'Pending', 'Created On', 'Created By', 'Status','Action', ].map((title) => (
-                <th 
-                  key={title} 
-                  className={`px-2 py-2 text-left font-medium whitespace-nowrap ${
-                    title === 'Amount' || title === 'Pending' ? 'text-right' : 'text-left'
-                  }`}
-                >
-                  {title}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-            {dataFetched && currentExpenses.length === 0 ? (
-              <tr>
-                <td colSpan={10} className="py-8 text-center">
-                  <div className="flex flex-col items-center justify-center">
-                    <FileSearch className="h-8 w-8 text-gray-400 mb-2" />
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No Expense records found</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Try adjusting your filters or check back later
-                    </p>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              currentExpenses.map((expense, index) => (
-                <tr
-                  key={expense.SuppliersExpenseID}
-                  className={`${
-                    expense.Deleted
-                      ? 'bg-gray-50 dark:bg-gray-800 opacity-80'
-                      : index % 2 === 0
-                      ? 'bg-gray-50 dark:bg-gray-800'
-                      : 'bg-white dark:bg-gray-900'
-                  } hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors`}
-                >
-                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300">
-                    {indexOfFirstExpense + index + 1}
-                  </td>
-                
-                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 font-medium">
-                    {expense.SupplierName}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
-                    {expense.SupplierPhone}
-                  </td>
-                  <td className="px-2 py-2 text-gray-700 dark:text-gray-300 max-w-[120px] truncate" title={expense.Reason}>
-                    {expense.Reason}
-                  </td>
-                  <td className="px-2 py-2 text-right font-medium text-green-600 dark:text-green-400">
-                    ₹{expense.Amount.toFixed(2)}
-                  </td>
-                  <td className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">
-                    ₹{(expense.PendingAmount || 0).toFixed(2)}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                    {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
-                  </td>
-                  <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
-                    {expense.CreatedBy}
-                  </td>
-                  <td className="px-2 py-2">
-                    <span
-                      className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
-                        expense.Deleted
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                          : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+      <div className="mt-2">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 dark:bg-gray-800">
+              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Loading expenses...</p>
+            </div>
+          ) : (
+            <>
+              <table className="min-w-full text-xs bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-indigo-600 dark:bg-indigo-700 text-white">
+                  <tr>
+                    {['Sr.', 'Supplier', 'Phone', 'Reason', 'Amount', 'Pending', 'Created On', 'Created By', 'Status', 'Action'].map((title) => (
+                      <th 
+                        key={title} 
+                        className={`px-2 py-2 text-left font-medium whitespace-nowrap ${
+                          title === 'Amount' || title === 'Pending' ? 'text-right' : 'text-left'
+                        }`}
+                      >
+                        {title}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {dataFetched && currentExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="py-8 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <FileSearch className="h-8 w-8 text-gray-400 mb-2" />
+                          <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No Expense records found</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Try adjusting your filters or check back later
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    currentExpenses.map((expense, index) => (
+                      <tr
+                        key={expense.SuppliersExpenseID}
+                        className={`${
+                          expense.Deleted
+                            ? 'bg-gray-50 dark:bg-gray-800 opacity-80'
+                            : index % 2 === 0
+                            ? 'bg-gray-50 dark:bg-gray-800'
+                            : 'bg-white dark:bg-gray-900'
+                        } hover:bg-indigo-50 dark:hover:bg-gray-700 transition-colors`}
+                      >
+                        <td className="px-2 py-2 text-gray-700 dark:text-gray-300">
+                          {indexOfFirstExpense + index + 1}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700 dark:text-gray-300 font-medium">
+                          {expense.SupplierName}
+                        </td>
+                        <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                          {expense.SupplierPhone}
+                        </td>
+                        <td className="px-2 py-2 text-gray-700 dark:text-gray-300 max-w-[120px] truncate" title={expense.Reason}>
+                          {expense.Reason}
+                        </td>
+                        <td className="px-2 py-2 text-right font-medium text-green-600 dark:text-green-400">
+                          ₹{expense.Amount.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">
+                          ₹{(expense.PendingAmount || 0).toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                          {new Date(expense.CreatedOn).toLocaleDateString('en-IN')}
+                        </td>
+                        <td className="px-2 py-2 text-gray-600 dark:text-gray-400">
+                          {expense.CreatedBy}
+                        </td>
+                        <td className="px-2 py-2">
+                          <span
+                            className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${
+                              expense.Deleted
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                            }`}
+                          >
+                            {expense.Deleted ? 'Inactive' : 'Active'}
+                          </span>
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={
+                                canUpdate && !expense.Deleted
+                                  ? () => openPaymentModal(expense)
+                                  : () => toast.error('Access Denied: You do not have permission to make payments or expense is deleted.')
+                              }
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                                canUpdate && !expense.Deleted
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
+                              }`}
+                              title="Make Payment"
+                              type='button'
+                            >
+                              <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                              Pay
+                            </button>
+                            <button
+                              onClick={
+                                canRead && !expense.Deleted
+                                  ? () => openEditModal(expense)
+                                  : () => toast.error('Access Denied: You do not have permission to edit expenses or expense is deleted.')
+                              }
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                                canRead && !expense.Deleted
+                                  ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                  : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
+                              }`}
+                              title="Edit Expense"
+                              type='button'
+                            >
+                              <FaEdit className="w-3 h-3 mr-1" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={
+                                canDelete
+                                  ? () => handleToggleDeleted(expense)
+                                  : () => toast.error('Access Denied: You do not have permission to toggle expense status.')
+                              }
+                              className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${
+                                canDelete
+                                  ? expense.Deleted
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-red-600 hover:bg-red-700'
+                                  : expense.Deleted
+                                  ? 'bg-green-600 opacity-50 cursor-not-allowed'
+                                  : 'bg-red-600 opacity-50 cursor-not-allowed'
+                              }`}
+                              title={expense.Deleted ? 'Activate' : 'Deactivate'}
+                              type='button'
+                            >
+                              {expense.Deleted ? (
+                                <>
+                                  <FaToggleOff className="w-3 h-3 mr-1" />
+                                  Active
+                                </>
+                              ) : (
+                                <>
+                                  <FaToggleOn className="w-3 h-3 mr-1" />
+                                  Inactive
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-600 dark:text-gray-400 mb-2 sm:mb-0">
+                  Showing {indexOfFirstExpense + 1} to{' '}
+                  {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
+                  {filteredExpenses.length} expenses
+                </div>
+                <nav className="flex items-center space-x-1">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
+                  >
+                    <FaChevronLeft className="w-3 h-3" />
+                  </button>
+                  {startPage > 1 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                      >
+                        1
+                      </button>
+                      {startPage > 2 && (
+                        <span className="px-1 text-xs text-gray-500">...</span>
+                      )}
+                    </>
+                  )}
+                  {pageNumbers.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-2.5 py-1 text-xs rounded-md transition ${
+                        currentPage === page
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
-                      {expense.Deleted ? 'Inactive' : 'Active'}
-                    </span>
-                  </td>
-                    <td className="px-2 py-2">
-                    <div className="flex gap-1">
-                     <button
-  onClick={
-    canUpdate && !expense.Deleted
-      ? () => openPaymentModal(expense)
-      : () => toast.error('Access Denied: You do not have permission to make payments or expense is deleted.')
-  }
-  className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-    canUpdate && !expense.Deleted
-      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-      : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
-  }`}
-  title="Make Payment"
-  type='button'
->
-  <FaMoneyBillWave className="w-3 h-3 mr-1" />
-  Pay
-</button>
-                    <button
-  onClick={
-    canRead && !expense.Deleted
-      ? () => openEditModal(expense)
-      : () => toast.error('Access Denied: You do not have permission to edit expenses or expense is deleted.')
-  }
-  className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-    canRead && !expense.Deleted
-      ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
-      : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed opacity-50'
-  }`}
-  title="Edit Expense"
-  type='button'
->
-  <FaEdit className="w-3 h-3 mr-1" />
-  Edit
-</button>
-              <button
-  onClick={
-    canDelete
-      ? () => handleToggleDeleted(expense)
-      : () => toast.error('Access Denied: You do not have permission to toggle expense status.')
-  }
-  className={`inline-flex items-center px-2 py-1 rounded text-xs text-white ${
-    canDelete
-      ? expense.Deleted
-        ? 'bg-green-600 hover:bg-green-700'
-        : 'bg-red-600 hover:bg-red-700'
-      : expense.Deleted
-      ? 'bg-green-600 opacity-50 cursor-not-allowed'
-      : 'bg-red-600 opacity-50 cursor-not-allowed'
-  }`}
-  title={expense.Deleted ? 'Activate' : 'Deactivate'}
-  type='button'
->
-  {expense.Deleted ? (
-    <>
-      <FaToggleOff className="w-3 h-3 mr-1" />
-      Active
-    </>
-  ) : (
-    <>
-      <FaToggleOn className="w-3 h-3 mr-1" />
-      Inactive
-    </>
-  )}
-</button>
-
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-2 sm:mb-0">
-            Showing {indexOfFirstExpense + 1} to{' '}
-            {Math.min(indexOfLastExpense, filteredExpenses.length)} of{' '}
-            {filteredExpenses.length} expenses
-          </div>
-          <nav className="flex items-center space-x-1">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
-            >
-              <FaChevronLeft className="w-3 h-3" />
-            </button>
-            {startPage > 1 && (
-              <>
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                >
-                  1
-                </button>
-                {startPage > 2 && (
-                  <span className="px-1 text-xs text-gray-500">...</span>
-                )}
-              </>
-            )}
-            {pageNumbers.map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-2.5 py-1 text-xs rounded-md transition ${
-                  currentPage === page
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            {endPage < totalPages && (
-              <>
-                {endPage < totalPages - 1 && (
-                  <span className="px-1 text-xs text-gray-500">...</span>
-                )}
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-                >
-                  {totalPages}
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
-            >
-              <FaChevronRight className="w-3 h-3" />
-            </button>
-          </nav>
+                      {page}
+                    </button>
+                  ))}
+                  {endPage < totalPages && (
+                    <>
+                      {endPage < totalPages - 1 && (
+                        <span className="px-1 text-xs text-gray-500">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="px-2.5 py-1 text-xs rounded-md text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-md text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition"
+                  >
+                    <FaChevronRight className="w-3 h-3" />
+                  </button>
+                </nav>
+              </div>
+            </>
+          )}
         </div>
-      </>
-    )}
-  </div>
-</div>
+      </div>
 
-      {/* Add/Edit Expense Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-md">
             <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
               <h2 className="text-base font-semibold text-gray-800 flex items-center">
-                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white mr-2">
+                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-sky-500 text-white mr-2">
                   {modalMode === 'add' ? '+' : '✎'}
                 </span>
                 {modalMode === 'add' ? 'Add New Expense' : 'Update Expense'}
@@ -935,7 +921,7 @@ const handleDeleteDocument = async (publicId: string) => {
                   name="SupplierId"
                   value={formData.SupplierId}
                   onChange={handleInputChange}
-                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 bg-white"
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-sky-500 focus:border-blue-500 bg-white"
                   required
                 >
                   <option value="">Select Supplier</option>
@@ -1000,6 +986,7 @@ const handleDeleteDocument = async (publicId: string) => {
                       onChange={handleFileChange}
                       ref={fileInputRef}
                       className="hidden"
+                      accept="*/*" // Allow all file types
                     />
                   </label>
                 </div>
@@ -1016,8 +1003,9 @@ const handleDeleteDocument = async (publicId: string) => {
                       >
                         <span className="truncate">{index + 1}. </span>
                         <span className="truncate flex-1">
-                          {doc.DocumentUrl.split('/').pop() || 'Document'}
+                          {doc.PublicId.split('/').pop() || 'Document'}
                         </span>
+                        {renderDocumentPreview(doc)}
                         <button
                           type="button"
                           onClick={() => handleViewDocument(doc)}
@@ -1047,6 +1035,7 @@ const handleDeleteDocument = async (publicId: string) => {
                       >
                         <span className="truncate">{documents.length + index + 1}. </span>
                         <span className="truncate flex-1">{fileObj.file.name}</span>
+                        <img src={fileObj.preview} alt="Preview" className="w-6 h-6 object-cover rounded" />
                         <button
                           type="button"
                           onClick={() => removeFile(index)}
@@ -1082,7 +1071,7 @@ const handleDeleteDocument = async (publicId: string) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-xs font-medium text-white rounded-md bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="px-3 py-1.5 text-xs font-medium text-black rounded-md bg-blue-300 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   {modalMode === 'add' ? 'Save' : 'Update'}
                 </button>
@@ -1092,7 +1081,6 @@ const handleDeleteDocument = async (publicId: string) => {
         </div>
       )}
 
-      {/* Payment Modal */}
       {isPaymentModalOpen && selectedSupplier && (
         <ExpensePayment
           expense={{
@@ -1111,7 +1099,6 @@ const handleDeleteDocument = async (publicId: string) => {
         />
       )}
 
-      {/* Document Viewer Modal */}
       {viewDocument && (
         <DocumentViewerModal
           document={viewDocument}

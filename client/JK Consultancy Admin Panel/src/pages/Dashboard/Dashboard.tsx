@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from "react-router-dom";
 import { 
@@ -24,10 +23,13 @@ interface Student {
   };
   status: boolean;
   isLateral: boolean;
+  admissionDate: string;
   academicDetails: {
     id: number;
     feesAmount: number;
     adminAmount: number;
+    sessionYear: string;
+    courseYear: string;
   }[];
 }
 
@@ -78,86 +80,260 @@ const ModernStatCard: React.FC<{
 
 const Dashboard: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
+  const [sessionYear, setSessionYear] = useState<string>('All');
+  const [courseYear, setCourseYear] = useState<string>('All');
+  const [dataLoaded, setDataLoaded] = useState(false); // Add this state
 
-  const fetchData = async () => {
+  // Get unique session years from students data
+  const getUniqueSessionYears = () => {
+    const sessionYears = new Set<string>();
+    students.forEach(student => {
+      student.academicDetails.forEach(detail => {
+        sessionYears.add(detail.sessionYear);
+      });
+    });
+    return ['All', ...Array.from(sessionYears).sort()];
+  };
+
+  // Set default session year to the maximum from data
+  useEffect(() => {
+    if (students.length > 0) {
+      const maxSessionYear = getUniqueSessionYears().filter(year => year !== 'All').sort().pop() || 'All';
+      setSessionYear(maxSessionYear);
+    }
+  }, [students]);
+
+ const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
       const studentResponse = await axiosInstance.get('/students');
       setStudents(studentResponse.data);
-      // console.log(studentResponse.data);
-      setLoading(false);
+      setFilteredStudents(studentResponse.data);
+      setDataLoaded(true); // Mark data as loaded
     } catch (error) {
       console.error('Error fetching student data:', error);
       setError('Failed to fetch student data. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
-  // Fetch data on component mount
+
+  // Filter students based on session year and course year with loading
+  const handleFilterChange = () => {
+    setLoading(true);
+    let filtered = students;
+
+    if (sessionYear !== 'All') {
+      filtered = filtered.filter(student => 
+        student.academicDetails.some(detail => detail.sessionYear === sessionYear)
+      );
+    }
+
+    if (courseYear !== 'All') {
+      filtered = filtered.filter(student => 
+        student.academicDetails.some(detail => detail.courseYear === courseYear)
+      );
+    }
+
+    setTimeout(() => {
+      setFilteredStudents(filtered);
+      setLoading(false);
+    }, 500); // Simulate loading delay
+  };
+
+  // Fetch data on component mount and handle filter changes
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Calculate student metrics
-  const totalStudents = students.length;
-  const activeStudents = students.filter((student) => student.status === true).length;
-  const bPharmaStudents = students.filter(
+  useEffect(() => {
+    handleFilterChange();
+  }, [sessionYear, courseYear]);
+
+  // Calculate student metrics based on filtered students
+  const totalStudents = filteredStudents.length;
+  const activeStudents = filteredStudents.filter((student) => student.status === true).length;
+  const bPharmaStudents = filteredStudents.filter(
     (student) => student.course.courseName === "B. Pharma"
   ).length;
-  const dPharmaStudents = students.filter(
+  const dPharmaStudents = filteredStudents.filter(
     (student) => student.course.courseName === "D. Pharma"
   ).length;
-  const maleStudents = students.filter(
+  const maleStudents = filteredStudents.filter(
     (student) => student.gender.toLowerCase() === "male"
   ).length;
-  const femaleStudents = students.filter(
+  const femaleStudents = filteredStudents.filter(
     (student) => student.gender.toLowerCase() === "female"
   ).length;
-  const lateralEntries = students.filter(
+  const lateralEntries = filteredStudents.filter(
     (student) => student.isLateral === true
   ).length;
 
-  if (loading) {
+  if (loading || !dataLoaded) {
     return <DashboardLoader />;
   }
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="bg-gradient-to-br from-slate-50  via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-600 rounded-lg">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Welcome back, manage your institution</p>
-              </div>
+ <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="mx-auto px-3 sm:px-4 sm:flex-wrap lg:px-8">
+        
+        {/* Mobile Layout - Stacked */}
+        <div className="block sm:hidden py-3 space-y-3">
+          {/* Icon + Title */}
+          <div className="flex items-center space-x-3">
+            <div className="p-2 bg-blue-600 rounded-lg flex-shrink-0">
+              <BarChart3 className="w-4 h-4 text-white" />
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-600 dark:text-gray-300">Last updated</p>
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date().toLocaleDateString()}</p>
-              </div>
-              <button
-                onClick={fetchData}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
-              >
-                <RefreshCw className="w-5 h-5" />
-                <span>Refresh Data</span>
-              </button>
-              {error && (
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              )}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base font-bold text-gray-900 dark:text-white truncate">
+                Admin Dashboard
+              </h1>
+              <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                Welcome back, manage your institution
+              </p>
             </div>
           </div>
+          
+          {/* Filters */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 w-16">
+                Session:
+              </label>
+              <select
+                value={sessionYear}
+                onChange={(e) => setSessionYear(e.target.value)}
+                className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {getUniqueSessionYears().map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 w-16">
+                Course:
+              </label>
+              <select
+                value={courseYear}
+                onChange={(e) => setCourseYear(e.target.value)}
+                className="flex-1 px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="All">All</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+              </select>
+            </div>
+          </div>
+          
+          {/* Last Updated + Refresh */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
+              <p className="text-gray-600 dark:text-gray-400">Last updated</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {new Date().toLocaleDateString()}
+              </p>
+            </div>
+            <button
+              onClick={fetchData}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
+
+        {/* Tablet & Desktop Layout - Compact Single Row */}
+        <div className="hidden sm:flex items-center justify-between py-3 gap-4">
+          
+          {/* Left: Icon + Title */}
+          <div className="flex items-center space-x-3 flex-shrink-0">
+            <div className="p-2 bg-blue-600 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+                Admin Dashboard
+              </h1>
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                Welcome back, manage your institution
+              </p>
+            </div>
+          </div>
+          
+          {/* Center: Filters - Compact */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="flex items-center gap-1">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Session:
+              </label>
+              <select
+                value={sessionYear}
+                onChange={(e) => setSessionYear(e.target.value)}
+                className="px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px]"
+              >
+                {getUniqueSessionYears().map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Course:
+              </label>
+              <select
+                value={courseYear}
+                onChange={(e) => setCourseYear(e.target.value)}
+                className="px-2 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[80px]"
+              >
+                <option value="All">All</option>
+                <option value="1st">1st</option>
+                <option value="2nd">2nd</option>
+                <option value="3rd">3rd</option>
+                <option value="4th">4th</option>
+              </select>
+            </div>
+          </div>
+          
+          {/* Right: Last Updated + Refresh */}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <div className="text-sm text-right">
+              <p className="text-gray-600 dark:text-gray-400">Last updated</p>
+              <p className="font-medium text-gray-900 dark:text-white">
+                {new Date().toLocaleDateString()}
+              </p>
+            </div>
+            <button
+              onClick={fetchData}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md mb-3">
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
       </div>
+    </div>
+
 
       {/* Main Content */}
       <div className="mx-auto sm:px-6 lg:px-2 py-4">
@@ -266,12 +442,14 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer */}
+       
+       </div>
+       {/* Footer */}
         <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
           <p>© 2025 Admin Panel. All rights reserved.</p>
         </div>
-      </div>
     </div>
+    
   );
 };
 

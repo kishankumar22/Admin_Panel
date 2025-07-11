@@ -3,72 +3,12 @@ import { FaTimes } from 'react-icons/fa';
 import axiosInstance from '../../config';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { StudentFormData } from '../../types/addstudent';
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
-interface StudentFormData {
-  RollNumber: string;
-  FName: string;
-  LName: string;
-  DOB: string;
-  Gender: string;
-  MobileNumber: string;
-  AlternateNumber: string;
-  EmailId: string;
-  FatherName: string;
-  FatherMobileNumber: string;
-  MotherName: string;
-  Address: string;
-  City: string;
-  State: string;
-  Pincode: string;
-  CourseId: string;
-  CourseYear: string;
-  Category: string;
-  LedgerNumber: string;
-  CollegeId: string;
-  AdmissionMode: string;
-  AdmissionDate: string;
-  IsDiscontinue: boolean;
-  DiscontinueOn: string;
-  DiscontinueBy: string;
-  FineAmount: number;
-  RefundAmount: number;
-  CreatedBy: string;
-  SessionYear: string;
-  PaymentMode: string;
-  NumberOfEMI: number | null;
-  isLateral: boolean;
-}
-
-interface FileData {
-  file: File | null;
-  preview: string | null;
-}
-
 interface Documents {
-  StudentImage: FileData;
-  CasteCertificate: FileData;
-  TenthMarks: FileData;
-  TwelfthMarks: FileData;
-  Residential: FileData;
-  Income: FileData;
-}
-
-interface College {
-  id: number;
-  collegeName: string;
-}
-
-interface Course {
-  id: number;
-  courseName: string;
-  courseDuration: number;
-}
-
-interface StudentFromApi {
-  email: string;
-  rollNumber: string;
+  [key: string]: { file: File | null; preview: string | null };
 }
 
 interface AddStudentModalProps {
@@ -86,10 +26,18 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
   const [courses, setCourses] = useState<Course[]>([]);
   const [emiDetails, setEmiDetails] = useState<Array<{ emiNumber: number; amount: number; date: string }>>([]);
   const [isLateralModalOpen, setIsLateralModalOpen] = useState(false);
-  const [existingStudents, setExistingStudents] = useState<StudentFromApi[]>([]);
+  const [existingStudents, setExistingStudents] = useState<{ email: string; rollNumber: string }[]>([]);
   const [rollNumberError, setRollNumberError] = useState('');
   const [emailError, setEmailError] = useState('');
   const [dobError, setDobError] = useState('');
+  const [documents, setDocuments] = useState<Documents>({
+    StudentImage: { file: null, preview: null },
+    CasteCertificate: { file: null, preview: null },
+    TenthMarks: { file: null, preview: null },
+    TwelfthMarks: { file: null, preview: null },
+    Residential: { file: null, preview: null },
+    Income: { file: null, preview: null },
+  });
 
   const [student, setStudent] = useState<StudentFormData>({
     RollNumber: '',
@@ -126,15 +74,6 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
     isLateral: false,
   });
 
-  const [documents, setDocuments] = useState<Documents>({
-    StudentImage: { file: null, preview: null },
-    CasteCertificate: { file: null, preview: null },
-    TenthMarks: { file: null, preview: null },
-    TwelfthMarks: { file: null, preview: null },
-    Residential: { file: null, preview: null },
-    Income: { file: null, preview: null },
-  });
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -145,7 +84,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
         ]);
         setColleges(collegeResponse.data);
         setCourses(courseResponse.data);
-        setExistingStudents(studentsResponse.data); // Assuming response is an array of { email, rollNumber }
+        setExistingStudents(studentsResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
         setError('Failed to load colleges, courses, or student data');
@@ -164,7 +103,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
   const validateRollNumber = (rollNumber: string) => {
     if (rollNumber && existingStudents.some((s) => s.rollNumber === rollNumber)) {
-      setRollNumberError('This roll number already exists. Please enter a different roll number.');
+      setRollNumberError('This roll number already exists.');
     } else {
       setRollNumberError('');
     }
@@ -172,7 +111,7 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
 
   const validateEmail = (email: string) => {
     if (email && existingStudents.some((s) => s.email.toLowerCase() === email.toLowerCase())) {
-      setEmailError('This email already exists. Please enter a different email.');
+      setEmailError('This email already exists.');
     } else {
       setEmailError('');
     }
@@ -181,59 +120,39 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
 
-    // Validate DOB (minimum 18 years old)
     if (name === 'DOB') {
       const dob = new Date(value);
       const today = new Date();
       const minDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-
-      if (dob > minDate) {
-        setDobError('Student must be at least 18 years old');
-      }
-      else{
-        setDobError('')
-      }
+      setDobError(dob > minDate ? 'Student must be at least 18 years old' : '');
     }
 
-    // Validate Admission Date (not in future) and set Session Year
     if (name === 'AdmissionDate') {
       const admissionDate = new Date(value);
       const today = new Date();
-
       if (admissionDate > today) {
         setError('Admission date cannot be in the future');
         return;
       }
-      // session year   
-        const year = admissionDate.getFullYear();
-        const month = admissionDate.getMonth();
-        const sessionStartYear = month >= 6 ? year : year - 1;
-        const sessionEndYear = sessionStartYear + 1;
-        const sessionYear = `${sessionStartYear}-${sessionEndYear}`;
-      console.log(sessionYear)
-      
-      setStudent((prev) => ({
-        ...prev,
-        AdmissionDate: value,
-        SessionYear: sessionYear,
-      }));
+      const year = admissionDate.getFullYear();
+      const month = admissionDate.getMonth();
+      const sessionStartYear = month >= 6 ? year : year - 1;
+      const sessionEndYear = sessionStartYear + 1;
+      const sessionYear = `${sessionStartYear}-${sessionEndYear}`;
+      setStudent((prev) => ({ ...prev, AdmissionDate: value, SessionYear: sessionYear }));
       return;
     }
 
-    // Check if CourseYear is changed to "2nd"
     if (name === 'CourseYear' && value === '2nd') {
       setIsLateralModalOpen(true);
     }
 
-    // Update student state and validate roll number/email
     if (type === 'checkbox') {
       setStudent((prev) => ({ ...prev, [name]: (e.target as HTMLInputElement).checked }));
     } else if (type === 'number') {
       const numValue = value === '' ? 0 : parseFloat(value);
       setStudent((prev) => ({ ...prev, [name]: numValue }));
-      if (name === 'RollNumber') {
-        validateRollNumber(value);
-      }
+      if (name === 'RollNumber') validateRollNumber(value);
     } else if (name === 'PaymentMode') {
       setStudent((prev) => ({
         ...prev,
@@ -256,11 +175,8 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
       }
     } else {
       setStudent((prev) => ({ ...prev, [name]: value }));
-      if (name === 'RollNumber') {
-        validateRollNumber(value);
-      } else if (name === 'EmailId') {
-        validateEmail(value);
-      }
+      if (name === 'RollNumber') validateRollNumber(value);
+      else if (name === 'EmailId') validateEmail(value);
     }
   };
 
@@ -278,27 +194,19 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof Documents) => {
     const file = e.target.files?.[0];
     if (file) {
-      const preview = fieldName === 'StudentImage' ? URL.createObjectURL(file) : null;
+      const preview = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
       setDocuments((prev) => ({ ...prev, [fieldName]: { file, preview } }));
     }
   };
 
   const handleLateralModalConfirm = () => {
-    setStudent((prev) => ({
-      ...prev,
-      isLateral: true,
-      CourseYear: '2nd',
-    }));
-    setError('You are a lateral Student.');
+    setStudent((prev) => ({ ...prev, isLateral: true, CourseYear: '2nd' }));
+    setError('You are a lateral student.');
     setIsLateralModalOpen(false);
   };
 
   const handleLateralModalCancel = () => {
-    setStudent((prev) => ({
-      ...prev,
-      isLateral: false,
-      CourseYear: '1st',
-    }));
+    setStudent((prev) => ({ ...prev, isLateral: false, CourseYear: '1st' }));
     setIsLateralModalOpen(false);
   };
 
@@ -309,68 +217,40 @@ const AddStudentModal: React.FC<AddStudentModalProps> = ({ onClose, onSuccess, c
     }
 
     if (currentStep === 3 && student.PaymentMode === 'EMI' && student.NumberOfEMI && emiDetails.length > 0) {
-      const adminAmount = student.FineAmount || 0;
-      const feesAmount = student.RefundAmount || 0;
-      const totalAmount = adminAmount + feesAmount;
+      const totalAmount = (student.FineAmount || 0) + (student.RefundAmount || 0);
       const totalEMIAmount = emiDetails.reduce((sum, emi) => sum + (emi.amount || 0), 0);
-
       if (totalAmount < totalEMIAmount) {
-        setError('The sum of total EMI amounts cannot be greater than the sum of admin amount and fees amount.');
+        setError('The sum of total EMI amounts cannot exceed the sum of admin and fees amount.');
         return false;
       }
     }
 
     switch (currentStep) {
       case 1:
-        const isStep1Valid =
-          !!student.FName &&
-          !!student.RollNumber &&
-          !!student.DOB &&
-          !!student.Gender &&
-          !!student.FatherName &&
-          !!student.MotherName &&
-          !!student.MobileNumber &&
-          !!student.EmailId &&
-          !!student.City &&
-          !!student.State &&
-          !!student.Pincode &&
-          !!student.Address &&
-          !!student.Category;
-        if (!isStep1Valid) {
-          setError('Please fill all required fields to proceed to the next step.');
-        }
-        return isStep1Valid;
+        return !!student.FName && !!student.RollNumber && !!student.DOB && !!student.Gender &&
+          !!student.FatherName && !!student.MotherName && !!student.MobileNumber &&
+          !!student.EmailId && !!student.City && !!student.State && !!student.Pincode &&
+          !!student.Address && !!student.Category;
       case 2:
-        const isStep2Valid = !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId && !!student.CourseYear && !!student.SessionYear;
-        if (!isStep2Valid) {
-          setError('Please fill all required fields to proceed to the next step.');
-        }
-        return isStep2Valid;
+        return !!student.CollegeId && !!student.AdmissionMode && !!student.CourseId &&
+          !!student.CourseYear && !!student.SessionYear;
       case 3:
-        const isStep3Valid =
-          !!student.PaymentMode &&
-          (student.PaymentMode !== 'EMI' ||
-            (student.NumberOfEMI !== null && student.NumberOfEMI > 0 && emiDetails.every((emi) => emi.amount > 0 && emi.date)));
-        if (!isStep3Valid) {
-          setError('Please fill all required fields to proceed to the next step.');
-        }
-        return isStep3Valid;
+        return !!student.PaymentMode &&
+          (student.PaymentMode !== 'EMI' || (
+            !!student.NumberOfEMI && student.NumberOfEMI > 0 &&
+            emiDetails.every((emi) => emi.amount > 0 && !!emi.date)
+          ));
       case 4:
-        // const isStep4Valid = Object.values(documents).some((doc) => doc.file !== null);
-        // if (!isStep4Valid) {
-        //   setError('Please upload at least one document to proceed.');
-        // }
-        // return isStep4Valid;
+        return true; // No document upload is mandatory
       default:
         return true;
     }
   };
 
-const handleTabClick = (tabNumber: number) => {
-  setStep(tabNumber);  // No validation check here
-  setError('');         // Clear any existing error
-};
-
+  const handleTabClick = (tabNumber: number) => {
+    setStep(tabNumber);
+    setError('');
+  };
 
   const nextStep = () => {
     if (validateStep(step)) {
@@ -396,13 +276,10 @@ const handleTabClick = (tabNumber: number) => {
     setError('');
 
     if (student.PaymentMode === 'EMI' && student.NumberOfEMI && emiDetails.length > 0) {
-      const adminAmount = student.FineAmount || 0;
-      const feesAmount = student.RefundAmount || 0;
-      const totalAmount = adminAmount + feesAmount;
+      const totalAmount = (student.FineAmount || 0) + (student.RefundAmount || 0);
       const totalEMIAmount = emiDetails.reduce((sum, emi) => sum + (emi.amount || 0), 0);
-
       if (totalAmount < totalEMIAmount) {
-        setError('The sum of admin amount and fees amount cannot be greater than the sum of total EMI amounts.');
+        setError('The sum of admin and fees amount cannot be less than the total EMI amounts.');
         setIsSubmitting(false);
         return;
       }
@@ -410,13 +287,9 @@ const handleTabClick = (tabNumber: number) => {
 
     try {
       const formData = new FormData();
-
       Object.entries(student).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          formData.append(key, value.toString());
-        }
+        if (value !== null && value !== undefined) formData.append(key, value.toString());
       });
-
       if (student.PaymentMode === 'EMI' && emiDetails.length > 0) {
         emiDetails.forEach((emi, index) => {
           formData.append(`emiDetails[${index}].emiNumber`, emi.emiNumber.toString());
@@ -424,11 +297,8 @@ const handleTabClick = (tabNumber: number) => {
           formData.append(`emiDetails[${index}].date`, emi.date);
         });
       }
-
       Object.entries(documents).forEach(([fieldName, fileData]) => {
-        if (fileData.file) {
-          formData.append(fieldName, fileData.file);
-        }
+        if (fileData.file) formData.append(fieldName, fileData.file);
       });
 
       const response = await axiosInstance.post('/students', formData, {
@@ -437,13 +307,9 @@ const handleTabClick = (tabNumber: number) => {
 
       if (response.data.success) {
         onSuccess();
-        toast.success('Student Added successfully!', {
+        toast.success('Student added successfully!', {
           position: 'top-right',
           autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
         });
         onClose();
       } else {
@@ -451,61 +317,70 @@ const handleTabClick = (tabNumber: number) => {
       }
     } catch (error: any) {
       console.error('Error creating student:', error);
-      setError(error.response?.data?.message || error.message || 'An error occurred while submitting the form');
+      setError(error.response?.data?.message || error.message || 'An error occurred');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Fetch existing documents for preview
+  const fetchDocuments = async (studentId: string) => {
+    try {
+      const response = await axiosInstance.get(`/students/${studentId}/documents`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      return [];
+    }
+  };
+
   return (
-   <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 backdrop-blur-sm z-50">
-  <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200 dark:border-gray-700">
-    <div className="sticky top-0 z-10 flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-2 rounded-t-lg shadow-md">
-      <h2 className="text-base font-bold flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        Add New Student
-      </h2>
-      <button
-        onClick={onClose}
-        className="text-white bg-red-500 hover:bg-red-600 transition-colors p-1 rounded-full focus:ring-1 focus:ring-white"
-      >
-        <FaTimes />
-      </button>
-    </div>
+    <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 backdrop-blur-sm z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200 dark:border-gray-700">
+        {/* Header and tabs remain unchanged */}
+        <div className="sticky top-0 z-10 flex justify-between items-center bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-2 rounded-t-lg shadow-md">
+          <h2 className="text-base font-bold flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            Add New Student
+          </h2>
+          <button onClick={onClose} className="text-white bg-red-500 hover:bg-red-600 p-1 rounded-full focus:ring-1 focus:ring-white">
+            <FaTimes />
+          </button>
+        </div>
 
-    {error && (
-      <div className="mx-2 mt-2 p-1 bg-red-100 text-xs text-red-700 rounded border-l-4 border-red-500 flex items-center">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-        </svg>
-        {error}
-      </div>
-    )}
+        {error && (
+          <div className="mx-2 mt-2 p-1 bg-red-100 text-xs text-red-700 rounded border-l-4 border-red-500 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {error}
+          </div>
+        )}
 
-    <div className="flex px-2 pt-2 mb-1 overflow-x-auto">
-      {[1, 2, 3, 4].map((tab) => (
-        <button
-          key={tab}
-          onClick={() => handleTabClick(tab)}
-          className={`px-3 py-1 mb-1 text-sm font-medium rounded transition-all duration-200 focus:ring-1 focus:ring-opacity-50 mr-1 ${
-            step === tab
-              ? 'text-white bg-gradient-to-r from-blue-500 to-indigo-600 shadow-sm focus:ring-blue-400'
-              : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-gray-400'
-          }`}
-        >
-          <span className="flex items-center">
-            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 mr-1 text-xs font-bold border border-blue-300 dark:border-blue-700">
-              {tab}
-            </span>
-            {['Personal', 'Academic', 'Payment', 'Documents'][tab - 1]}
-          </span>
-        </button>
-      ))}
-    </div>
+        <div className="flex px-2 pt-2 mb-1 overflow-x-auto">
+          {[1, 2, 3, 4].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabClick(tab)}
+              className={`px-3 py-1 mb-1 text-sm font-medium rounded transition-all duration-200 focus:ring-1 focus:ring-opacity-50 mr-1 ${
+                step === tab
+                  ? 'text-white bg-gradient-to-r from-blue-500 to-indigo-600 shadow-sm focus:ring-blue-400'
+                  : 'text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:ring-gray-400'
+              }`}
+            >
+              <span className="flex items-center">
+                <span className="w-5 h-5 flex items-center justify-center rounded-full bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 mr-1 text-xs font-bold border border-blue-300 dark:border-blue-700">
+                  {tab}
+                </span>
+                {['Personal', 'Academic', 'Payment', 'Documents'][tab - 1]}
+              </span>
+            </button>
+          ))}
+        </div>
 
-    <div className="px-2 pb-2">
+     <div className="px-2 pb-2">
       <form className="space-y-2" onSubmit={(e) => e.preventDefault()}>
         {step === 1 && (
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 p-2 rounded-lg border border-blue-100 dark:border-gray-700">
@@ -1057,223 +932,97 @@ const handleTabClick = (tabNumber: number) => {
           </div>
         )}
 
-        {step === 4 && (
-          <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-900 p-2 rounded-lg border border-green-100 dark:border-green-900">
-            <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2 flex items-center border-b border-green-200 dark:border-green-800 pb-1">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Document Uploads
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  Student Photo
-                </label>
-                <div className="flex items-center">
-                  <div className="flex-grow">
-                    <input
-                      type="file"
-                      accept=".jpg,.jpeg,.png"
-                      onChange={(e) => handleFileChange(e, 'StudentImage')}
-                      className="w-full text-xs text-gray-500 dark:text-gray-400
-                        file:mr-2 file:py-1 file:px-2
-                        file:rounded-full file:border-0
-                        file:text-xs file:font-medium
-                        file:bg-blue-50 file:text-blue-700
-                        dark:file:bg-blue-900 dark:file:text-blue-200
-                        hover:file:bg-blue-100 dark:hover:file:bg-blue-800
-                        focus:outline-none"
-                    />
-                  </div>
-                  {documents.StudentImage.preview && (
-                    <div className="ml-1 h-8 w-8 flex-shrink-0">
-                      <img
-                        src={documents.StudentImage.preview}
-                        alt="Preview"
-                        className="h-8 w-8 rounded-full object-cover ring-1 ring-blue-500"
-                      />
+
+            {step === 4 && (
+              <div className="bg-gradient-to-br from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-900 p-2 rounded-lg border border-green-100 dark:border-green-900">
+                <h3 className="text-sm font-bold text-green-700 dark:text-green-400 mb-2 flex items-center border-b border-green-200 dark:border-green-800 pb-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Document Uploads
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {Object.entries(documents).map(([fieldName, fileData]) => (
+                    <div key={fieldName}>
+                      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
+                        {fieldName === 'StudentImage' ? 'Student Photo' :
+                         fieldName === 'TenthMarks' ? '10th Marksheet' :
+                         fieldName === 'TwelfthMarks' ? '12th Marksheet' :
+                         fieldName === 'CasteCertificate' ? 'Caste Certificate' :
+                         fieldName === 'Income' ? 'Income Certificate' :
+                         fieldName === 'Residential' ? 'Residential Proof' : fieldName}
+                      </label>
+                      <div className="flex items-center">
+                        <input
+                          type="file"
+                          accept="*/*" // Accept all file types
+                          onChange={(e) => handleFileChange(e, fieldName as keyof Documents)}
+                          className="w-full text-xs text-gray-500 dark:text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-900 dark:file:text-blue-200 hover:file:bg-blue-100 dark:hover:file:bg-blue-800 focus:outline-none"
+                        />
+                        {fileData.preview && (
+                          <div className="ml-1 h-8 w-8 flex-shrink-0">
+                            <img src={fileData.preview} alt="Preview" className="h-8 w-8 rounded-full object-cover ring-1 ring-blue-500" />
+                          </div>
+                        )}
+                        {!fileData.preview && fileData.file && (
+                          <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
+                              <circle cx="4" cy="4" r="3" />
+                            </svg>
+                            File selected
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  10th Marksheet
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'TenthMarks')}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400
-                    file:mr-2 file:py-1 file:px-2
-                    file:rounded-full file:border-0
-                    file:text-xs file:font-medium
-                    file:bg-green-50 file:text-green-700
-                    dark:file:bg-green-900 dark:file:text-green-200
-                    hover:file:bg-green-100 dark:hover:file:bg-green-800
-                    focus:outline-none"
-                />
-                {documents.TenthMarks.file && (
-                  <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
+            )}
+
+            <div className="flex justify-between pt-2">
+              {step > 1 && (
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Previous
+                </button>
+              )}
+              <div className="flex space-x-2">
+                {step < 4 ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md flex items-center"
+                  >
+                    Save & Next
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    File selected
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  12th Marksheet
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'TwelfthMarks')}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400
-                    file:mr-2 file:py-1 file:px-2
-                    file:rounded-full file:border-0
-                    file:text-xs file:font-medium
-                    file:bg-purple-50 file:text-purple-700
-                    dark:file:bg-purple-900 dark:file:text-purple-200
-                    hover:file:bg-purple-100 dark:hover:file:bg-purple-800
-                    focus:outline-none"
-                />
-                {documents.TwelfthMarks.file && (
-                  <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                    <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    File selected
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  Caste Certificate
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'CasteCertificate')}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400
-                    file:mr-2 file:py-1 file:px-2
-                    file:rounded-full file:border-0
-                    file:text-xs file:font-medium
-                    file:bg-yellow-50 file:text-yellow-700
-                    dark:file:bg-yellow-900 dark:file:text-yellow-200
-                    hover:file:bg-yellow-100 dark:hover:file:bg-yellow-800
-                    focus:outline-none"
-                />
-                {documents.CasteCertificate.file && (
-                  <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                    <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
-                    </svg>
-                    File selected
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  Income Certificate
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'Income')}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400
-                    file:mr-2 file:py-1 file:px-2
-                    file:rounded-full file:border-0
-                    file:text-xs file:font-medium
-                    file:bg-red-50 file:text-red-700
-                    dark:file:bg-red-900 dark:file:text-red-200
-                    hover:file:bg-red-100 dark:hover:file:bg-red-800
-                    focus:outline-none"
-                />
-                {documents.Income.file && (
-                  <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                    <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
-                    </svg>
-                    File selected
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">
-                  Residential Proof
-                </label>
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={(e) => handleFileChange(e, 'Residential')}
-                  className="w-full text-xs text-gray-500 dark:text-gray-400
-                    file:mr-2 file:py-1 file:px-2
-                    file:rounded-full file:border-0
-                    file:text-xs file:font-medium
-                    file:bg-indigo-50 file:text-indigo-700
-                    dark:file:bg-indigo-900 dark:file:text-indigo-200
-                    hover:file:bg-indigo-100 dark:hover:file:bg-indigo-800
-                    focus:outline-none"
-                />
-                {documents.Residential.file && (
-                  <span className="inline-flex items-center mt-0.5 px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                    <svg className="mr-0.5 h-2 w-2" fill="currentColor" viewBox="0 0 8 8">
-                      <circle cx="4" cy="4" r="3" />
-                    </svg>
-                    File selected
-                  </span>
+                    Preview & Submit
+                  </button>
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        <div className="flex justify-between pt-2">
-          {step > 1 && (
-            <button
-              type="button"
-              onClick={prevStep}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Previous
-            </button>
-          )}
-          <div className="flex space-x-2">
-            {step < 4 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-md flex items-center"
-              >
-                Save & Next
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsPreviewOpen(true)}
-                className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all shadow-md flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                Preview & Submit
-              </button>
-            )}
-          </div>
+          </form>
         </div>
-      </form>
-    </div>
 
+      
 {isPreviewOpen && (
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-75 backdrop-blur-sm z-[1000]">
         <div className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 p-4 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl border border-blue-200 dark:border-blue-900">
@@ -1535,37 +1284,38 @@ const handleTabClick = (tabNumber: number) => {
       </div>
     )}
 
-    {isLateralModalOpen && (
-      <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1000] backdrop-blur-sm">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl max-w-sm w-full border-t-4 border-blue-500 dark:border-blue-600 animate-fadeIn">
-          <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Lateral Entry Confirmation
-          </h3>
-          <p className="mt-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg border-l-2 border-blue-300 dark:border-blue-700">
-            You are entering 2nd year. Is this student a lateral entry?
-          </p>
-          <div className="mt-5 flex justify-end space-x-3">
-            <button
-              onClick={handleLateralModalCancel}
-              className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-sm font-medium border border-red-300 dark:border-red-700 hover:border-red-400 dark:hover:border-red-600 transition-colors"
-            >
-              No
-            </button>
-            <button
-              onClick={handleLateralModalConfirm}
-              className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 text-sm font-medium shadow-md transition-all"
-            >
-              Yes
-            </button>
+
+        {isLateralModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[1000] backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl max-w-sm w-full border-t-4 border-blue-500 dark:border-blue-600 animate-fadeIn">
+              <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Lateral Entry Confirmation
+              </h3>
+              <p className="mt-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg border-l-2 border-blue-300 dark:border-blue-700">
+                You are entering 2nd year. Is this student a lateral entry?
+              </p>
+              <div className="mt-5 flex justify-end space-x-3">
+                <button
+                  onClick={handleLateralModalCancel}
+                  className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 text-sm font-medium border border-red-300 dark:border-red-700 hover:border-red-400 dark:hover:border-red-600 transition-colors"
+                >
+                  No
+                </button>
+                <button
+                  onClick={handleLateralModalConfirm}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 text-sm font-medium shadow-md transition-all"
+                >
+                  Yes
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
-    )}
-  </div>
-</div>
+    </div>
   );
 };
 

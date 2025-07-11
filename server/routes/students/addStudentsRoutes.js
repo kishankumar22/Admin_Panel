@@ -21,11 +21,44 @@ const localStorage = multer.diskStorage({
       .catch((err) => cb(err));
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const uniqueSuffix = Date.now();
     cb(null, `${uniqueSuffix}-${file.originalname}`);
   },
 });
-const upload = multer({ storage: localStorage }); // Default to local storag
+// Configure multer for local storage with subfolder structure
+const localStorageStudent = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const subfolder = file.fieldname; // e.g., StudentImage, CasteCertificate, etc.
+    const uploadPath = path.join(__dirname, '../../public/uploads/StudentDocs', subfolder);
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: async (req, file, cb) => {
+    const baseName = path.parse(file.originalname).name; // e.g., "document"
+    const ext = path.extname(file.originalname); // e.g., ".jpg" or ".pdf"
+    const subfolder = file.fieldname; // e.g., StudentImage
+    const fullPath = path.join(__dirname, '../../public/uploads/StudentDocs', subfolder);
+    let filename = `${baseName}${ext}`;
+    let counter = 0;
+
+    // Ensure unique filename by incrementing counter
+    while (await fs.access(path.join(fullPath, filename)).then(() => true).catch(() => false)) {
+      counter++;
+      filename = `${baseName}_${counter}${ext}`;
+    }
+
+    cb(null, filename);
+  },
+});
+
+
+// Serve static files from the StudentDocs directory
+const upload = multer({ storage: localStorageStudent });
+router.use('/StudentDocs', express.static(path.join(__dirname, '../../public/uploads/StudentDocs')));
 
 // GET /colleges - Fetch all colleges
 router.get('/colleges', async (req, res, next) => {
@@ -69,12 +102,12 @@ router.post(
   upload.fields([
     { name: 'StudentImage' },
     { name: 'CasteCertificate' },
-    { name: 'TenthMarks' },
-    { name: 'TwelfthMarks' },
     { name: 'Residential' },
     { name: 'Income' },
+    { name: 'TenthMarks' },
+    { name: 'TwelfthMarks' },
   ]),
-  async (req, res, next) => {
+  async (req, res) => {
     try {
       const {
         RollNumber,
@@ -111,8 +144,6 @@ router.post(
         isLateral,
       } = req.body;
 
-      // console.log('Request Body:', req.body);
-
       // Parse EMI details
       const emiDetails = [];
       let totalEMIAmount = 0;
@@ -122,8 +153,6 @@ router.post(
           const emiNumber = parseInt(req.body[`emiDetails[${index}].emiNumber`]) || index + 1;
           const amount = parseFloat(req.body[`emiDetails[${index}].amount`]) || 0;
           const date = req.body[`emiDetails[${index}].date`];
-
-          console.log(`EMI ${index + 1}:`, { emiNumber, amount, date });
 
           if (amount > 0 && date) {
             emiDetails.push({
@@ -137,8 +166,6 @@ router.post(
           index++;
         }
       }
-
-      // console.log('Parsed EMI Details:', emiDetails);
 
       // Validate CollegeId
       if (!CollegeId || CollegeId === '') {
@@ -198,93 +225,71 @@ router.post(
         });
       }
 
-      // Function to generate stdCollId base (without student ID)
-   const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
-  // Fetch course and college details
-  const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
-  const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
-  const courseResult = await executeQuery(courseQuery, courseParams);
-  const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
-  const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
-  const collegeResult = await executeQuery(collegeQuery, collegeParams);
-
-  const course = courseResult.recordset[0];
-  const college = collegeResult.recordset[0];
-
-  // Step 1: Get course prefix (first 3 characters after removing spaces and dots)
-  let courseName = course?.courseName || '';
-  
-  // Check if course name contains 'M' or 'm'
-  const hasM = /[Mm]/.test(courseName);
-  if (hasM) {
-    // Remove "Of" (case-insensitive) and extra spaces
-    courseName = courseName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
-  }
-  
-  const cleanedCourseName = courseName.replace(/[\s.]/g, '');
-  const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
-
-  // Step 2: Get college prefix (remove special characters and abbreviate)
-  let collegeName = college?.collegeName || '';
-  
-  // Check if college name contains 'M' or 'm' for skipping "Of"
-  const collegeHasM = /[Mm]/.test(collegeName);
-  if (collegeHasM) {
-    // Remove "Of" (case-insensitive) and extra spaces
-    collegeName = collegeName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
-  }
-  
-  // Remove special characters except letters and numbers
-  collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
-  const collegeWords = collegeName.split(/(?=[A-Z])/);
-  const collegePrefix =
-    collegeWords.length > 1
-      ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
-      : collegeName.substring(0, 5).toUpperCase();
-
-  // Step 3: Get year suffix from admission date
-  const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
-  const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
-
-  // Step 4: Combine parts (without student ID)
-  return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
-};
-
       // Generate stdCollId base
+      const generateStdCollIdBase = async (courseId, collegeId, admissionDate) => {
+        const courseQuery = `SELECT courseName FROM Course WHERE id = @courseId`;
+        const courseParams = { courseId: { type: sql.Int, value: parseInt(courseId) } };
+        const courseResult = await executeQuery(courseQuery, courseParams);
+        const collegeQuery = `SELECT collegeName FROM College WHERE id = @collegeId`;
+        const collegeParams = { collegeId: { type: sql.Int, value: parseInt(collegeId) } };
+        const collegeResult = await executeQuery(collegeQuery, collegeParams);
+
+        const course = courseResult.recordset[0];
+        const college = collegeResult.recordset[0];
+
+        let courseName = course?.courseName || '';
+        const hasM = /[Mm]/.test(courseName);
+        if (hasM) courseName = courseName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
+        const cleanedCourseName = courseName.replace(/[\s.]/g, '');
+        const coursePrefix = cleanedCourseName.substring(0, 3).toUpperCase();
+
+        let collegeName = college?.collegeName || '';
+        const collegeHasM = /[Mm]/.test(collegeName);
+        if (collegeHasM) collegeName = collegeName.replace(/\bOf\b/gi, '').replace(/\s+/g, ' ').trim();
+        collegeName = collegeName.replace(/[^a-zA-Z0-9]/g, '');
+        const collegeWords = collegeName.split(/(?=[A-Z])/);
+        const collegePrefix = collegeWords.length > 1
+          ? collegeWords[0] + collegeWords.slice(1).map(word => word[0]).join('')
+          : collegeName.substring(0, 5).toUpperCase();
+
+        const admissionYear = admissionDate ? new Date(admissionDate).getFullYear() : new Date().getFullYear();
+        const yearSuffix = `${admissionYear.toString().slice(-2)}${(admissionYear + 1).toString().slice(-2)}`;
+
+        return `${coursePrefix}/${collegePrefix}/${yearSuffix}`;
+      };
+
       const stdCollIdBase = await generateStdCollIdBase(CourseId, CollegeId, AdmissionDate);
 
-      // Upload documents to Cloudinary
+      // Prepare documents data with local file paths
       const documentsData = [];
-      const uploadFile = async fieldName => {
+      const addDocument = async (fieldName) => {
         if (req.files[fieldName]?.[0]) {
-          const uploadedFile = await uploadToCloudinary(req.files[fieldName][0].buffer, `student_documents/${fieldName}`);
-          if (uploadedFile?.public_id && uploadedFile?.url) {
-            documentsData.push({
-              documentType: fieldName,
-              publicId: uploadedFile.public_id,
-              fileUrl: uploadedFile.url,
-              fileName: req.files[fieldName][0].originalname,
-              createdBy: CreatedBy,
-            });
-          }
+          const filename = req.files[fieldName][0].filename;
+          const fileUrl = `/StudentDocs/${fieldName}/${filename}`; // Local path
+          documentsData.push({
+            documentType: fieldName,
+            fileUrl,
+            fileName: req.files[fieldName][0].originalname,
+            createdBy: CreatedBy,
+          });
         }
       };
       await Promise.all([
-        uploadFile('StudentImage'),
-        uploadFile('CasteCertificate'),
-        uploadFile('TenthMarks'),
-        uploadFile('TwelfthMarks'),
-        uploadFile('Residential'),
-        uploadFile('Income'),
+        addDocument('StudentImage'),
+        addDocument('CasteCertificate'),
+        addDocument('TenthMarks'),
+        addDocument('TwelfthMarks'),
+        addDocument('Residential'),
+        addDocument('Income'),
       ]);
 
       // Create student, academic details, documents, and EMI details
       let newStudent;
-      const pool = await poolConnect; // Use the existing poolConnect
+      const pool = await poolConnect;
       const transaction = new sql.Transaction(pool);
-      try {
-        await transaction.begin();
+      await transaction.begin();
 
+      try {
         const request = new sql.Request(transaction);
 
         // Create Student
@@ -376,16 +381,15 @@ router.post(
         for (const doc of documentsData) {
           const docQuery = `
             INSERT INTO Documents (
-              studentId, documentType, publicId, fileUrl, fileName, createdBy
+              studentId, documentType, fileUrl, fileName, createdBy
             )
             VALUES (
-              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy
+              @studentId, @documentType, @fileUrl, @fileName, @createdBy
             )
           `;
           const docRequest = new sql.Request(transaction);
           docRequest.input('studentId', sql.Int, student.id);
           docRequest.input('documentType', sql.NVarChar, doc.documentType);
-          docRequest.input('publicId', sql.NVarChar, doc.publicId);
           docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
           docRequest.input('fileName', sql.NVarChar, doc.fileName);
           docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
@@ -416,24 +420,88 @@ router.post(
 
         newStudent = { ...student, stdCollId: finalStdCollId };
         await transaction.commit();
+        res.status(201).json({ success: true, student: newStudent });
       } catch (error) {
         await transaction.rollback();
-        throw error;
-      } finally {
-        // Do NOT close the global pool here; let it persist for other requests
+        res.status(500).json({ success: false, message: error.message });
       }
-
-      res.status(201).json({ success: true, student: newStudent });
     } catch (err) {
-      // console.error('Erreur lors de la création de l\'étudiant:', err.stack);
-          next(err);
       res.status(500).json({ success: false, message: err.message });
     }
   }
 );
 
+// GET /students/:studentId/documents - Fetch all documents for a student
+router.get('/students/:studentId/documents', async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    if (!studentId || isNaN(parseInt(studentId))) {
+      return res.status(400).json({ success: false, message: 'Invalid student ID' });
+    }
+
+    const query = `
+      SELECT documentType, fileUrl, fileName
+      FROM Documents
+      WHERE studentId = @studentId
+    `;
+    const result = await executeQuery(query, {
+      studentId: { type: sql.Int, value: parseInt(studentId) },
+    });
+
+    res.status(200).json(result.recordset);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 //EDIT STUDENT
 
+// DELETE /students/:studentId/documents/:docType - Delete a specific document for a student
+router.delete('/students/:studentId/documents/:docType', async (req, res) => {
+  try {
+    const { studentId, docType } = req.params;
+    
+    // Validate inputs
+    if (!studentId || isNaN(parseInt(studentId))) {
+      return res.status(400).json({ success: false, message: 'Invalid student ID' });
+    }
+    
+    if (!docType) {
+      return res.status(400).json({ success: false, message: 'Document type is required' });
+    }
+
+    // First check if document exists
+    const checkQuery = `
+      SELECT id
+      FROM Documents 
+      WHERE studentId = @studentId AND documentType = @docType
+    `;
+    
+    const checkResult = await executeQuery(checkQuery, {
+      studentId: { type: sql.Int, value: parseInt(studentId) },
+      docType: { type: sql.NVarChar, value: docType }
+    });
+
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: 'Document not found' });
+    }
+
+    // Delete the document
+    const deleteQuery = `
+      DELETE FROM Documents
+      WHERE studentId = @studentId AND documentType = @docType
+    `;
+    
+    await executeQuery(deleteQuery, {
+      studentId: { type: sql.Int, value: parseInt(studentId) },
+      docType: { type: sql.NVarChar, value: docType }
+    });
+
+    res.status(200).json({ success: true, message: 'Document deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+// PUT /students/:id - Update an existing student
 router.put(
   '/students/:id',
   upload.fields([
@@ -444,7 +512,7 @@ router.put(
     { name: 'Residential' },
     { name: 'Income' },
   ]),
-  async (req, res, next) => {
+  async (req, res) => {
     try {
       const studentId = parseInt(req.params.id);
       const {
@@ -516,50 +584,50 @@ router.put(
       const emiResult = await executeQuery(emiQuery, emiParams);
       const existingEmiDetails = emiResult.recordset;
 
-      // Upload new documents to Cloudinary
+      // Handle new document uploads (local storage)
       const documentsData = [];
-      const uploadFile = async (fieldName) => {
+      const handleDocument = async (fieldName) => {
         if (req.files && req.files[fieldName]?.[0]) {
           const oldDoc = existingDocs.find((doc) => doc.documentType === fieldName);
           if (oldDoc) {
-            await deleteFromCloudinary(oldDoc.publicId);
-            const deleteDocQuery = `DELETE FROM Documents WHERE id = @docId`;
-            const deleteDocParams = { docId: { type: sql.Int, value: oldDoc.id } };
-            await executeQuery(deleteDocQuery, deleteDocParams);
+            const oldFilePath = path.join(__dirname, '../../public/uploads/StudentDocs', fieldName, path.basename(oldDoc.fileUrl));
+            try {
+              await fs.unlink(oldFilePath); // Delete old file
+              const deleteDocQuery = `DELETE FROM Documents WHERE id = @docId`;
+              const deleteDocParams = { docId: { type: sql.Int, value: oldDoc.id } };
+              await executeQuery(deleteDocQuery, deleteDocParams);
+            } catch (err) {
+              console.warn(`Failed to delete old file ${oldFilePath}: ${err.message}`);
+            }
           }
 
-          const uploadedFile = await uploadToCloudinary(
-            req.files[fieldName][0].buffer,
-            `student_documents/${fieldName}`
-          );
-          if (uploadedFile?.public_id && uploadedFile?.url) {
-            documentsData.push({
-              documentType: fieldName,
-              publicId: uploadedFile.public_id,
-              fileUrl: uploadedFile.url,
-              fileName: req.files[fieldName][0].originalname,
-              createdBy: ModifiedBy,
-            });
-          }
+          const filename = req.files[fieldName][0].filename;
+          const fileUrl = `/StudentDocs/${fieldName}/${filename}`; // Local path
+          documentsData.push({
+            documentType: fieldName,
+            fileUrl,
+            fileName: req.files[fieldName][0].originalname,
+            createdBy: ModifiedBy,
+          });
         }
       };
 
       await Promise.all([
-        uploadFile('StudentImage'),
-        uploadFile('CasteCertificate'),
-        uploadFile('TenthMarks'),
-        uploadFile('TwelfthMarks'),
-        uploadFile('Residential'),
-        uploadFile('Income'),
+        handleDocument('StudentImage'),
+        handleDocument('CasteCertificate'),
+        handleDocument('TenthMarks'),
+        handleDocument('TwelfthMarks'),
+        handleDocument('Residential'),
+        handleDocument('Income'),
       ]);
 
       // Update student in a transaction
       let updatedStudent;
-      const pool = await poolConnect; // Use the existing poolConnect
+      const pool = await poolConnect;
       const transaction = new sql.Transaction(pool);
-      try {
-        await transaction.begin();
+      await transaction.begin();
 
+      try {
         const request = new sql.Request(transaction);
 
         // Update student basic details
@@ -736,20 +804,19 @@ router.put(
           }
         }
 
-        // Create new documents
+        // Create or update documents
         for (const doc of documentsData) {
           const docInsertQuery = `
             INSERT INTO Documents (
-              studentId, documentType, publicId, fileUrl, fileName, createdBy, modifiedBy, modifiedOn
+              studentId, documentType, fileUrl, fileName, createdBy, modifiedBy, modifiedOn
             )
             VALUES (
-              @studentId, @documentType, @publicId, @fileUrl, @fileName, @createdBy, @modifiedBy, @modifiedOn
+              @studentId, @documentType, @fileUrl, @fileName, @createdBy, @modifiedBy, @modifiedOn
             )
           `;
           const docRequest = new sql.Request(transaction);
           docRequest.input('studentId', sql.Int, updatedStudent.id);
           docRequest.input('documentType', sql.NVarChar, doc.documentType);
-          docRequest.input('publicId', sql.NVarChar, doc.publicId);
           docRequest.input('fileUrl', sql.NVarChar, doc.fileUrl);
           docRequest.input('fileName', sql.NVarChar, doc.fileName);
           docRequest.input('createdBy', sql.NVarChar, doc.createdBy);
@@ -759,23 +826,16 @@ router.put(
         }
 
         await transaction.commit();
+        res.status(200).json({ success: true, student: updatedStudent });
       } catch (error) {
         await transaction.rollback();
-        throw error;
-      } finally {
-        // Do NOT close the global pool here; let it persist for other requests
-        // If you created a new pool, you would close it, but we're using poolConnect
+        res.status(500).json({ success: false, message: error.message });
       }
-
-      res.status(200).json({ success: true, student: updatedStudent });
     } catch (err) {
-      // console.error('Error updating student:', error);
-    next(err);
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: err.message });
     }
   }
 );
-
 // acive and inactive student
 
 // PUT toggle student status
@@ -920,7 +980,6 @@ router.get('/students', async (req, res, next) => {
     res.status(500).json({ success: false, message: 'Error fetching students', error: error.message });
   }
 });
-
 
 // GET /students - Fetch all students
 router.get('/students', async (req, res, next) => {
@@ -3101,8 +3160,6 @@ router.post('/updateEnquiryStatus', async (req, res, next) => {
     res.status(500).json({ message: 'Error updating enquiry status', error: err.message });
   }
 });
-
-
 
 // Endpoint to send email reply
 router.post('/sendEnquiryReply', async (req, res) => {

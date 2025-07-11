@@ -18,6 +18,7 @@ import {
   FaToggleOn,
   FaToggleOff,
   FaMoneyBillWave,
+  FaFile,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../config';
@@ -48,7 +49,13 @@ interface Supplier {
   ModifiedOn: string | null;
 }
 
-
+interface SupplierDocument {
+  DocumentId: number;
+  DocumentUrl: string;
+  PublicId: string;
+  DocumentType: string;
+  CreatedOn: string;
+}
 
 const ManageSupplier: React.FC = () => {
   const { user } = useAuth();
@@ -69,45 +76,34 @@ const ManageSupplier: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [documents, setDocuments] = useState<{ [key: number]: SupplierDocument[] }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
-   const {
-      fetchRoles,
-      fetchPages,
-      fetchPermissions,
+  const { fetchRoles, fetchPages, fetchPermissions, pages, permissions } = usePermissions();
 
-      pages,
-      permissions,
-    } = usePermissions();
-  
-    // Use useEffect to fetch data when the component mounts
-    useEffect(() => {
-      const fetchData = async () => {
-        await fetchRoles();
-        await fetchPages();
-        await fetchPermissions();
-      };
-      fetchData();
-    }, []);
-    // Use useLocation to get the current path
-    const location = useLocation();
-    const currentPageName = location.pathname.split('/').pop();
-    // console.log("currentPageName :", currentPageName);
-  
-    // Permissions and roles
-    // Prefixing currentPageName with '/' to match the database format
-    const prefixedPageUrl = `/${currentPageName}`;
-    const pageId = pages.find((page: { pageUrl: string; }) => page.pageUrl === prefixedPageUrl)?.pageId;
-    // const roleId = roles.find(role => role.role_id === user?.roleId)?.role_id;
-    const userPermissions = permissions.find((perm: { pageId: any; roleId: number | undefined; }) => perm.pageId === pageId && perm.roleId === user?.roleId);
-   const loggedroleId = user?.roleId;
-  // Set default permissions based on role ID
-  const defaultPermission = loggedroleId === 2;
-  
-  // Use provided permissions if available, otherwise fall back to defaultPermission
+  // Permissions setup
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchRoles();
+      await fetchPages();
+      await fetchPermissions();
+    };
+    fetchData();
+  }, []);
+
+  const location = useLocation();
+  const currentPageName = location.pathname.split('/').pop();
+  const prefixedPageUrl = `/${currentPageName}`;
+  const pageId = pages.find((page: { pageUrl: string }) => page.pageUrl === prefixedPageUrl)?.pageId;
+  const userPermissions = permissions.find(
+    (perm: { pageId: any; roleId: number | undefined }) =>
+      perm.pageId === pageId && perm.roleId === user?.roleId
+  );
+  const loggedRoleId = user?.roleId;
+  const defaultPermission = loggedRoleId === 2;
   const canCreate = userPermissions?.canCreate ?? defaultPermission;
   const canUpdate = userPermissions?.canUpdate ?? defaultPermission;
   const canDelete = userPermissions?.canDelete ?? defaultPermission;
-  const canRead   = userPermissions?.canRead   ?? defaultPermission;
+  const canRead = userPermissions?.canRead ?? defaultPermission;
 
   const [formData, setFormData] = useState({
     name: '',
@@ -149,13 +145,24 @@ const ManageSupplier: React.FC = () => {
     }
   };
 
+  const fetchDocuments = async (supplierId: number) => {
+    try {
+      const response = await axiosInstance.get(`/supplier/${supplierId}/documents`);
+      setDocuments((prev) => ({
+        ...prev,
+        [supplierId]: response.data.documents,
+      }));
+    } catch (error) {
+      toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 1000 });
+    }
+  };
+
   useEffect(() => {
     fetchSuppliers();
   }, []);
 
   useEffect(() => {
     if (suppliers.length === 0) return;
-
     setIsLoading(true);
     let filtered = [...suppliers];
 
@@ -177,18 +184,17 @@ const ManageSupplier: React.FC = () => {
     }
 
     if (statusFilter !== 'All') {
-      filtered = filtered.filter((supplier) => {
-        if (statusFilter === 'Active') {
-          return !supplier.Deleted;
-        } else if (statusFilter === 'Inactive') {
-          return supplier.Deleted;
-        }
-        return true;
-      });
+      filtered = filtered.filter((supplier) =>
+        statusFilter === 'Active' ? !supplier.Deleted : supplier.Deleted
+      );
     }
 
     setFilteredSuppliers(filtered);
     setCurrentPage(1);
+    // Fetch documents for visible suppliers
+    filtered.forEach((supplier) => {
+      if (supplier.SupplierId) fetchDocuments(supplier.SupplierId);
+    });
     setTimeout(() => setIsLoading(false), 100);
   }, [searchTerm, fromDate, toDate, statusFilter, suppliers]);
 
@@ -205,13 +211,6 @@ const ManageSupplier: React.FC = () => {
     if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
-    // if (!formData.bankName) newErrors.bankName = 'Bank name is required';
-    // if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
-    // if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
-    // else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
-    //   newErrors.ifscCode = 'Invalid IFSC code format';
-    // if (!formData.comment) newErrors.comment = 'Comment is required';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -312,6 +311,15 @@ const ManageSupplier: React.FC = () => {
       });
       return;
     }
+    if (!supplier.SupplierId) {
+      console.error('SupplierId is missing:', supplier);
+      toast.error('Cannot edit supplier: Missing SupplierId', {
+        position: 'top-right',
+        autoClose: 1500,
+      });
+      return;
+    }
+    console.log('Editing supplier:', supplier); // Debug log
     setEditingSupplier(supplier);
     setIsEditModalOpen(true);
   };
@@ -350,6 +358,9 @@ const ManageSupplier: React.FC = () => {
       'Created By': supplier.CreatedBy,
       'Created On': new Date(supplier.CreatedOn).toLocaleString(),
       Status: supplier.Deleted ? 'Inactive' : 'Active',
+      Documents: supplier.SupplierId !== undefined && documents[supplier.SupplierId]
+        ? documents[supplier.SupplierId].map((doc) => doc.DocumentUrl).join(', ')
+        : '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -374,6 +385,31 @@ const ManageSupplier: React.FC = () => {
     const newRowsPerPage = parseInt(e.target.value);
     setRowsPerPage(newRowsPerPage);
     setCurrentPage(1);
+  };
+
+  const renderDocument = (doc: SupplierDocument) => {
+    const isLocal = doc.DocumentUrl.startsWith('/SupplierDocs');
+    const url = isLocal ? `http://localhost:3002/api${doc.DocumentUrl}` : doc.DocumentUrl;
+    const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(doc.DocumentType.toLowerCase());
+    const isPdf = doc.DocumentType.toLowerCase() === 'pdf';
+
+    return (
+      <div key={doc.DocumentId} className="mt-1">
+        {isImage ? (
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <img src={url} alt="Document" className="w-16 h-16 object-cover rounded" />
+          </a>
+        ) : isPdf ? (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+            <FaFile className="w-4 h-4" /> View PDF
+          </a>
+        ) : (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
+            <FaFile className="w-4 h-4" /> Download File
+          </a>
+        )}
+      </div>
+    );
   };
 
   const indexOfLastSupplier = currentPage * rowsPerPage;
@@ -459,33 +495,39 @@ const ManageSupplier: React.FC = () => {
                   className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 outline outline-1 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-gray-400"
                   title="Clear Filters"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-               <button
-  onClick={
-    canCreate
-      ? () => setIsModalOpen(true)
-      : () => toast.error('Access Denied: You do not have permission to add suppliers.')
-  }
-  className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-    canCreate
-      ? 'bg-indigo-600 hover:bg-indigo-700'
-      : 'bg-indigo-600 opacity-50 cursor-not-allowed'
-  }`}
-  type='button'
->
-  <FaUserPlus className="w-3 h-3" />
-  <span className="hidden sm:inline">Add Supplier</span>
-  <span className="sm:hidden">Add</span>
-</button>
+                <button
+                  onClick={
+                    canCreate
+                      ? () => setIsModalOpen(true)
+                      : () => toast.error('Access Denied: You do not have permission to add suppliers.')
+                  }
+                  className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded text-white transition-colors focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
+                    canCreate
+                      ? 'bg-indigo-600 hover:bg-indigo-700'
+                      : 'bg-indigo-600 opacity-50 cursor-not-allowed'
+                  }`}
+                  type="button"
+                >
+                  <FaUserPlus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Add Supplier</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-      <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">  
+      <div className="flex flex-row items-center justify-between p-2 bg-white my-2 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-1">
           <span className="text-xs text-gray-600 dark:text-gray-400">Rows per page:</span>
           <select
@@ -595,7 +637,7 @@ const ManageSupplier: React.FC = () => {
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                    Bank Name 
+                    Bank Name
                   </label>
                   <input
                     type="text"
@@ -605,14 +647,13 @@ const ManageSupplier: React.FC = () => {
                     className={`w-full p-1 text-sm rounded-md border ${
                       errors.bankName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                    required
                   />
                   {errors.bankName && <p className="text-red-500 text-xs mt-0.5">{errors.bankName}</p>}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                     <FaCreditCard className="text-indigo-500" />
-                    Account No. 
+                    Account No.
                   </label>
                   <input
                     type="text"
@@ -622,14 +663,13 @@ const ManageSupplier: React.FC = () => {
                     className={`w-full p-1 text-sm rounded-md border ${
                       errors.accountNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                    required
                   />
                   {errors.accountNo && <p className="text-red-500 text-xs mt-0.5">{errors.accountNo}</p>}
                 </div>
                 <div className="mb-2">
                   <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                     <FaCreditCard className="text-indigo-500" />
-                    IFSC Code 
+                    IFSC Code
                   </label>
                   <input
                     type="text"
@@ -639,7 +679,6 @@ const ManageSupplier: React.FC = () => {
                     className={`w-full p-1 text-sm rounded-md border ${
                       errors.ifscCode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                     } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                    required
                   />
                   {errors.ifscCode && <p className="text-red-500 text-xs mt-0.5">{errors.ifscCode}</p>}
                 </div>
@@ -647,7 +686,7 @@ const ManageSupplier: React.FC = () => {
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaComment className="text-indigo-500" />
-                  Comment 
+                  Comment
                 </label>
                 <textarea
                   name="comment"
@@ -657,7 +696,6 @@ const ManageSupplier: React.FC = () => {
                     errors.comment ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                   rows={2}
-                  required
                 />
                 {errors.comment && <p className="text-red-500 text-xs mt-0.5">{errors.comment}</p>}
               </div>
@@ -678,6 +716,7 @@ const ManageSupplier: React.FC = () => {
                     multiple
                     onChange={handleFileChange}
                     className="hidden"
+                    accept="*/*"
                   />
                   <button
                     type="button"
@@ -742,24 +781,24 @@ const ManageSupplier: React.FC = () => {
           </div>
         </div>
       )}
-   {isPaymentModalOpen && selectedSupplier && (
-  <SupplierPayment
-    supplier={{
-      SupplierId: selectedSupplier.SupplierId!,
-      Name: selectedSupplier.Name,
-    }}
-    onClose={() => {
-      setIsPaymentModalOpen(false);
-      setSelectedSupplier(null);
-      setSearchTerm('');
-      if (searchInputRef.current) {
-        searchInputRef.current.blur();
-        searchInputRef.current.value = '';
-      }
-    }}
-  />
-)}
-      {isEditModalOpen && editingSupplier && editingSupplier.SupplierId !== undefined && (
+      {isPaymentModalOpen && selectedSupplier && (
+        <SupplierPayment
+          supplier={{
+            SupplierId: selectedSupplier.SupplierId!,
+            Name: selectedSupplier.Name,
+          }}
+          onClose={() => {
+            setIsPaymentModalOpen(false);
+            setSelectedSupplier(null);
+            setSearchTerm('');
+            if (searchInputRef.current) {
+              searchInputRef.current.blur();
+              searchInputRef.current.value = '';
+            }
+          }}
+        />
+      )}
+   {isEditModalOpen && editingSupplier && editingSupplier.SupplierId !== undefined && (
         <EditSupplierModal
           supplier={{
             ...editingSupplier,
@@ -777,249 +816,266 @@ const ManageSupplier: React.FC = () => {
           modifiedBy={createdBy}
         />
       )}
-    <div className="mt-2">
-  <div className="overflow-x-auto rounded-lg shadow-md" style={{ height: "76vh" }}>
-    {isLoading ? (
-      <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
-        <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
-        <p className="text-sm font-medium text-gray-600">Loading suppliers...</p>
-      </div>
-    ) : (
-      <div className="flex flex-col h-full">
-        <div className="overflow-y-auto flex-grow">
-          <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-            <thead>
-              <tr className="bg-indigo-600 text-white sticky top-0">
-                {[
-                  'Sr.',
-                  'Name',
-                  'Email',
-                  'Phone No.',
-                  'Address',
-                  'Bank Name',
-                  'Account No.',
-                  'IFSC Code',
-                  'Comment',
-                  'Created By',
-                  'Created On',
-                  'Status',
-                   'Action',
-                ].map((title) => (
-                  <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
-                    {title}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {currentSuppliers.length > 0 ? (
-                currentSuppliers.map((supplier, index) => (
-                  <tr
-                    key={supplier.SupplierId || index}
-                    className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
-                      supplier.Deleted
-                        ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
-                        : index % 2 === 0
-                        ? 'bg-gray-100 dark:bg-gray-800'
-                        : 'bg-white dark:bg-gray-900'
-                    } hover:bg-indigo-100 dark:hover:bg-gray-700`}
+      <div className="mt-2">
+        <div className="overflow-x-auto rounded-lg shadow-md" style={{ height: '76vh' }}>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border border-gray-200 dark:border-gray-700">
+              <FaSpinner className="animate-spin h-8 w-8 text-indigo-600 mb-3" />
+              <p className="text-sm font-medium text-gray-600">Loading suppliers...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col h-full">
+              <div className="overflow-y-auto flex-grow">
+                <table className="min-w-full text-[11px] md:text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                  <thead>
+                    <tr className="bg-indigo-600 text-white sticky top-0">
+                      {[
+                        'Sr.',
+                        'Name',
+                        'Email',
+                        'Phone No.',
+                        'Address',
+                        'Bank Name',
+                        'Account No.',
+                        'IFSC Code',
+                        'Comment',
+                        'Documents',
+                        'Created By',
+                        'Created On',
+                        'Status',
+                        'Action',
+                      ].map((title) => (
+                        <th key={title} className="py-1 px-2 text-left font-semibold whitespace-nowrap">
+                          {title}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentSuppliers.length > 0 ? (
+                      currentSuppliers.map((supplier, index) => (
+                        <tr
+                          key={supplier.SupplierId || index}
+                          className={`border-b border-gray-200 dark:border-gray-700 transition duration-150 ${
+                            supplier.Deleted
+                              ? 'bg-gray-100 dark:bg-gray-800 opacity-60'
+                              : index % 2 === 0
+                              ? 'bg-gray-100 dark:bg-gray-800'
+                              : 'bg-white dark:bg-gray-900'
+                          } hover:bg-indigo-100 dark:hover:bg-gray-700`}
+                        >
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {indexOfFirstSupplier + index + 1}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.Name}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.Email}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.PhoneNo}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.Address}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.BankName}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.AccountNo}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.IFSCCode}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.Comment}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.SupplierId !== undefined && documents[supplier.SupplierId]
+                              ? documents[supplier.SupplierId].map((doc) => renderDocument(doc))
+                              : 'No documents'}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {supplier.CreatedBy}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            {new Date(supplier.CreatedOn).toLocaleString()}
+                          </td>
+                          <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            <span
+                              className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
+                                supplier.Deleted
+                                  ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                                  : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                              }`}
+                            >
+                              {supplier.Deleted ? 'Inactive' : 'Active'}
+                            </span>
+                          </td>
+                          <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
+                            <button
+                              onClick={
+                                canUpdate && !supplier.Deleted
+                                  ? () => handlePaySupplier(supplier)
+                                  : () =>
+                                      toast.error(
+                                        'Access Denied: You do not have permission to create payment history.'
+                                      )
+                              }
+                              className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                                canUpdate && !supplier.Deleted
+                                  ? 'bg-blue-600 hover:bg-blue-700'
+                                  : 'bg-gray-400 cursor-not-allowed opacity-50'
+                              }`}
+                              title="Payment"
+                              type="button"
+                            >
+                              <FaMoneyBillWave className="w-3 h-3 mr-1" />
+                              Payment History
+                            </button>
+                            <button
+                              onClick={
+                                canRead && !supplier.Deleted
+                                  ? () => handleEditSupplier(supplier)
+                                  : () =>
+                                      toast.error(
+                                        'Access Denied: You do not have permission to edit suppliers or supplier is deleted.'
+                                      )
+                              }
+                              className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                                canRead && !supplier.Deleted
+                                  ? 'bg-yellow-600 hover:bg-yellow-700'
+                                  : 'bg-gray-400 cursor-not-allowed opacity-50'
+                              }`}
+                              title="Edit"
+                              type="button"
+                            >
+                              <FaEdit className="w-3 h-3 mr-1" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={
+                                canDelete
+                                  ? () => handleToggleStatus(supplier)
+                                  : () =>
+                                      toast.error(
+                                        'Access Denied: You do not have permission to toggle supplier status.'
+                                      )
+                              }
+                              className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
+                                canDelete
+                                  ? supplier.Deleted
+                                    ? 'bg-green-600 hover:bg-green-700'
+                                    : 'bg-red-600 hover:bg-red-700'
+                                  : supplier.Deleted
+                                  ? 'bg-green-600 opacity-50 cursor-not-allowed'
+                                  : 'bg-red-600 opacity-50 cursor-not-allowed'
+                              }`}
+                              title={supplier.Deleted ? 'Activate' : 'Deactivate'}
+                              type="button"
+                            >
+                              {supplier.Deleted ? (
+                                <FaToggleOff className="w-3 h-3 mr-1" />
+                              ) : (
+                                <FaToggleOn className="w-3 h-3 mr-1" />
+                              )}
+                              {supplier.Deleted ? 'Active' : 'Inactive'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan={14}
+                          className="text-center text-gray-600 dark:text-gray-400 text-xs"
+                        >
+                          <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
+                            <div className="mb-3">
+                              <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
+                            </div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">
+                              No Suppliers records found
+                            </p>
+                            <p className="text-xs text-gray-400 text-center px-4">
+                              Try adjusting your filters or check back later
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex items-center justify-between mt-auto py-3 px-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <span>
+                    Showing {indexOfFirstSupplier + 1} to{' '}
+                    {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
+                    {filteredSuppliers.length} suppliers
+                  </span>
+                </div>
+                <nav className="flex items-center space-x-1">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
                   >
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {indexOfFirstSupplier + index + 1}
-                    </td>
-                    
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Name}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Email}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.PhoneNo}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Address}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.BankName}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.AccountNo}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.IFSCCode}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.Comment}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {supplier.CreatedBy}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      {new Date(supplier.CreatedOn).toLocaleString()}
-                    </td>
-                    <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${
-                          supplier.Deleted
-                            ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                            : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                        }`}
+                    <FaChevronLeft className="w-4 h-4" />
+                  </button>
+                  {startPage > 1 && (
+                    <>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
                       >
-                        {supplier.Deleted ? 'Inactive' : 'Active'}
-                      </span>
-                    </td>
-                    <td className="py-1 px-2 flex gap-2 text-black dark:text-gray-200 whitespace-nowrap">
-                     <button
-  onClick={
-    canUpdate && !supplier.Deleted
-      ? () => handlePaySupplier(supplier)
-      : () => toast.error('Access Denied: You do not have permission to Create payment history.')
-  }
-  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-    canUpdate && !supplier.Deleted
-      ? 'bg-blue-600 hover:bg-blue-700'
-      : 'bg-gray-400 cursor-not-allowed opacity-50'
-  }`}
-  title="Payment"
-  type='button'
->
-  <FaMoneyBillWave className="w-3 h-3 mr-1" />
-  Payment History
-</button>
-                <button
-  onClick={
-    canRead && !supplier.Deleted
-      ? () => handleEditSupplier(supplier)
-      : () => toast.error('Access Denied: You do not have permission to edit suppliers or supplier is deleted.')
-  }
-  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-    canRead && !supplier.Deleted
-      ? 'bg-yellow-600 hover:bg-yellow-700'
-      : 'bg-gray-400 cursor-not-allowed opacity-50'
-  }`}
-  title="Edit"
-  type='button'
->
-  <FaEdit className="w-3 h-3 mr-1" />
-  Edit
-</button><button
-  onClick={
-    canDelete
-      ? () => handleToggleStatus(supplier)
-      : () => toast.error('Access Denied: You do not have permission to toggle supplier status.')
-  }
-  className={`inline-flex items-center px-2 py-1 text-white rounded transition text-[11px] ${
-    canDelete
-      ? supplier.Deleted
-        ? 'bg-green-600 hover:bg-green-700'
-        : 'bg-red-600 hover:bg-red-700'
-      : supplier.Deleted
-      ? 'bg-green-600 opacity-50 cursor-not-allowed'
-      : 'bg-red-600 opacity-50 cursor-not-allowed'
-  }`}
-  title={supplier.Deleted ? 'Activate' : 'Deactivate'}
-  type='button'
->
-  {supplier.Deleted ? (
-    <FaToggleOff className="w-3 h-3 mr-1" />
-  ) : (
-    <FaToggleOn className="w-3 h-3 mr-1" />
-  )}
-  {supplier.Deleted ? 'Active' : 'Inactive'}
-</button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={13}
-                    className="text-center text-gray-600 dark:text-gray-400 text-xs"
+                        1
+                      </button>
+                      {startPage > 2 && (
+                        <span className="px-2 text-xs text-gray-600">...</span>
+                      )}
+                    </>
+                  )}
+                  {pageNumbers.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 text-xs font-medium rounded-full transition duration-150 ${
+                        currentPage === page
+                          ? 'bg-purple-500 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  {endPage < totalPages && (
+                    <>
+                      {endPage < totalPages - 1 && (
+                        <span className="px-2 text-xs text-gray-600">...</span>
+                      )}
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
                   >
-                    <div className="flex flex-col items-center justify-center min-h-[300px] bg-gray-50 border-t border-gray-200">
-                      <div className="mb-3">
-                        <FileSearch className="h-8 w-8 text-gray-400 animate-pulse" />
-                      </div>
-                      <p className="text-sm font-medium text-gray-600 mb-1">No Suppliers records found</p>
-                      <p className="text-xs text-gray-400 text-center px-4">
-                        Try adjusting your filters or check back later
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between mt-auto py-3 px-3 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
-            <span>
-              Showing {indexOfFirstSupplier + 1} to{' '}
-              {Math.min(indexOfLastSupplier, filteredSuppliers.length)} of{' '}
-              {filteredSuppliers.length} suppliers
-            </span>
-          </div>
-          <nav className="flex items-center space-x-1">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
-            >
-              <FaChevronLeft className="w-4 h-4" />
-            </button>
-            {startPage > 1 && (
-              <>
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
-                >
-                  1
-                </button>
-                {startPage > 2 && (
-                  <span className="px-2 text-xs text-gray-600">...</span>
-                )}
-              </>
-            )}
-            {pageNumbers.map((page) => (
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1 text-xs font-medium rounded-full transition duration-150 ${
-                  currentPage === page
-                    ? 'bg-purple-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {page}
-              </button>
-            ))}
-            {endPage < totalPages && (
-              <>
-                {endPage < totalPages - 1 && (
-                  <span className="px-2 text-xs text-gray-600">...</span>
-                )}
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition duration-150"
-                >
-                  {totalPages}
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-full text-gray-600 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:text-gray-400 transition duration-150"
-            >
-              <FaChevronRight className="w-4 h-4" />
-            </button>
-          </nav>
+                    <FaChevronRight className="w-4 h-4" />
+                  </button>
+                </nav>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    )}
-  </div>
-</div>
     </>
   );
 };

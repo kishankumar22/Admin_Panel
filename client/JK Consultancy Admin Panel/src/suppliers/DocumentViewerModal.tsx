@@ -1,5 +1,6 @@
 import React from 'react';
 import { FaTimes } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 interface Document {
   DocumentId: number;
@@ -15,6 +16,14 @@ interface DocumentViewerModalProps {
 }
 
 const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onClose }) => {
+  // Construct the full URL for local files
+  const getFullUrl = (url: string): string => {
+    if (url.startsWith('/SupplierDocs')) {
+      return `http://localhost:3002/api${url}`;
+    }
+    return url; // Return as is for Cloudinary or other URLs
+  };
+
   const getFileType = (url: string): string => {
     const extension = url.split('.').pop()?.toLowerCase();
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(extension || '')) return 'image';
@@ -23,6 +32,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
     return 'unknown';
   };
 
+  const fullUrl = getFullUrl(document.DocumentUrl);
   const fileType = getFileType(document.DocumentUrl);
 
   const renderDocument = () => {
@@ -30,17 +40,32 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
       case 'image':
         return (
           <img
-            src={document.DocumentUrl}
+            src={fullUrl}
             alt="Document"
             className="max-w-full max-h-[70vh] object-contain"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = '/placeholder-image.jpg'; // Fallback image
+              console.error('Failed to load image:', fullUrl);
+              toast.error('Failed to load image. Using placeholder.', {
+                position: 'top-right',
+                autoClose: 1500,
+              });
+            }}
           />
         );
       case 'pdf':
         return (
           <iframe
-            src={document.DocumentUrl}
+            src={`${fullUrl}#toolbar=0`} // Hide PDF toolbar for cleaner view
             title="Document"
             className="w-full h-[70vh] border-0"
+            onError={(e) => {
+              console.error('Failed to load PDF:', fullUrl);
+              toast.error('Failed to load PDF. Please download the file.', {
+                position: 'top-right',
+                autoClose: 1500,
+              });
+            }}
           />
         );
       case 'text':
@@ -50,7 +75,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
               Text file preview is not fully supported. Please download the file to view its contents.
             </p>
             <a
-              href={document.DocumentUrl}
+              href={fullUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline"
@@ -66,7 +91,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
               Preview not available for this file type. Please download the file.
             </p>
             <a
-              href={document.DocumentUrl}
+              href={fullUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 hover:underline ml-2"

@@ -130,6 +130,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
 
   useEffect(() => {
     fetchPaymentHistory();
+    
   }, [expense.SupplierId, expense.SuppliersExpenseID]);
 
   const getTransactionLabel = () => {
@@ -200,6 +201,15 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
+    if (file) {
+      // Validate file size (e.g., max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        toast.error('File size exceeds 5MB limit');
+        e.target.value = '';
+        return;
+      }
+    }
     setPaymentData((prev) => ({ ...prev, file }));
     e.target.value = '';
   };
@@ -540,6 +550,7 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                       id="expense-payment-file-upload"
                       onChange={handleFileChange}
                       className="hidden"
+                      accept="*/*" // Allow all file types
                     />
                     <button
                       type="button"
@@ -642,14 +653,18 @@ const ExpensePayment: React.FC<ExpensePaymentProps> = ({
                         </td>
                         <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                           {history.paymentImage ? (
-                            <a
-                              href={history.paymentImage}
+                          <a
+                              href={
+                              history.paymentImage.startsWith('http')
+                                ? history.paymentImage
+                                : `${axiosInstance.defaults.baseURL}${history.paymentImage}`
+                              }
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-blue-600 hover:underline"
-                            >
+                              >
                               View Slip
-                            </a>
+                              </a>
                           ) : (
                             '-'
                           )}

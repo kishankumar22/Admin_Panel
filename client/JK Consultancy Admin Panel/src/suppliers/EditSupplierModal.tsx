@@ -4,7 +4,6 @@ import {
   FaEnvelope,
   FaPhone,
   FaBuilding,
-  FaMoneyBillWave,
   FaCreditCard,
   FaComment,
   FaFileUpload,
@@ -14,7 +13,7 @@ import {
 } from 'react-icons/fa';
 import axiosInstance from '../config';
 import { toast } from 'react-toastify';
-import { RequiredAsterisk } from './ManageExpense';
+import { RequiredAsterisk } from './ManageSupplier';
 import DocumentViewerModal from './DocumentViewerModal';
 
 interface Document {
@@ -23,7 +22,7 @@ interface Document {
   DocumentUrl: string;
   PublicId: string;
   CreatedOn: string;
-  DocumentType: string; // Added DocumentType field
+  DocumentType: string;
 }
 
 interface Supplier {
@@ -32,7 +31,6 @@ interface Supplier {
   Email: string;
   PhoneNo: string;
   Address: string;
- 
   BankName: string;
   AccountNo: string;
   IFSCCode: string;
@@ -46,6 +44,33 @@ interface EditSupplierModalProps {
   modifiedBy: string;
 }
 
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error in EditSupplierModal:', error, errorInfo);
+    toast.error('An error occurred while rendering the modal', {
+      position: 'top-right',
+      autoClose: 1500,
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 text-red-500">
+          <p>Something went wrong. Please try again or contact support.</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   supplier,
   onClose,
@@ -53,15 +78,14 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   modifiedBy,
 }) => {
   const [formData, setFormData] = useState({
-    name: supplier.Name,
-    email: supplier.Email,
-    phoneNo: supplier.PhoneNo,
-    address: supplier.Address,
-
-    bankName: supplier.BankName,
-    accountNo: supplier.AccountNo,
-    ifscCode: supplier.IFSCCode,
-    comment: supplier.Comment,
+    name: supplier.Name || '',
+    email: supplier.Email || '',
+    phoneNo: supplier.PhoneNo || '',
+    address: supplier.Address || '',
+    bankName: supplier.BankName || '',
+    accountNo: supplier.AccountNo || '',
+    ifscCode: supplier.IFSCCode || '',
+    comment: supplier.Comment || '',
     files: [] as File[],
   });
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -70,18 +94,19 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [viewDocument, setViewDocument] = useState<Document | null>(null);
 
-  // Fetch documents when modal opens and filter by DocumentType
+  // Fetch documents when modal opens
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
+        if (!supplier.SupplierId) {
+          throw new Error('SupplierId is missing');
+        }
         const response = await axiosInstance.get(`/supplier/${supplier.SupplierId}/documents`);
-        // Filter documents to only include those with DocumentType 'SupplierDocument'
-        const filteredDocuments = response.data.filter(
-          (doc: Document) => doc.DocumentType === 'SupplierDocument'
-        );
-        setDocuments(filteredDocuments);
+        setDocuments(response.data.documents || []);
       } catch (error) {
+        console.error('Error fetching documents:', error);
         toast.error('Failed to fetch documents', { position: 'top-right', autoClose: 3000 });
+        setDocuments([]);
       }
     };
     fetchDocuments();
@@ -95,14 +120,6 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     if (!formData.phoneNo) newErrors.phoneNo = 'Phone number is required';
     else if (!/^\d{10}$/.test(formData.phoneNo)) newErrors.phoneNo = 'Phone number must be 10 digits';
     if (!formData.address) newErrors.address = 'Address is required';
-
-    // if (!formData.bankName) newErrors.bankName = 'Bank name is required';
-    // if (!formData.accountNo) newErrors.accountNo = 'Account number is required';
-    // if (!formData.ifscCode) newErrors.ifscCode = 'IFSC code is required';
-    // else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(formData.ifscCode))
-    //   newErrors.ifscCode = 'Invalid IFSC code format';
-    // if (!formData.comment) newErrors.comment = 'Comment is required';
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -119,7 +136,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       ...prev,
       files: [...prev.files, ...files],
     }));
-    e.target.value = ''; // Reset input
+    e.target.value = '';
   };
 
   const handleRemoveFile = (index: number) => {
@@ -129,27 +146,26 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     }));
   };
 
- const handleDeleteDocument = async (publicId: string) => {
-  console.log('Attempting to delete document with PublicId:', publicId);
-  setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
-  try {
-    // Encode publicId to make sure `/` and other special chars don’t break the URL
-    const encodedPublicId = encodeURIComponent(publicId);
-
-    const response = await axiosInstance.delete(`/documents/${encodedPublicId}`);
-    console.log('Delete response:', response.data);
-
-    setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-    toast.success('Document deleted successfully', { position: 'top-right', autoClose: 1500 });
-  } catch (error: any) {
-    console.error('Error deleting document:', error);
-    const errorMessage = error.response?.data?.message || 'Failed to delete document';
-    toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
-  } finally {
-    setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
-  }
-};
-
+  const handleDeleteDocument = async (publicId: string, isLocal: boolean) => {
+    setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
+    try {
+      const endpoint = isLocal
+        ? `/documents/local/${encodeURIComponent(publicId)}`
+        : `/documents/${encodeURIComponent(publicId)}`;
+      const response = await axiosInstance.delete(endpoint);
+      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
+      toast.success(response.data.message || 'Document deleted successfully', {
+        position: 'top-right',
+        autoClose: 1500,
+      });
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to delete document';
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
+    } finally {
+      setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
+    }
+  };
 
   const handleViewDocument = (doc: Document) => {
     setViewDocument(doc);
@@ -165,7 +181,6 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     data.append('email', formData.email);
     data.append('phoneNo', formData.phoneNo);
     data.append('address', formData.address);
-
     data.append('bankName', formData.bankName);
     data.append('accountNo', formData.accountNo);
     data.append('ifscCode', formData.ifscCode);
@@ -181,9 +196,15 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       });
 
       if (response.data.success) {
+        // Refresh documents after successful update
+        const fetchDocuments = async () => {
+          const response = await axiosInstance.get(`/supplier/${supplier.SupplierId}/documents`);
+          setDocuments(response.data.documents || []);
+        };
+        await fetchDocuments();
         toast.success('Supplier updated successfully', { position: 'top-right', autoClose: 1000 });
         onSuccess();
-        onClose(); // Close the modal on successful update
+        onClose();
       } else {
         toast.error(response.data.message || 'Failed to update supplier', {
           position: 'top-right',
@@ -191,6 +212,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
         });
       }
     } catch (error: any) {
+      console.error('Error updating supplier:', error);
       toast.error(error.response?.data?.message || 'Error updating supplier', {
         position: 'top-right',
         autoClose: 1500,
@@ -200,10 +222,29 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     }
   };
 
+  const renderDocumentPreview = (doc: Document) => {
+    const isLocal = doc.DocumentUrl.startsWith('/SupplierDocs');
+    const url = isLocal ? `http://localhost:3002/api${doc.DocumentUrl}` : doc.DocumentUrl;
+    const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(doc.DocumentType.toLowerCase());
+    const isPdf = doc.DocumentType.toLowerCase() === 'pdf';
+
+    return (
+      <div className="flex items-center gap-1">
+        {isImage ? (
+          <img src={url} alt="Document" className="w-8 h-8 object-cover rounded" />
+        ) : isPdf ? (
+          <span className="text-blue-600">PDF</span>
+        ) : (
+          <span className="text-blue-600">File</span>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <>
+    <ErrorBoundary>
       <div className="fixed inset-0 bg-black bg-opacity-60 top-6 flex items-center justify-center z-50 transition-opacity duration-300">
-        <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-5xl mx-2  transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
+        <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-5xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
           <button
             onClick={onClose}
             className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"
@@ -284,10 +325,9 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                 />
                 {errors.address && <p className="text-red-500 text-xs mt-0.5">{errors.address}</p>}
               </div>
-          
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
-                  Bank Name 
+                  Bank Name
                 </label>
                 <input
                   type="text"
@@ -297,14 +337,13 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                   className={`w-full p-1 text-sm rounded-md border ${
                     errors.bankName ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                  required
                 />
                 {errors.bankName && <p className="text-red-500 text-xs mt-0.5">{errors.bankName}</p>}
               </div>
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaCreditCard className="text-indigo-500" />
-                  Account No. 
+                  Account No.
                 </label>
                 <input
                   type="text"
@@ -314,14 +353,13 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                   className={`w-full p-1 text-sm rounded-md border ${
                     errors.accountNo ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                  required
                 />
                 {errors.accountNo && <p className="text-red-500 text-xs mt-0.5">{errors.accountNo}</p>}
               </div>
               <div className="mb-2">
                 <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                   <FaCreditCard className="text-indigo-500" />
-                  IFSC Code 
+                  IFSC Code
                 </label>
                 <input
                   type="text"
@@ -331,7 +369,6 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                   className={`w-full p-1 text-sm rounded-md border ${
                     errors.ifscCode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
-                  required
                 />
                 {errors.ifscCode && <p className="text-red-500 text-xs mt-0.5">{errors.ifscCode}</p>}
               </div>
@@ -339,7 +376,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
             <div className="mb-2">
               <label className="flex items-center gap-1 text-xs font-medium text-black dark:text-gray-200 mb-1">
                 <FaComment className="text-indigo-500" />
-                Comment 
+                Comment
               </label>
               <textarea
                 name="comment"
@@ -349,7 +386,6 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                   errors.comment ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 } focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white transition duration-150`}
                 rows={2}
-                required
               />
               {errors.comment && <p className="text-red-500 text-xs mt-0.5">{errors.comment}</p>}
             </div>
@@ -371,6 +407,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                   multiple
                   onChange={handleFileChange}
                   className="hidden"
+                  accept="*/*"
                 />
                 <button
                   type="button"
@@ -393,26 +430,29 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                         <span className="truncate flex-1">
                           {doc.DocumentUrl.split('/').pop() || 'Document'}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleViewDocument(doc)}
-                          className="text-blue-500 hover:text-blue-700 transition duration-150 flex-shrink-0 mr-2"
-                          title="View Document"
-                        >
-                          <FaEye className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(doc.PublicId)}
-                          disabled={isDeleting[doc.PublicId]}
-                          className="text-red-500 hover:text-red-700 transition duration-150 flex-shrink-0 disabled:opacity-50"
-                        >
-                          {isDeleting[doc.PublicId] ? (
-                            <FaSpinner className="animate-spin w-4 h-4" />
-                          ) : (
-                            <FaTimes className="w-4 h-4" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {renderDocumentPreview(doc)}
+                          <button
+                            type="button"
+                            onClick={() => handleViewDocument(doc)}
+                            className="text-blue-500 hover:text-blue-700 transition duration-150 flex-shrink-0"
+                            title="View Document"
+                          >
+                            <FaEye className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDocument(doc.PublicId, doc.DocumentUrl.startsWith('/SupplierDocs'))}
+                            disabled={isDeleting[doc.PublicId]}
+                            className="text-red-500 hover:text-red-700 transition duration-150 flex-shrink-0 disabled:opacity-50"
+                          >
+                            {isDeleting[doc.PublicId] ? (
+                              <FaSpinner className="animate-spin w-4 h-4" />
+                            ) : (
+                              <FaTimes className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </li>
                     ))}
                     {formData.files.map((file, index) => (
@@ -468,7 +508,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
           onClose={() => setViewDocument(null)}
         />
       )}
-    </>
+    </ErrorBoundary>
   );
 };
 
