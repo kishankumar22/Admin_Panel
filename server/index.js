@@ -15,6 +15,7 @@ const addStudentsRoutes = require('./routes/students/addStudentsRoutes');
 const paymentHandoverRoutes = require('./routes/students/paymentHandoverRoutes');
 const addSuppliersRoutes = require('./routes/ManageSuppliers/addSuppliersRoutes');
 const addexpenseRoutes = require('./routes/ManageSuppliers/addexpenseRoutes');
+const placementRoutes = require('./routes/placement/placementRoutes');
 const assignroleRoutes = require('./routes/assignroleRoutes');
 const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
 const winston = require('winston');
@@ -75,6 +76,7 @@ app.use('/api', addStudentsRoutes);
 app.use('/api', paymentHandoverRoutes);
 app.use('/api', addSuppliersRoutes);
 app.use('/api', addexpenseRoutes);
+app.use('/api', placementRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 

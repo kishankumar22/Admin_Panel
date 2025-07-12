@@ -76,6 +76,8 @@ const ManageExpense: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     SupplierId: '',
     Reason: '',
@@ -288,7 +290,7 @@ const ManageExpense: React.FC = () => {
 
   const handleViewDocument = (doc: Document) => {
     const fullUrl = doc.DocumentUrl.startsWith('/ExpenseDocs')
-      ? `http://localhost:3002/api/ExpenseDocs/${doc.PublicId}`
+      ? `${axiosInstance.defaults.baseURL}/ExpenseDocs/${doc.PublicId}`
       : doc.DocumentUrl;
     setViewDocument({ ...doc, DocumentUrl: fullUrl });
   };
@@ -520,7 +522,7 @@ const ManageExpense: React.FC = () => {
 
   const renderDocumentPreview = (doc: Document) => {
     const isLocal = doc.DocumentUrl.startsWith('/ExpenseDocs');
-    const url = isLocal ? `http://localhost:3002/api/ExpenseDocs/${doc.PublicId}` : doc.DocumentUrl;
+    const url = isLocal ? `${axiosInstance.defaults.baseURL}/ExpenseDocs/${doc.PublicId}` : doc.DocumentUrl;
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(doc.PublicId.split('.').pop()?.toLowerCase() || '');
     const isPdf = doc.PublicId.split('.').pop()?.toLowerCase() === 'pdf';
 
@@ -1014,18 +1016,19 @@ const ManageExpense: React.FC = () => {
                         >
                           <FaEye className="w-4 h-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDocument(doc.PublicId)}
-                          disabled={isDeleting[doc.PublicId]}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50 p-1 rounded-full disabled:opacity-50"
-                        >
-                          {isDeleting[doc.PublicId] ? (
-                            <FaTimes className="animate-spin w-4 h-4" />
-                          ) : (
-                            <FaTrash size={12} />
-                          )}
-                        </button>
+                       <button
+  type="button"
+  onClick={() => setConfirmDeleteId(doc.PublicId)}
+  disabled={isDeleting[doc.PublicId]}
+  className="text-red-500 hover:text-red-600 hover:bg-red-50 p-1 rounded-full disabled:opacity-50"
+>
+  {isDeleting[doc.PublicId] ? (
+    <FaTimes className="animate-spin w-4 h-4" />
+  ) : (
+    <FaTrash size={12} />
+  )}
+</button>
+
                       </li>
                     ))}
                     {files.map((fileObj, index) => (
@@ -1080,6 +1083,30 @@ const ManageExpense: React.FC = () => {
           </div>
         </div>
       )}
+{confirmDeleteId && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
+      <p className="mb-4 text-gray-800">Are you sure you want to delete this document?</p>
+      <div className="flex justify-center gap-4">
+        <button
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          onClick={() => {
+            handleDeleteDocument(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }}
+        >
+          Yes, Delete
+        </button>
+        <button
+          className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+          onClick={() => setConfirmDeleteId(null)}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {isPaymentModalOpen && selectedSupplier && (
         <ExpensePayment

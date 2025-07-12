@@ -29,6 +29,8 @@ import PaymentHandover from './services/students/PaymentHandover';
 import CourseEnquiry from './services/students/CourseEnquiry';
 import ManageSupplier from './suppliers/ManageSupplier';
 import ManageExpense from './suppliers/ManageExpense';
+import AddPlacement from './placement/AddPlacement';
+
 
 const App: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
@@ -177,6 +179,15 @@ const App: React.FC = () => {
         <>
           <PageTitle title="Payment Handover" />
           <PaymentHandover />
+        </>
+      ),
+    },
+    {
+      path: '/AddPlacement',
+      element: (
+        <>
+          <PageTitle title="Add Placement" />
+          <AddPlacement />
         </>
       ),
     },

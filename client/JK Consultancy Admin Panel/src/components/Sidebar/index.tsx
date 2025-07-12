@@ -109,6 +109,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     '/managesupplier',
     '/manageExpense'
   ];
+  const placementManagementPages = [
+    '/AddPlacement'
+  ];
 
   const configurationPages = [
     '/assign-page-to-role',
@@ -396,6 +399,51 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                             </NavLink>
                           </li>
                         )}
+                      </ul>
+                    </div>
+                  </>
+                )}
+              </SidebarLinkGroup>
+            )}
+
+            {/* Placement Management */}
+            {hasGroupPermission(placementManagementPages) && (
+              <SidebarLinkGroup activeCondition={pathname === '/AddPlacement' || pathname.includes('AddPlacement')}>
+                {() => (
+                  <>
+                    <NavLink
+                      to="#"
+                      className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDropdownClick('AddPlacement');
+                      }}
+                    >
+                
+                  <MdStore className="w-4 h-4" />
+                      Manage Placement
+                      <IoIosArrowDown
+                        className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'AddPlacement' && 'rotate-180'}`}
+                      />
+                    </NavLink>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'AddPlacement' ? 'max-h-96' : 'max-h-0'}`}
+                    >
+                      <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+                        {hasPagePermission('/AddPlacement') && (
+                          <li>
+                            <NavLink
+                              to="/AddPlacement"
+                              className={({ isActive }) =>
+                                `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
+                              }
+                            >
+                              <MdOutlineManageHistory className="w-3.5 h-3.5" />
+                              Add Placement
+                            </NavLink>
+                          </li>
+                        )}
+                     
                       </ul>
                     </div>
                   </>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import axiosInstance from '../config';
 
 interface Document {
   DocumentId: number;
@@ -19,7 +20,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
   // Construct the full URL for local files
   const getFullUrl = (url: string): string => {
     if (url.startsWith('/SupplierDocs')) {
-      return `http://localhost:3002/api${url}`;
+      return `${axiosInstance.defaults.baseURL}${url}`;
     }
     return url; // Return as is for Cloudinary or other URLs
   };
@@ -42,7 +43,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
           <img
             src={fullUrl}
             alt="Document"
-            className="max-w-full max-h-[70vh] object-contain"
+            className="max-w-full w-full max-h-[70vh] object-contain"
             onError={(e) => {
               (e.target as HTMLImageElement).src = '/placeholder-image.jpg'; // Fallback image
               console.error('Failed to load image:', fullUrl);
@@ -105,7 +106,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({ document, onC
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
-      <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-4xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-xl mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
         <button
           onClick={onClose}
           className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"

@@ -19,6 +19,9 @@ import {
   FaToggleOff,
   FaMoneyBillWave,
   FaFile,
+  FaEye,
+  FaTrash,
+  FaDownload,
 } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../config';
@@ -29,6 +32,7 @@ import EditSupplierModal from './EditSupplierModal';
 import { FileSearch } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { usePermissions } from '../context/PermissionsContext';
+import DocumentViewerModal from './DocumentViewerModal'; // Import the provided modal
 
 export const RequiredAsterisk = () => <span className="text-red-500">*</span>;
 
@@ -63,6 +67,8 @@ const ManageSupplier: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isDocumentListOpen, setIsDocumentListOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +83,13 @@ const ManageSupplier: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [documents, setDocuments] = useState<{ [key: number]: SupplierDocument[] }>({});
+  const [documentToDelete, setDocumentToDelete] = useState<{
+    publicId: string;
+    isLocal: boolean;
+    supplierId: number;
+  } | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<SupplierDocument | null>(null);
+  const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { fetchRoles, fetchPages, fetchPermissions, pages, permissions } = usePermissions();
 
@@ -191,7 +204,6 @@ const ManageSupplier: React.FC = () => {
 
     setFilteredSuppliers(filtered);
     setCurrentPage(1);
-    // Fetch documents for visible suppliers
     filtered.forEach((supplier) => {
       if (supplier.SupplierId) fetchDocuments(supplier.SupplierId);
     });
@@ -340,6 +352,40 @@ const ManageSupplier: React.FC = () => {
     }
   };
 
+  const handleConfirmDelete = (publicId: string, isLocal: boolean, supplierId: number) => {
+    setDocumentToDelete({ publicId, isLocal, supplierId });
+    setIsConfirmDeleteOpen(true);
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    setIsDeleting((prev) => ({ ...prev, [documentToDelete.publicId]: true }));
+    try {
+      const endpoint = documentToDelete.isLocal
+        ? `/documents/local/${encodeURIComponent(documentToDelete.publicId)}`
+        : `/documents/${encodeURIComponent(documentToDelete.publicId)}`;
+      const response = await axiosInstance.delete(endpoint);
+      setDocuments((prev) => ({
+        ...prev,
+        [documentToDelete.supplierId]: prev[documentToDelete.supplierId].filter(
+          (doc) => doc.PublicId !== documentToDelete.publicId
+        ),
+      }));
+      toast.success(response.data.message || 'Document deleted successfully', {
+        position: 'top-right',
+        autoClose: 1500,
+      });
+    } catch (error: any) {
+      console.error('Error deleting document:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to delete document';
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
+    } finally {
+      setIsDeleting((prev) => ({ ...prev, [documentToDelete.publicId]: false }));
+      setIsConfirmDeleteOpen(false);
+      setDocumentToDelete(null);
+    }
+  };
+
   const handleExportToExcel = () => {
     if (filteredSuppliers.length === 0) {
       toast.warning('No data to export');
@@ -387,30 +433,77 @@ const ManageSupplier: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const renderDocument = (doc: SupplierDocument) => {
-    const isLocal = doc.DocumentUrl.startsWith('/SupplierDocs');
-    const url = isLocal ? `http://localhost:3002/api${doc.DocumentUrl}` : doc.DocumentUrl;
-    const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(doc.DocumentType.toLowerCase());
-    const isPdf = doc.DocumentType.toLowerCase() === 'pdf';
+const renderDocumentListItem = (doc: SupplierDocument, supplierId: number, index: number) => {
+  const isLocal = doc.DocumentUrl.startsWith('/SupplierDocs');
+  const url = isLocal ? `${axiosInstance.defaults.baseURL}${doc.DocumentUrl}` : doc.DocumentUrl;
 
-    return (
-      <div key={doc.DocumentId} className="mt-1">
-        {isImage ? (
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            <img src={url} alt="Document" className="w-16 h-16 object-cover rounded" />
-          </a>
-        ) : isPdf ? (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-            <FaFile className="w-4 h-4" /> View PDF
-          </a>
-        ) : (
-          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-blue-600 hover:underline">
-            <FaFile className="w-4 h-4" /> Download File
-          </a>
-        )}
-      </div>
-    );
+  const handleDownload = () => {
+    // Create a temporary link element to trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = doc.DocumentUrl.split('/').pop() || 'document'; // Use the file name as download name
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Fallback: Use fetch to force download if the above fails
+    fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/octet-stream' } })
+      .then((response) => response.blob())
+      .then((blob) => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = doc.DocumentUrl.split('/').pop() || 'document';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      })
+      .catch((error) => {
+        console.error('Download failed:', error);
+        toast.error('Failed to download the document. Please try again.', {
+          position: 'top-right',
+          autoClose: 1500,
+        });
+      });
   };
+
+  return (
+    <div key={doc.DocumentId} className="flex items-center justify-between p-2 border-b dark:border-gray-700">
+      <span className="truncate flex-1">{index + 1}</span>
+      <span className="truncate flex-1">{doc.DocumentUrl.split('/').pop() || 'Document'}</span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setSelectedDocument(doc)}
+          className="text-blue-500 hover:text-blue-700 transition duration-150"
+          title="View Document"
+        >
+          <FaEye className="w-4 h-4" />
+        </button>
+        {/* <button
+          onClick={handleDownload}
+          className="text-green-500 hover:text-green-700 transition duration-150"
+          title="Download Document"
+        >
+          <FaDownload className="w-4 h-4" />
+        </button> */}
+        <button
+          onClick={
+            canDelete
+              ? () => handleConfirmDelete(doc.PublicId, isLocal, supplierId)
+              : () =>
+                  toast.error('Access Denied: You do not have permission to delete documents.')
+          }
+          disabled={isDeleting[doc.PublicId]}
+          className="text-red-500 hover:text-red-700 transition duration-150 disabled:opacity-50"
+          title="Delete Document"
+        >
+          {isDeleting[doc.PublicId] ? <FaSpinner className="animate-spin w-4 h-4" /> : <FaTrash className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+};
 
   const indexOfLastSupplier = currentPage * rowsPerPage;
   const indexOfFirstSupplier = indexOfLastSupplier - rowsPerPage;
@@ -798,7 +891,7 @@ const ManageSupplier: React.FC = () => {
           }}
         />
       )}
-   {isEditModalOpen && editingSupplier && editingSupplier.SupplierId !== undefined && (
+      {isEditModalOpen && editingSupplier && editingSupplier.SupplierId !== undefined && (
         <EditSupplierModal
           supplier={{
             ...editingSupplier,
@@ -814,6 +907,92 @@ const ManageSupplier: React.FC = () => {
             fetchSuppliers();
           }}
           modifiedBy={createdBy}
+        />
+      )}
+      {isConfirmDeleteOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-99 transition-opacity duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-md mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg">
+            <h2 className="text-lg font-semibold mb-3 text-black dark:text-gray-100 flex items-center gap-1">
+              <FaTrash className="text-red-600" />
+              Confirm Delete
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Are you sure you want to delete this document? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmDeleteOpen(false);
+                  setDocumentToDelete(null);
+                }}
+                className="px-4 py-1 text-sm font-medium text-black dark:text-gray-200 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDocument}
+                disabled={documentToDelete ? isDeleting[documentToDelete.publicId] : false}
+                className="px-4 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-150 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {documentToDelete && isDeleting[documentToDelete.publicId] ? (
+                  <>
+                    <FaSpinner className="animate-spin w-4 h-4" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FaTrash className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isDocumentListOpen && selectedSupplier && selectedSupplier.SupplierId !== undefined && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-md mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg relative">
+            <button
+              onClick={() => setIsDocumentListOpen(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-red-700 dark:text-gray-400 dark:hover:text-gray-200 transition duration-150 z-10"
+            >
+              <FaTimes className="w-6 h-6 mr-3 mt-2" />
+            </button>
+            <h2 className="text-lg font-semibold mb-3 bg-gradient-to-r from-indigo-200 to-blue-200 p-1 rounded text-black dark:text-gray-100 flex items-center gap-1">
+              <FaFile className="text-indigo-600" />
+              Documents for {selectedSupplier.Name}
+            </h2>
+            <div className="max-h-[70vh] overflow-y-auto">
+              {documents[selectedSupplier.SupplierId!] && documents[selectedSupplier.SupplierId!].length > 0 ? (
+                documents[selectedSupplier.SupplierId!].map((doc, index) =>
+                  renderDocumentListItem(doc, selectedSupplier.SupplierId!, index)
+                )
+              ) : (
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center">No documents available.</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                type="button"
+                onClick={() => setIsDocumentListOpen(false)}
+                className="px-4 py-1 text-sm font-medium text-black dark:text-gray-200 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-150"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectedDocument && (
+        <DocumentViewerModal
+          document={{
+            ...selectedDocument,
+            SupplierId: selectedSupplier?.SupplierId || 0,
+          }}
+          onClose={() => setSelectedDocument(null)}
         />
       )}
       <div className="mt-2">
@@ -892,9 +1071,20 @@ const ManageSupplier: React.FC = () => {
                             {supplier.Comment}
                           </td>
                           <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
-                            {supplier.SupplierId !== undefined && documents[supplier.SupplierId]
-                              ? documents[supplier.SupplierId].map((doc) => renderDocument(doc))
-                              : 'No documents'}
+                            {supplier.SupplierId !== undefined && documents[supplier.SupplierId] ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedSupplier(supplier);
+                                  setIsDocumentListOpen(true);
+                                }}
+                                className="text-blue-500 flex  gap-2 hover:text-blue-700 transition duration-150"
+                                title="View Documents"
+                              >
+                                <FaEye className="w-4 h-4" /> View Docs
+                              </button>
+                            ) : (
+                              'No documents'
+                            )}
                           </td>
                           <td className="py-1 px-2 text-black dark:text-gray-200 whitespace-nowrap">
                             {supplier.CreatedBy}

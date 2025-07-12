@@ -10,6 +10,7 @@ import {
   FaTimes,
   FaSpinner,
   FaEye,
+  FaTrash,
 } from 'react-icons/fa';
 import axiosInstance from '../config';
 import { toast } from 'react-toastify';
@@ -93,6 +94,8 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
   const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [viewDocument, setViewDocument] = useState<Document | null>(null);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ publicId: string; isLocal: boolean } | null>(null);
 
   // Fetch documents when modal opens
   useEffect(() => {
@@ -146,14 +149,15 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
     }));
   };
 
-  const handleDeleteDocument = async (publicId: string, isLocal: boolean) => {
-    setIsDeleting((prev) => ({ ...prev, [publicId]: true }));
+  const handleDeleteDocument = async () => {
+    if (!documentToDelete) return;
+    setIsDeleting((prev) => ({ ...prev, [documentToDelete.publicId]: true }));
     try {
-      const endpoint = isLocal
-        ? `/documents/local/${encodeURIComponent(publicId)}`
-        : `/documents/${encodeURIComponent(publicId)}`;
+      const endpoint = documentToDelete.isLocal
+        ? `/documents/local/${encodeURIComponent(documentToDelete.publicId)}`
+        : `/documents/${encodeURIComponent(documentToDelete.publicId)}`;
       const response = await axiosInstance.delete(endpoint);
-      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
+      setDocuments((prev) => prev.filter((doc) => doc.PublicId !== documentToDelete.publicId));
       toast.success(response.data.message || 'Document deleted successfully', {
         position: 'top-right',
         autoClose: 1500,
@@ -163,12 +167,19 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
       const errorMessage = error.response?.data?.message || 'Failed to delete document';
       toast.error(errorMessage, { position: 'top-right', autoClose: 1500 });
     } finally {
-      setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
+      setIsDeleting((prev) => ({ ...prev, [documentToDelete.publicId]: false }));
+      setIsConfirmDeleteOpen(false);
+      setDocumentToDelete(null);
     }
   };
 
   const handleViewDocument = (doc: Document) => {
     setViewDocument(doc);
+  };
+
+  const handleConfirmDelete = (publicId: string, isLocal: boolean) => {
+    setDocumentToDelete({ publicId, isLocal });
+    setIsConfirmDeleteOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -224,7 +235,7 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
 
   const renderDocumentPreview = (doc: Document) => {
     const isLocal = doc.DocumentUrl.startsWith('/SupplierDocs');
-    const url = isLocal ? `http://localhost:3002/api${doc.DocumentUrl}` : doc.DocumentUrl;
+    const url = isLocal ? `${axiosInstance.defaults.baseURL}${doc.DocumentUrl}` : doc.DocumentUrl;
     const isImage = ['jpg', 'jpeg', 'png', 'gif'].includes(doc.DocumentType.toLowerCase());
     const isPdf = doc.DocumentType.toLowerCase() === 'pdf';
 
@@ -442,14 +453,15 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteDocument(doc.PublicId, doc.DocumentUrl.startsWith('/SupplierDocs'))}
+                            onClick={() => handleConfirmDelete(doc.PublicId, doc.DocumentUrl.startsWith('/SupplierDocs'))}
                             disabled={isDeleting[doc.PublicId]}
                             className="text-red-500 hover:text-red-700 transition duration-150 flex-shrink-0 disabled:opacity-50"
+                            title="Delete Document"
                           >
                             {isDeleting[doc.PublicId] ? (
                               <FaSpinner className="animate-spin w-4 h-4" />
                             ) : (
-                              <FaTimes className="w-4 h-4" />
+                              <FaTrash className="w-3 h-3" />
                             )}
                           </button>
                         </div>
@@ -507,6 +519,49 @@ const EditSupplierModal: React.FC<EditSupplierModalProps> = ({
           document={viewDocument}
           onClose={() => setViewDocument(null)}
         />
+      )}
+      {isConfirmDeleteOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-3 w-full max-w-md mx-2 transform transition-all duration-300 scale-95 sm:scale-100 shadow-lg">
+            <h2 className="text-lg font-semibold mb-3 text-black dark:text-gray-100 flex items-center gap-1">
+              <FaTrash className="text-red-600" />
+              Confirm Delete
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Are you sure you want to delete this document? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfirmDeleteOpen(false);
+                  setDocumentToDelete(null);
+                }}
+                className="px-4 py-1 text-sm font-medium text-black dark:text-gray-200 bg-gray-200 dark:bg-gray-700 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteDocument}
+                disabled={documentToDelete ? isDeleting[documentToDelete.publicId] : false}
+                className="px-4 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition duration-150 flex items-center gap-1 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {documentToDelete && isDeleting[documentToDelete.publicId] ? (
+                  <>
+                    <FaSpinner className="animate-spin w-4 h-4" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FaTrash className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </ErrorBoundary>
   );

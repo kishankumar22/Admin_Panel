@@ -1482,16 +1482,16 @@ const confirmDelete = () => {
           setShowPreviewModal(false);
           setSelectedDocType(null);
         }}
-        className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+        className="absolute top-7 right-6  text-gray-500 hover:text-red-700"
         title="Close"
       >
-        ✕
+        <FaTimes size={20} />
       </button>
-      <h3 className="text-lg font-semibold mb-3">Document Preview</h3>
+      <h3 className="text-lg font-semibold bg-blue-200 p-2   rounded  mb-3">Document Preview</h3>
       {docURL?.endsWith(".pdf") ? (
         <iframe src={docURL} title="PDF Preview" className="w-full h-96 border rounded"></iframe>
       ) : (
-        <img src={docURL} alt="Preview" className="w-full h-auto rounded shadow" />
+        <img src={docURL} alt="Preview" className="w-full  object-fit rounded shadow" />
       )}
     </div>
   </div>
