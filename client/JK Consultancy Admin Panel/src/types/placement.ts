@@ -27,6 +27,7 @@ export interface Course {
 }
 
 export interface Student {
+  status: boolean;
   id: number;
   fName: string;
   lName: string | null;
@@ -35,6 +36,7 @@ export interface Student {
 }
 
 export interface Placement {
+  courseName: string;
   studentimage: string | undefined;
   CreatedBy: string;
   CreatedOn: string | number | Date;
@@ -50,6 +52,8 @@ export interface Placement {
   Remarks?: string;
   fName?: string;
   lName?: string;
+  StudentPic?: string | File | null;
+
 }
 
 export interface FormData {
@@ -62,4 +66,5 @@ export interface FormData {
   remarks: string;
   CreatedBy: string;
   ModifiedBy: string;
+   StudentPic?: string | File | null;
 }

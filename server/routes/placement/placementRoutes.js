@@ -1,13 +1,49 @@
 const express = require('express');
 const router = express.Router();
-const sql = require('mssql'); // Import mssql for type definitions
+const sql = require('mssql');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs').promises;
 const { executeQuery } = require('../../config/db');
+
+// Configure multer for local storage
+const storage = multer.diskStorage({
+  destination: async (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../public/uploads/Placement');
+    try {
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (err) {
+      cb(err);
+    }
+  },
+  filename: async (req, file, cb) => {
+    const uploadPath = path.join(__dirname, '../../public/uploads/Placement');
+    const baseName = path.parse(file.originalname).name;
+    const ext = path.extname(file.originalname);
+    let filename = `${baseName}${ext}`;
+    let counter = 0;
+
+    while (await fs.access(path.join(uploadPath, filename)).then(() => true).catch(() => false)) {
+      counter++;
+      filename = `${baseName}_${counter}${ext}`;
+    }
+
+    cb(null, filename);
+  }
+});
+
+const upload = multer({ storage });
+
+// Serve static files
+router.use('/Placement', express.static(path.join(__dirname, '../../public/uploads/Placement')));
 
 // GET - Get all placements with student details
 router.get('/placements', async (req, res) => {
   try {
     const placements = await executeQuery(`
-      SELECT p.*, s.fName, s.lName ,s.studentimage
+      SELECT p.*, s.fName, s.lName, 
+             COALESCE(p.StudentPic, s.studentImage) as studentimage
       FROM Placement p 
       JOIN StudentAcademicDetails sad ON p.StudentAcademicId = sad.id
       JOIN Student s ON sad.studentId = s.id
@@ -24,7 +60,8 @@ router.get('/placements/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const placement = await executeQuery(
-      `SELECT p.*, s.fName, s.lName 
+      `SELECT p.*, s.fName, s.lName, 
+              COALESCE(p.StudentPic, s.studentImage) as studentimage
        FROM Placement p 
        JOIN StudentAcademicDetails sad ON p.StudentAcademicId = sad.id
        JOIN Student s ON sad.studentId = s.id 
@@ -41,9 +78,10 @@ router.get('/placements/:id', async (req, res) => {
   }
 });
 
-// POST - Add placement
-router.post('/placements', async (req, res) => {
+// POST - Add placement with image upload
+router.post('/placements', upload.single('studentPic'), async (req, res) => {
   const { studentAcademicId, company, role, package: pkg, year, status, remarks, CreatedBy } = req.body;
+  const studentPic = req.file ? `/Placement/${req.file.filename}` : null;
 
   // Input validation
   if (!studentAcademicId || isNaN(studentAcademicId)) {
@@ -68,9 +106,11 @@ router.post('/placements', async (req, res) => {
   try {
     await executeQuery(
       `INSERT INTO Placement 
-       (StudentAcademicId, CompanyName, RoleOffered, PackageOffered, PlacementYear, Status, Remarks, CreatedBy, CreatedOn)
+       (StudentAcademicId, CompanyName, RoleOffered, PackageOffered, PlacementYear, 
+        Status, Remarks, CreatedBy, CreatedOn, StudentPic)
        VALUES 
-       (@studentAcademicId, @company, @role, @pkg, @year, @status, @remarks, @CreatedBy, GETDATE())`,
+       (@studentAcademicId, @company, @role, @pkg, @year, @status, @remarks, 
+        @CreatedBy, GETDATE(), @studentPic)`,
       {
         studentAcademicId: { value: studentAcademicId, type: sql.Int },
         company: { value: company, type: sql.NVarChar(100) },
@@ -80,6 +120,7 @@ router.post('/placements', async (req, res) => {
         status: { value: status, type: sql.NVarChar(50) },
         remarks: { value: remarks || null, type: sql.NVarChar(250) },
         CreatedBy: { value: CreatedBy, type: sql.NVarChar(50) },
+        studentPic: { value: studentPic, type: sql.NVarChar(255) }
       }
     );
 
@@ -90,30 +131,65 @@ router.post('/placements', async (req, res) => {
   }
 });
 
-
-// PUT - Update placement
-router.put('/placements/:id', async (req, res) => {
+// PUT - Update placement with optional image upload
+router.put('/placements/:id', upload.single('studentPic'), async (req, res) => {
   const { id } = req.params;
-  const { CompanyName, RoleOffered, PackageOffered, PlacementYear, Status, Remarks, ModifiedBy } = req.body;
-
-  // Input validation
-  if (!CompanyName) {
-    return res.status(400).json({ error: 'Company name is required' });
-  }
-  if (!Status || !['Selected', 'Joined', 'Offer Received'].includes(Status)) {
-    return res.status(400).json({ error: 'Invalid or missing status' });
-  }
-  if (PackageOffered && isNaN(PackageOffered)) {
-    return res.status(400).json({ error: 'Invalid package value' });
-  }
-  if (PlacementYear && isNaN(PlacementYear)) {
-    return res.status(400).json({ error: 'Invalid placement year' });
-  }
-  if (!ModifiedBy) {
-    return res.status(400).json({ error: 'ModifiedBy is required' });
-  }
-
+  const { CompanyName, RoleOffered, PackageOffered, PlacementYear, Status, 
+          Remarks, ModifiedBy, deleteExistingImage } = req.body;
+  
+  let studentPic = null;
+  
   try {
+    // Get current image path if exists
+    let currentImage = null;
+    if (!deleteExistingImage) {
+      const current = await executeQuery(
+        'SELECT StudentPic FROM Placement WHERE PlacementId = @id',
+        { id: { value: id, type: sql.Int } }
+      );
+      currentImage = current[0]?.StudentPic;
+    }
+
+    // Handle image upload/delete
+    if (req.file) {
+      studentPic = `/Placement/${req.file.filename}`;
+      // Delete old image if exists
+      if (currentImage) {
+        try {
+          const imagePath = path.join(__dirname, '../../public', currentImage);
+          await fs.unlink(imagePath);
+        } catch (err) {
+          console.error('Error deleting old image:', err);
+        }
+      }
+    } else if (deleteExistingImage === 'true' && currentImage) {
+      try {
+        const imagePath = path.join(__dirname, '../../public', currentImage);
+        await fs.unlink(imagePath);
+      } catch (err) {
+        console.error('Error deleting old image:', err);
+      }
+    } else {
+      studentPic = currentImage;
+    }
+
+    // Input validation
+    if (!CompanyName) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+    if (!Status || !['Selected', 'Joined', 'Offer Received'].includes(Status)) {
+      return res.status(400).json({ error: 'Invalid or missing status' });
+    }
+    if (PackageOffered && isNaN(PackageOffered)) {
+      return res.status(400).json({ error: 'Invalid package value' });
+    }
+    if (PlacementYear && isNaN(PlacementYear)) {
+      return res.status(400).json({ error: 'Invalid placement year' });
+    }
+    if (!ModifiedBy) {
+      return res.status(400).json({ error: 'ModifiedBy is required' });
+    }
+
     await executeQuery(
       `UPDATE Placement 
        SET CompanyName = @CompanyName, 
@@ -123,7 +199,8 @@ router.put('/placements/:id', async (req, res) => {
            Status = @Status, 
            Remarks = @Remarks, 
            ModifiedBy = @ModifiedBy, 
-           ModifiedOn = GETDATE()
+           ModifiedOn = GETDATE(),
+           StudentPic = @studentPic
        WHERE PlacementId = @id`,
       {
         id: { value: id, type: sql.Int },
@@ -134,6 +211,7 @@ router.put('/placements/:id', async (req, res) => {
         Status: { value: Status, type: sql.NVarChar(50) },
         Remarks: { value: Remarks || null, type: sql.NVarChar(250) },
         ModifiedBy: { value: ModifiedBy, type: sql.NVarChar(50) },
+        studentPic: { value: studentPic, type: sql.NVarChar(255) }
       }
     );
     res.status(200).json({ message: 'Placement updated successfully' });
@@ -143,14 +221,34 @@ router.put('/placements/:id', async (req, res) => {
   }
 });
 
-
 // DELETE - Delete placement
 router.delete('/placements/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await executeQuery(`DELETE FROM Placement WHERE PlacementId = @id`, {
-      id: { value: id, type: sql.Int },
-    });
+    // Get image path before deletion
+    const placement = await executeQuery(
+      'SELECT StudentPic FROM Placement WHERE PlacementId = @id',
+      { id: { value: id, type: sql.Int } }
+    );
+    
+    const imagePath = placement[0]?.StudentPic;
+    
+    // Delete placement record
+    await executeQuery(
+      'DELETE FROM Placement WHERE PlacementId = @id',
+      { id: { value: id, type: sql.Int } }
+    );
+    
+    // Delete associated image if exists
+    if (imagePath) {
+      try {
+        const fullPath = path.join(__dirname, '../../public', imagePath);
+        await fs.unlink(fullPath);
+      } catch (err) {
+        console.error('Error deleting placement image:', err);
+      }
+    }
+    
     res.status(200).json({ message: 'Placement deleted successfully' });
   } catch (err) {
     console.error('Error deleting placement:', err);
