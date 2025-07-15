@@ -14,7 +14,7 @@ import { MdCreateNewFolder, MdOutlineAssignmentTurnedIn, MdOutlineManageHistory 
 import { FaHandHoldingUsd, FaMoneyBill, FaUserPlus } from "react-icons/fa";
 import { PiStudent } from "react-icons/pi";
 import { IoIosPersonAdd } from "react-icons/io";
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, ClipboardPlus } from 'lucide-react';
 import { usePermissions } from '../../context/PermissionsContext';
 
 interface SidebarProps {
@@ -420,7 +420,10 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                       }}
                     >
                 
-                  <MdStore className="w-4 h-4" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6h4M4 10h16v10H4V10zM4 10V6h16v4" />
+</svg>
+
                       Manage Placement
                       <IoIosArrowDown
                         className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'AddPlacement' && 'rotate-180'}`}
@@ -438,7 +441,7 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                                 `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${isActive && '!text-white bg-gray-500'}`
                               }
                             >
-                              <MdOutlineManageHistory className="w-3.5 h-3.5" />
+                         <ClipboardPlus className="w-3.5 h-3.5" />
                               Add Placement
                             </NavLink>
                           </li>

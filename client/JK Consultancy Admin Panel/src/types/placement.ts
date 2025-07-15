@@ -52,12 +52,12 @@ export interface Placement {
   Remarks?: string;
   fName?: string;
   lName?: string;
-  StudentPic?: string | File | null;
+  StudentPic?: File | null;
 
 }
 
 export interface FormData {
-  studentAcademicId: string;
+  studentAcademicId: number;
   company: string;
   role: string;
   package: string;
@@ -66,5 +66,6 @@ export interface FormData {
   remarks: string;
   CreatedBy: string;
   ModifiedBy: string;
-   StudentPic?: string | File | null;
+   StudentPic?: File | null;
 }
+

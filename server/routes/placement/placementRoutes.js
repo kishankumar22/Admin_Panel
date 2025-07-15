@@ -43,7 +43,7 @@ router.get('/placements', async (req, res) => {
   try {
     const placements = await executeQuery(`
       SELECT p.*, s.fName, s.lName, 
-             COALESCE(p.StudentPic, s.studentImage) as studentimage
+             COALESCE(p.StudentPic, s.studentImage) as studentimage , sad.sessionYear
       FROM Placement p 
       JOIN StudentAcademicDetails sad ON p.StudentAcademicId = sad.id
       JOIN Student s ON sad.studentId = s.id
@@ -137,20 +137,18 @@ router.put('/placements/:id', upload.single('studentPic'), async (req, res) => {
   const { CompanyName, RoleOffered, PackageOffered, PlacementYear, Status, 
           Remarks, ModifiedBy, deleteExistingImage } = req.body;
   
-  let studentPic = null;
-  
   try {
-    // Get current image path if exists
-    let currentImage = null;
-    if (!deleteExistingImage) {
-      const current = await executeQuery(
-        'SELECT StudentPic FROM Placement WHERE PlacementId = @id',
-        { id: { value: id, type: sql.Int } }
-      );
-      currentImage = current[0]?.StudentPic;
-    }
+    // Get current placement record to check existing StudentPic
+    const current = await executeQuery(
+      'SELECT StudentPic FROM Placement WHERE PlacementId = @id',
+      { id: { value: id, type: sql.Int } }
+    );
+    const existingRecord = current[0] || {};
+    const currentImage = existingRecord.StudentPic || null;
+    console.log('Current image path from DB:', currentImage); // Debug log
 
-    // Handle image upload/delete
+    // Determine new StudentPic value
+    let studentPic = currentImage; // Default to current value to preserve it
     if (req.file) {
       studentPic = `/Placement/${req.file.filename}`;
       // Delete old image if exists
@@ -158,20 +156,22 @@ router.put('/placements/:id', upload.single('studentPic'), async (req, res) => {
         try {
           const imagePath = path.join(__dirname, '../../public', currentImage);
           await fs.unlink(imagePath);
+          console.log('Old image deleted:', imagePath); // Debug log
         } catch (err) {
-          console.error('Error deleting old image:', err);
+          console.error('Error deleting old image:', err.message);
         }
       }
     } else if (deleteExistingImage === 'true' && currentImage) {
       try {
         const imagePath = path.join(__dirname, '../../public', currentImage);
         await fs.unlink(imagePath);
+        studentPic = null; // Set to null when deleted
+        console.log('Image deleted by user request:', imagePath); // Debug log
       } catch (err) {
-        console.error('Error deleting old image:', err);
+        console.error('Error deleting old image:', err.message);
       }
-    } else {
-      studentPic = currentImage;
     }
+    console.log('Final StudentPic value:', studentPic); // Debug log
 
     // Input validation
     if (!CompanyName) {
@@ -180,47 +180,53 @@ router.put('/placements/:id', upload.single('studentPic'), async (req, res) => {
     if (!Status || !['Selected', 'Joined', 'Offer Received'].includes(Status)) {
       return res.status(400).json({ error: 'Invalid or missing status' });
     }
-    if (PackageOffered && isNaN(PackageOffered)) {
+    if (PackageOffered && isNaN(Number(PackageOffered))) {
       return res.status(400).json({ error: 'Invalid package value' });
     }
-    if (PlacementYear && isNaN(PlacementYear)) {
+    if (PlacementYear && isNaN(Number(PlacementYear))) {
       return res.status(400).json({ error: 'Invalid placement year' });
     }
     if (!ModifiedBy) {
       return res.status(400).json({ error: 'ModifiedBy is required' });
     }
 
-    await executeQuery(
-      `UPDATE Placement 
-       SET CompanyName = @CompanyName, 
-           RoleOffered = @RoleOffered, 
-           PackageOffered = @PackageOffered, 
-           PlacementYear = @PlacementYear, 
-           Status = @Status, 
-           Remarks = @Remarks, 
-           ModifiedBy = @ModifiedBy, 
-           ModifiedOn = GETDATE(),
-           StudentPic = @studentPic
-       WHERE PlacementId = @id`,
-      {
-        id: { value: id, type: sql.Int },
-        CompanyName: { value: CompanyName, type: sql.NVarChar(100) },
-        RoleOffered: { value: RoleOffered || null, type: sql.NVarChar(100) },
-        PackageOffered: { value: PackageOffered || null, type: sql.Decimal(10, 2) },
-        PlacementYear: { value: PlacementYear || null, type: sql.Int },
-        Status: { value: Status, type: sql.NVarChar(50) },
-        Remarks: { value: Remarks || null, type: sql.NVarChar(250) },
-        ModifiedBy: { value: ModifiedBy, type: sql.NVarChar(50) },
-        studentPic: { value: studentPic, type: sql.NVarChar(255) }
-      }
-    );
+    // Prepare update parameters, only include StudentPic if changed
+    const params = {
+      id: { value: id, type: sql.Int },
+      CompanyName: { value: CompanyName, type: sql.NVarChar(100) },
+      RoleOffered: { value: RoleOffered || null, type: sql.NVarChar(100) },
+      PackageOffered: { value: PackageOffered || null, type: sql.Decimal(10, 2) },
+      PlacementYear: { value: PlacementYear || null, type: sql.Int },
+      Status: { value: Status, type: sql.NVarChar(50) },
+      Remarks: { value: Remarks || null, type: sql.NVarChar(250) },
+      ModifiedBy: { value: ModifiedBy, type: sql.NVarChar(50) }
+    };
+
+    // Only include StudentPic in the query if it has changed
+    let query = `
+      UPDATE Placement 
+      SET CompanyName = @CompanyName, 
+          RoleOffered = @RoleOffered, 
+          PackageOffered = @PackageOffered, 
+          PlacementYear = @PlacementYear, 
+          Status = @Status, 
+          Remarks = @Remarks, 
+          ModifiedBy = @ModifiedBy, 
+          ModifiedOn = GETDATE()`;
+    if (studentPic !== currentImage) {
+      query += ', StudentPic = @studentPic';
+      params.studentPic = { value: studentPic, type: sql.NVarChar(255) };
+    }
+    query += ` WHERE PlacementId = @id`;
+
+    await executeQuery(query, params);
+    console.log('Placement updated successfully for ID:', id); // Debug log
     res.status(200).json({ message: 'Placement updated successfully' });
   } catch (err) {
-    console.error('Error updating placement:', err);
-    res.status(500).json({ error: 'Failed to update placement' });
+    console.error('Error updating placement:', err.message || err);
+    res.status(500).json({ error: 'Failed to update placement', details: err.message || err.toString() });
   }
 });
-
 // DELETE - Delete placement
 router.delete('/placements/:id', async (req, res) => {
   const { id } = req.params;
