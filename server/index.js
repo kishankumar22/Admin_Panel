@@ -1,9 +1,15 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
+const path = require('path');
+const bodyParser = require('body-parser');
+const { poolConnect } = require('./config/db');
+
+const logger = require('./utils/logger');  // 👈 Correct Import Path
+
+// Import Routes
 const loginRoutes = require('./routes/loginRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-const bodyParser = require('body-parser');
 const formRoutes = require('./routes/formRoutes');
 const bannerRoutes = require('./routes/bannerRoutes');
 const facultyRoutes = require('./routes/facultyRoutes');
@@ -18,49 +24,35 @@ const addexpenseRoutes = require('./routes/ManageSuppliers/addexpenseRoutes');
 const placementRoutes = require('./routes/placement/placementRoutes');
 const assignroleRoutes = require('./routes/assignroleRoutes');
 const importentLogolinkRoutes = require('./routes/importentLogolinkRoutes');
-const winston = require('winston');
-const DailyRotateFile = require('winston-daily-rotate-file');
-const { poolConnect } = require('./config/db'); // Correct import path
-const path = require('path');
-const os = require('os');
+const logRoutes = require('./routes/logRoutes');
 
+
+
+
+// Load Environment Variables
 dotenv.config();
 
+// App Setup
 const app = express();
 const PORT = process.env.PORT || 3002;
-// const { createUser ,changeUserPassword} = require('./controllers/controller');
-// changeUserPassword("Kausar12@gmail.com","Kausar@1","Kishan Kumar")
 
-// Set up Winston logger for errors only with daily rotation
-const errorLogger = winston.createLogger({
-  level: 'error',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [
-    new DailyRotateFile({
-      filename: 'logs/app-%DATE%.log',
-      datePattern: 'YYYY-MM-DD',
-      maxFiles: '14d',
-      level: 'error',
-    }),
-  ],
-});
-
-// Middleware to parse JSON requests
+// Middleware
 app.use(express.json());
 app.use(cors({
-  // origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:8081'],  //development
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:8081','https://jkiop.org','https://admin.jkiop.org'],// production
-  methods: ['GET', 'POST', 'PUT', 'DELETE','PATCH', 'OPTIONS'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:8081',
+    'https://jkiop.org',
+    'https://admin.jkiop.org'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: false,
 }));
-
 app.use(bodyParser.json());
 
-// Use the routes
+// Routes
 app.use('/api', loginRoutes);
 app.use('/form', formRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -78,40 +70,35 @@ app.use('/api', addSuppliersRoutes);
 app.use('/api', addexpenseRoutes);
 app.use('/api', placementRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use('/api/logs', logRoutes);
 
 
-
-// Root endpoint
+// Root Endpoint
 app.get('/', (req, res) => {
   res.send('Welcome to Kishan Kumar from IIS server');
 });
 
-// Error-handling middleware to log errors to app-YYYY-MM-DD.log
+// Error-handling Middleware (ONLY ONCE)
 app.use((err, req, res, next) => {
-  const statusCode = 500;
-
-  // Log the error to app-YYYY-MM-DD.log in the simplified format
-  errorLogger.error('Error occurred', {
-    error: err.message,
+  logger.error('Error Occurred', {
+    message: err.message,
     stack: err.stack,
-    status: statusCode,
     method: req.method,
-    url: req.url,
+    url: req.url
   });
 
-  // Send a response to the client
-  res.status(statusCode).json({
+  res.status(500).json({
     message: 'Internal Server Error',
     error: process.env.NODE_ENV === 'production' ? undefined : err.message,
   });
 });
 
-// Start the server and connect to the database
+// Start Server
 app.listen(PORT, async () => {
   try {
-    await poolConnect; // Connect to the database using MSSQL pool
+    await poolConnect;
     console.log('Database connected successfully');
   } catch (error) {
-    // Do not log database connection errors to console or file as per requirement
+    logger.error('Database Connection Failed', { message: error.message });
   }
 });

@@ -279,10 +279,10 @@ const ManageExpense: React.FC = () => {
     try {
       const response = await axiosInstance.delete(`/documents/${encodeURIComponent(publicId)}`);
       setDocuments((prev) => prev.filter((doc) => doc.PublicId !== publicId));
-      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 3000 });
+      toast.success('Document deleted successfully', { position: 'top-right', autoClose: 1000 });
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Failed to delete document';
-      toast.error(errorMessage, { position: 'top-right', autoClose: 3000 });
+      toast.error(errorMessage, { position: 'top-right', autoClose: 1000 });
     } finally {
       setIsDeleting((prev) => ({ ...prev, [publicId]: false }));
     }
@@ -299,7 +299,7 @@ const ManageExpense: React.FC = () => {
     if (expense.Deleted) {
       toast.warning('Expense is inactive. Please activate to edit or make payment.', {
         position: 'top-right',
-        autoClose: 3000,
+        autoClose: 1000,
       });
       return;
     }
@@ -1014,7 +1014,7 @@ const ManageExpense: React.FC = () => {
                           className="text-blue-500 hover:text-blue-700 transition duration-150 flex-shrink-0 mr-2"
                           title="View Document"
                         >
-                          <FaEye className="w-4 h-4" />
+                          <FaEye className="w-4 h-4 ml-2" />
                         </button>
                        <button
   type="button"

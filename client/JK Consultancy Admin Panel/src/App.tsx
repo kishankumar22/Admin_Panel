@@ -30,6 +30,7 @@ import CourseEnquiry from './services/students/CourseEnquiry';
 import ManageSupplier from './suppliers/ManageSupplier';
 import ManageExpense from './suppliers/ManageExpense';
 import AddPlacement from './placement/AddPlacement';
+import LogsViewer from './pages/LogsViewer';
 
 
 const App: React.FC = () => {
@@ -188,6 +189,15 @@ const App: React.FC = () => {
         <>
           <PageTitle title="Add Placement" />
           <AddPlacement />
+        </>
+      ),
+    },
+    {
+      path: '/viewlogs',
+      element: (
+        <>
+          <PageTitle title="View Logs" />
+          <LogsViewer />
         </>
       ),
     },

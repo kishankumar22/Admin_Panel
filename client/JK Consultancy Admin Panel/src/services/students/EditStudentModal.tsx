@@ -280,7 +280,15 @@ useEffect(() => {
       const docsResponse = await axiosInstance.get(`/students/${studentId}/documents`);
       const docs: Record<string, ExistingDocument> = {};
       docsResponse.data.forEach((doc: ExistingDocument) => {
-        const fullUrl = `${axiosInstance.defaults.baseURL}${doc.fileUrl}`; // Use fileUrl from API response
+        const getFullImageUrl = (fileUrl: string): string => {
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    return fileUrl;  // Already full URL
+  } else {
+    return `${axiosInstance.defaults.baseURL}${fileUrl}`;  // Relative URL
+  }
+};
+      const fullUrl = getFullImageUrl(doc.fileUrl);
+// Use fileUrl from API response
         docs[doc.documentType] = { ...doc, Url: fullUrl }; // Use documentType (lowercase 'd')
         // Prefetch preview for all document types
         setDocuments((prev) => ({
@@ -289,6 +297,7 @@ useEffect(() => {
         }));
       });
       setExistingDocuments(docs);
+
 
       const academicResponse = await axiosInstance.get(`/students/${studentId}/academic-details`);
       const fetchedAcademicData = academicResponse.data.data;
@@ -299,6 +308,7 @@ useEffect(() => {
         setStudent((prev) => ({ ...prev, CourseYear: singleCourseYear }));
         await loadAcademicDetails(singleCourseYear, false);
       }
+
 
       try {
         const paymentResponse = await axiosInstance.get('/amountType');
@@ -356,6 +366,7 @@ useEffect(() => {
             dueDate: emi.dueDate ? new Date(emi.dueDate).toISOString().split('T')[0] : '',
           }))
         );
+        
       } else {
         setStudent((prev) => ({
           ...prev,
@@ -578,9 +589,9 @@ const [showDeleteModal, setShowDeleteModal] = useState(false);
 const [showPreviewModal, setShowPreviewModal] = useState(false);
 const [selectedDocType, setSelectedDocType] = useState<string | null>(null)
 const docURL = selectedDocType ? existingDocuments[selectedDocType]?.Url || '' : '';
+
 const confirmDelete = () => {
   if (selectedDocType) {
-    
     handleDeleteDocument(selectedDocType as keyof Documents);
     setShowDeleteModal(false);
     setSelectedDocType(null);
@@ -697,14 +708,11 @@ const confirmDelete = () => {
     }
   };
 
-  const handleTabClick = (tabNumber: number) => {
-    if (validateStep(step)) {
-      setStep(tabNumber);
-      setError('');
-    } else {
-      toast.warning(`Please fill all required fields in current tab before switching`);
-    }
-  };
+ const handleTabClick = (tabNumber: number) => {
+  setStep(tabNumber);   // Direct navigation
+  setError('');         // Optional: clear any errors when switching
+};
+
 
   const nextStep = () => {
     if (validateStep(step)) {

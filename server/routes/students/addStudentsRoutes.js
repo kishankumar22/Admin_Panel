@@ -455,50 +455,139 @@ router.get('/students/:studentId/documents', async (req, res) => {
 });
 //EDIT STUDENT
 
-// DELETE /students/:studentId/documents/:docType - Delete a specific document for a student
+const validDocTypes = new Set([
+  'StudentImage',
+  'CasteCertificate',
+  'TenthMarks',
+  'TwelfthMarks',
+  'Residential',
+  'Income'
+]);
+
 router.delete('/students/:studentId/documents/:docType', async (req, res) => {
+  const { studentId, docType } = req.params;
+  const startTime = Date.now();
+  
+  console.log(`[DELETE] Starting deletion for studentId: ${studentId}, docType: ${docType}`);
+
   try {
-    const { studentId, docType } = req.params;
-    
     // Validate inputs
-    if (!studentId || isNaN(parseInt(studentId))) {
-      return res.status(400).json({ success: false, message: 'Invalid student ID' });
-    }
-    
-    if (!docType) {
-      return res.status(400).json({ success: false, message: 'Document type is required' });
+    if (!studentId || !Number.isInteger(Number(studentId))) {
+      console.log('[VALIDATION] Invalid student ID');
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Valid student ID is required' 
+      });
     }
 
-    // First check if document exists
-    const checkQuery = `
-      SELECT id
+    if (!validDocTypes.has(docType)) {
+      console.log('[VALIDATION] Invalid document type');
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid document type. Valid types are: ${[...validDocTypes].join(', ')}`
+      });
+    }
+
+    // Get document details
+    const docQuery = `
+      SELECT id, fileName, fileUrl, documentType
       FROM Documents 
-      WHERE studentId = @studentId AND documentType = @docType
+      WHERE studentId = @studentId 
+        AND documentType = @docType
     `;
     
-    const checkResult = await executeQuery(checkQuery, {
-      studentId: { type: sql.Int, value: parseInt(studentId) },
+    const docResult = await executeQuery(docQuery, {
+      studentId: { type: sql.Int, value: Number(studentId) },
       docType: { type: sql.NVarChar, value: docType }
     });
 
-    if (checkResult.recordset.length === 0) {
-      return res.status(404).json({ success: false, message: 'Document not found' });
+    if (docResult.recordset.length === 0) {
+      console.log('[DATABASE] Document not found');
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Document not found in database' 
+      });
     }
 
-    // Delete the document
+    const document = docResult.recordset[0];
+    console.log(`[DATABASE] Found document:`, document);
+
+    // File deletion process
+    const basePath = path.join(
+      'C:',
+      'Users',
+      'Windows',
+      'Desktop',
+      'JK Consultancy',
+      'server',
+      'public',
+      'uploads',
+      'StudentDocs',
+      docType
+    );
+
+    const filePath = path.join(basePath, document.fileName);
+    console.log(`[FILE SYSTEM] Attempting to delete: ${filePath}`);
+
+    // Verify and delete file
+    let fileDeleted = false;
+    try {
+      await fs.access(filePath);
+      await fs.unlink(filePath);
+      fileDeleted = true;
+      console.log('[FILE SYSTEM] File deleted successfully');
+    } catch (fileErr) {
+      if (fileErr.code === 'ENOENT') {
+        console.warn('[FILE SYSTEM] File not found, continuing with DB deletion');
+      } else {
+        console.error('[FILE SYSTEM] Deletion error:', fileErr);
+        throw new Error(`File deletion failed: ${fileErr.message}`);
+      }
+    }
+
+    // Database deletion
+    console.log('[DATABASE] Deleting record...');
     const deleteQuery = `
       DELETE FROM Documents
-      WHERE studentId = @studentId AND documentType = @docType
+      WHERE studentId = @studentId 
+        AND documentType = @docType
     `;
     
-    await executeQuery(deleteQuery, {
-      studentId: { type: sql.Int, value: parseInt(studentId) },
+    const deleteResult = await executeQuery(deleteQuery, {
+      studentId: { type: sql.Int, value: Number(studentId) },
       docType: { type: sql.NVarChar, value: docType }
     });
 
-    res.status(200).json({ success: true, message: 'Document deleted successfully' });
+    console.log('[DATABASE] Record deleted successfully');
+
+    // Success response
+    const response = {
+      success: true,
+      message: 'Document deleted successfully',
+      details: {
+        documentId: document.id,
+        studentId: Number(studentId),
+        documentType: docType,
+        fileName: document.fileName,
+        fileDeleted,
+        dbRecordDeleted: true,
+        processingTime: `${(Date.now() - startTime)}ms`
+      }
+    };
+
+    console.log('[SUCCESS]', response);
+    res.status(200).json(response);
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+        // next(err);
+    console.error('[ERROR]', err);
+    res.status(500).json({
+      success: false,
+      message: 'Document deletion failed',
+      error: err.message,
+      studentId,
+      docType
+    });
   }
 });
 // PUT /students/:id - Update an existing student
@@ -1802,297 +1891,7 @@ router.post('/students/:studentId/promote', async (req, res, next) => {
     });
   }
 });
-// router.post('/students/:studentId/promote', async (req, res) => {
-//   try {
-//     const { studentId } = req.params;
-//     const {
-//       currentAcademicId,
-//       newCourseYear,
-//       newSessionYear,
-//       adminAmount,
-//       feesAmount,
-//       paymentMode,
-//       numberOfEMI,
-//       emiDetails,
-//       ledgerNumber,
-//       modifiedBy,
-//       isDepromote, // New field to determine if this is a demotion operation
-//     } = req.body;
 
-//     // Input validation
-//     if (!newCourseYear || !newSessionYear) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'New course year and session year are required',
-//       });
-//     }
-
-//     if (adminAmount < 0 || feesAmount < 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Admin amount and fees amount cannot be negative',
-//       });
-//     }
-
-//     if (paymentMode === 'EMI' && (!numberOfEMI || numberOfEMI <= 0)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Number of EMIs must be greater than 0 for EMI payment mode',
-//       });
-//     }
-
-//     if (paymentMode === 'EMI' && (!emiDetails || !Array.isArray(emiDetails) || emiDetails.length === 0)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'EMI details are required and must be a non-empty array for EMI payment mode',
-//       });
-//     }
-
-//     // Verify course year validity
-//     const courseYearOrder = ['1st', '2nd', '3rd', '4th'];
-//     if (!courseYearOrder.includes(newCourseYear)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Invalid course year',
-//       });
-//     }
-
-//     // Get current year and validate session years
-//     const currentYear = new Date().getFullYear();
-//     const sessionYears = Array.from({ length: 10 }, (_, i) => {
-//       const startYear = currentYear - 5 + i;
-//       return `${startYear}-${startYear + 1}`;
-//     });
-
-//     // Don't allow future session years beyond current year + 1
-//     const maxAllowedSessionYear = `${currentYear}-${currentYear + 1}`;
-//     if (parseInt(newSessionYear.split('-')[0]) > currentYear) {
-//       return res.status(400).json({
-//         success: false,
-//         message: `Cannot use future session year beyond ${maxAllowedSessionYear}`,
-//       });
-//     }
-
-//     if (!sessionYears.includes(newSessionYear)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Invalid session year',
-//       });
-//     }
-
-//     // Verify the student exists
-//     const student = await prisma.student.findUnique({
-//       where: { id: parseInt(studentId) },
-//     });
-
-//     if (!student) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'Student not found',
-//       });
-//     }
-
-//     // Get current academic record
-//     const currentAcademic = await prisma.studentAcademicDetails.findUnique({
-//       where: { id: parseInt(currentAcademicId) },
-//     });
-
-//     if (!currentAcademic || currentAcademic.studentId !== parseInt(studentId)) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'Current academic record not found or does not belong to the student',
-//       });
-//     }
-
-//     // Get all academic records for this student to check for validity of promotion/demotion
-//     const allAcademicRecords = await prisma.studentAcademicDetails.findMany({
-//       where: { studentId: parseInt(studentId) },
-//       orderBy: [
-//         { courseYear: 'asc' },
-//         { sessionYear: 'asc' },
-//       ],
-//     });
-
-//     const currentCourseYearIndex = courseYearOrder.indexOf(currentAcademic.courseYear);
-//     const newCourseYearIndex = courseYearOrder.indexOf(newCourseYear);
-//     const currentSessionIndex = sessionYears.indexOf(currentAcademic.sessionYear);
-//     const newSessionIndex = sessionYears.indexOf(newSessionYear);
-
-//     // Special handling for lateral entry students being depromoted to 1st year
-//     if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
-//       // This is a lateral entry student being depromoted from 2nd to 1st year
-      
-//       // Check if the session year is the same
-//       if (currentAcademic.sessionYear !== newSessionYear) {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'For depromoting a lateral entry student to 1st year, session year must remain the same',
-//         });
-//       }
-
-//       // Check if there's already a 1st year record
-//       const existingFirstYearRecord = allAcademicRecords.find(
-//         record => record.courseYear === '1st'
-//       );
-
-//       if (existingFirstYearRecord) {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'Student already has a record for 1st year. Cannot depromote.',
-//         });
-//       }
-//     } 
-//     // Regular depromote case (not for lateral entry)
-//     else if (isDepromote) {
-//       // Validate that we're not skipping course years when depromoting
-//       if (newCourseYearIndex !== currentCourseYearIndex - 1) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Cannot depromote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Demotion must be sequential.`,
-//         });
-//       }
-
-//       // Check if student is already in 3rd year or higher, can't depromote back to 1st
-//       if (currentCourseYearIndex > 1 && newCourseYearIndex === 0) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Cannot depromote from ${currentAcademic.courseYear} to 1st year. Only 2nd year students can be depromoted to 1st year.`,
-//         });
-//       }
-
-//       // Check if session year is the same for demotion
-//       if (currentAcademic.sessionYear !== newSessionYear) {
-//         return res.status(400).json({
-//           success: false,
-//           message: 'For demotion, session year must remain the same',
-//         });
-//       }
-
-//       // Check if there's already a record for the target course year
-//       const existingTargetYearRecord = allAcademicRecords.find(
-//         record => record.courseYear === newCourseYear
-//       );
-
-//       if (existingTargetYearRecord) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Student already has a record for ${newCourseYear} year. Cannot depromote.`,
-//         });
-//       }
-//     } 
-//     // Regular promotion case
-//     else {
-//       // Check if the student already has an academic record for the new course year
-//       const existingCourseYearRecord = allAcademicRecords.find(
-//         record => record.courseYear === newCourseYear
-//       );
-
-//       if (existingCourseYearRecord) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Student already has an academic record for ${newCourseYear} year`,
-//         });
-//       }
-
-//       // Check if there's a gap in course year sequence for promotion
-//       if (newCourseYearIndex !== currentCourseYearIndex + 1) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Cannot promote from ${currentAcademic.courseYear} directly to ${newCourseYear}. Promotion must be sequential.`,
-//         });
-//       }
-
-//       // Check if session year is same as current (not allowed for promotion)
-//       if (currentAcademic.sessionYear === newSessionYear) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `For promotion, new session year cannot be the same as current session year (${currentAcademic.sessionYear})`,
-//         });
-//       }
-
-//       // Check if there's a gap in session year sequence
-//       if (newSessionIndex <= currentSessionIndex) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `New session year (${newSessionYear}) cannot be before or same as current session year (${currentAcademic.sessionYear})`,
-//         });
-//       }
-
-//       if (newSessionIndex !== currentSessionIndex + 1) {
-//         return res.status(400).json({
-//           success: false,
-//           message: `Cannot skip session years. Next valid session year should be ${sessionYears[currentSessionIndex + 1]}`,
-//         });
-//       }
-//     }
-
-//     // Create new academic record for the student
-//     const academicData = {
-//       studentId: parseInt(studentId),
-//       courseYear: newCourseYear,
-//       sessionYear: newSessionYear,
-//       adminAmount: parseFloat(adminAmount),
-//       feesAmount: parseFloat(feesAmount),
-//       paymentMode,
-//       numberOfEMI: paymentMode === 'EMI' ? parseInt(numberOfEMI) : null,
-//       ledgerNumber: ledgerNumber || null,
-//       createdBy: modifiedBy,
-//       createdOn: new Date(),
-//       modifiedBy,
-//     };
-
-//     // Create the new academic record
-//     const newAcademicRecord = await prisma.studentAcademicDetails.create({
-//       data: academicData,
-//     });
-
-//     // If payment mode is EMI, create EMI details
-//     if (paymentMode === 'EMI' && emiDetails && emiDetails.length > 0) {
-//       await Promise.all(
-//         emiDetails.map(async (emi) => {
-//           await prisma.eMIDetails.create({
-//             data: {
-//               studentId: parseInt(studentId),
-//               studentAcademicId: newAcademicRecord.id,
-//               emiNumber: emi.emiNumber,
-//               amount: parseFloat(emi.amount),
-//               dueDate: new Date(emi.dueDate),
-//               createdBy: modifiedBy,
-//               createdOn: new Date(),
-//               modifiedBy,
-//             },
-//           });
-//         })
-//       );
-//     }
-
-//     // If this is a lateral entry student being depromoted to 1st year, update the isLateral flag
-//     if (isDepromote && student.isLateral && currentCourseYearIndex === 1 && newCourseYearIndex === 0) {
-//       await prisma.student.update({
-//         where: { id: parseInt(studentId) },
-//         data: {
-//           isLateral: false,
-//           modifiedBy,
-//           modifiedOn: new Date(),
-//         },
-//       });
-//     }
-
-//     // Return success response
-//     const actionType = isDepromote ? 'demoted' : 'promoted';
-//     res.status(200).json({
-//       success: true,
-//       message: `Student successfully ${actionType} to ${newCourseYear} year for session ${newSessionYear}`,
-//       data: newAcademicRecord,
-//     });
-//   } catch (error) {
-//     console.error('Error promoting/demoting student:', error.stack);
-//     res.status(500).json({
-//       success: false,
-//       message: error.message || 'An error occurred while promoting/demoting the student',
-//     });
-//   }
-// });
 
 
 
@@ -3162,7 +2961,7 @@ router.post('/updateEnquiryStatus', async (req, res, next) => {
 });
 
 // Endpoint to send email reply
-router.post('/sendEnquiryReply', async (req, res) => {
+router.post('/sendEnquiryReply', async (req, res, next) => {
   const { to, subject, message, enquiryId } = req.body;
 
   try {

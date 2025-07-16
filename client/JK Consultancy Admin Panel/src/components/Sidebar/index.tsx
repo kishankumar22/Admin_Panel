@@ -112,6 +112,9 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const placementManagementPages = [
     '/AddPlacement'
   ];
+  const logManagementPages = [
+    '/viewlogs'
+  ];
 
   const configurationPages = [
     '/assign-page-to-role',
@@ -453,6 +456,62 @@ const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
                 )}
               </SidebarLinkGroup>
             )}
+
+            {/* Log Management */}
+          {hasGroupPermission(logManagementPages) && (
+  <SidebarLinkGroup activeCondition={pathname === '/viewlogs' || pathname.includes('viewlogs')}>
+    {() => (
+      <>
+        <NavLink
+          to="#"
+          className={`group flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md text-bodydark1 hover:bg-slate-600 dark:hover:bg-meta-4`}
+          onClick={(e) => {
+            e.preventDefault();
+            handleDropdownClick('viewlogs');
+          }}
+        >
+          {/* Log Icon */}
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+
+          Manage Logs
+
+          <IoIosArrowDown
+            className={`absolute right-3 mt-4 -translate-y-1/2 transition-transform duration-300 ${openDropdown === 'viewlogs' && 'rotate-180'}`}
+          />
+        </NavLink>
+
+        <div
+          className={`overflow-hidden transition-all duration-200 ease-in-out ${openDropdown === 'viewlogs' ? 'max-h-96' : 'max-h-0'}`}
+        >
+          <ul className="mt-1 flex flex-col gap-0.5 pl-4">
+            {hasPagePermission('/AddPlacement') && (
+              <li>
+                <NavLink
+                  to="/viewlogs"
+                  className={({ isActive }) =>
+                    `group flex items-center rounded-md gap-2 px-2 py-1 text-sm text-white text-opacity-75 hover:text-white hover:bg-gray-500 dark:hover:bg-gray-500 ${
+                      isActive && '!text-white bg-gray-500'
+                    }`
+                  }
+                >
+                  {/* File Document Icon */}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V4a2 2 0 012-2h7l5 5v13a2 2 0 01-2 2z" />
+                  </svg>
+
+                  View Logs
+                </NavLink>
+              </li>
+            )}
+          </ul>
+        </div>
+      </>
+    )}
+  </SidebarLinkGroup>
+)}
+
 
             {/* Configuration Dropdown */}
             {hasGroupPermission(configurationPages) && (

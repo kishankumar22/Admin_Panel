@@ -594,48 +594,101 @@ router.post('/expense/payment', upload.single('file'), async (req, res, next) =>
       paymentPublicId: { type: sql.NVarChar, value: publicId || null },
       createdBy: { type: sql.NVarChar, value: createdBy },
     });
-
-    res.status(201).json({ success: true, message: 'Payment processed successfully' });
+      res.status(201).json({ success: true, message: 'Payment processed successfully' });
   } catch (err) {
     next(err);
   }
 });
 
 // DELETE document (local file deletion)
+// DELETE document (local file deletion)
 router.delete('/documents/:publicId', async (req, res, next) => {
-  try {
-    const { publicId } = req.params;
+  const { publicId } = req.params;
+  console.log(`[DELETE] Starting deletion for PublicId: ${publicId}`);
 
-    // Check if the document exists
-    const documentCheck = await executeQuery(
+  try {
+    // 1. Verify document exists in database
+    console.log('[DELETE] Checking database...');
+    const docQuery = await executeQuery(
       `SELECT DocumentId, DocumentUrl, PublicId 
        FROM SupplierDocuments 
-       WHERE PublicId = @PublicId AND DocumentType = 'ExpenseDocument'`,
+       WHERE PublicId = @PublicId`,
       { PublicId: { type: sql.NVarChar, value: publicId } }
     );
 
-    if (documentCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Document not found' });
+    if (docQuery.recordset.length === 0) {
+      console.log('[DELETE] Document not found in database');
+      return res.status(404).json({ 
+        success: false,
+        message: 'Document not found in database'
+      });
     }
 
-    const document = documentCheck.recordset[0];
-    const filePath = path.join(__dirname, '../../public/uploads/ExpenseDocs', publicId);
+    const document = docQuery.recordset[0];
+    console.log('[DELETE] Document found in database:', document);
 
-    // Delete the file from local storage
-    await fs.unlink(filePath).catch((err) => {
-      console.warn(`File not found or already deleted: ${filePath}`, err);
-    });
+    // 2. Prepare local file path
+    const basePath = 'C:/Users/Windows/Desktop/JK Consultancy/server/public/uploads/ExpenseDocs';
+    const filePath = path.join(basePath, publicId);
+    console.log(`[DELETE] Full file path: ${filePath}`);
 
-    // Delete the document record from the database
+    // 3. Debug directory contents
+    console.log('[DELETE] Listing directory contents...');
+    try {
+      const files = await fs.readdir(basePath);
+      console.log('[DELETE] Files in directory:', files);
+      const fileExists = files.includes(publicId);
+      console.log(`[DELETE] File exists: ${fileExists}`);
+      
+      if (!fileExists) {
+        console.warn('[DELETE] Warning: File not found in directory but exists in database');
+      }
+    } catch (dirErr) {
+      console.error('[DELETE] Error reading directory:', dirErr);
+    }
+
+    // 4. Delete local file
+    console.log('[DELETE] Attempting file deletion...');
+    try {
+      await fs.access(filePath);
+      await fs.unlink(filePath);
+      console.log('[DELETE] File successfully deleted from local storage');
+    } catch (fileErr) {
+      if (fileErr.code === 'ENOENT') {
+        console.warn('[DELETE] File not found in local storage (may have been already deleted)');
+      } else {
+        console.error('[DELETE] File deletion error:', fileErr);
+        throw fileErr;
+      }
+    }
+
+    // 5. Delete database record
+    console.log('[DELETE] Deleting database record...');
     await executeQuery(
       `DELETE FROM SupplierDocuments WHERE PublicId = @PublicId`,
       { PublicId: { type: sql.NVarChar, value: publicId } }
     );
+    console.log('[DELETE] Database record deleted');
 
-    res.status(200).json({ message: 'Document deleted successfully' });
+    res.status(200).json({
+      success: true,
+      message: 'Document deleted successfully',
+      details: {
+        publicId: publicId,
+        localPath: filePath,
+        dbRecordDeleted: true,
+        fileDeleted: true
+      }
+    });
+
   } catch (err) {
-    console.error('Error deleting document:', err);
-    next(err);
+    console.error('[DELETE] Process failed:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Document deletion failed',
+      error: err.message,
+      publicId: publicId
+    });
   }
 });
 

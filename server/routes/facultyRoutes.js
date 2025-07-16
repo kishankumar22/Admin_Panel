@@ -50,7 +50,7 @@ const protectFolder = (req, res, next) => {
 };
 
 // 1. GET All Faculties
-router.get('/faculty', async (req, res) => {
+router.get('/faculty', async (req, res,) => {
   try {
     const result = await executeQuery('SELECT * FROM Faculty ORDER BY faculty_name ASC');
     const faculties = result.recordset.map(faculty => {

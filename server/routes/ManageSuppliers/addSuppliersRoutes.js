@@ -117,40 +117,40 @@ router.get('/supplier/:supplierId/payments', async (req, res, next) => {
 });
 
 // DELETE document by PublicId
-router.delete('/documents/:publicId', async (req, res, next) => {
-  try {
-    const decodedPublicId = decodeURIComponent(req.params.publicId);
-    console.log('Deleting document with PublicId:', decodedPublicId);
+// router.delete('/documents/:publicId', async (req, res, next) => {
+//   try {
+//     const decodedPublicId = decodeURIComponent(req.params.publicId);
+//     console.log('Deleting document with PublicId:', decodedPublicId);
 
-    const documentCheck = await executeQuery(
-      'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
-      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
-    );
+//     const documentCheck = await executeQuery(
+//       'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
+//       { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
+//     );
 
-    if (documentCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Document not found in DB' });
-    }
+//     if (documentCheck.recordset.length === 0) {
+//       return res.status(404).json({ message: 'Document not found in DB' });
+//     }
 
-    // Delete from Cloudinary
-    const cloudinaryResponse = await cloudinary.uploader.destroy(decodedPublicId);
-    console.log('Cloudinary delete result:', cloudinaryResponse); 
+//     // Delete from Cloudinary
+//     const cloudinaryResponse = await cloudinary.uploader.destroy(decodedPublicId);
+//     console.log('Cloudinary delete result:', cloudinaryResponse); 
 
-    // Delete from DB
-    const result = await executeQuery(
-      'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
-      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
-    );
+//     // Delete from DB
+//     const result = await executeQuery(
+//       'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
+//       { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
+//     );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(500).json({ message: 'Delete failed in DB' });
-    }
+//     if (result.rowsAffected[0] === 0) {
+//       return res.status(500).json({ message: 'Delete failed in DB' });
+//     }
 
-    res.status(200).json({ message: 'Document deleted successfully' });
-  } catch (err) {
-    console.error('Error deleting document:', err);
-    next(err);
-  }
-});
+//     res.status(200).json({ message: 'Document deleted successfully' });
+//   } catch (err) {
+//     console.error('Error deleting document:', err);
+//     next(err);
+//   }
+// });
 
 // POST Add Supplier with multiple files (Local Storage)
 router.post('/supplier/add', upload.array('files', 10), async (req, res, next) => {
@@ -344,38 +344,38 @@ router.put('/supplier/:id', upload.array('files', 10), async (req, res, next) =>
 });
 
 // ... (remaining endpoints like DELETE, GET remain unchanged, included for completeness)
-router.delete('/documents/:publicId', async (req, res, next) => {
-  try {
-    const decodedPublicId = decodeURIComponent(req.params.publicId);
-    console.log('Deleting document with PublicId:', decodedPublicId);
+// router.delete('/documents/:publicId', async (req, res, next) => {
+//   try {
+//     const decodedPublicId = decodeURIComponent(req.params.publicId);
+//     console.log('Deleting document with PublicId:', decodedPublicId);
 
-    const documentCheck = await executeQuery(
-      'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
-      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
-    );
+//     const documentCheck = await executeQuery(
+//       'SELECT DocumentId FROM SupplierDocuments WHERE PublicId = @PublicId',
+//       { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
+//     );
 
-    if (documentCheck.recordset.length === 0) {
-      return res.status(404).json({ message: 'Document not found in DB' });
-    }
+//     if (documentCheck.recordset.length === 0) {
+//       return res.status(404).json({ message: 'Document not found in DB' });
+//     }
 
-    const cloudinaryResponse = await cloudinary.uploader.destroy(decodedPublicId);
-    console.log('Cloudinary delete result:', cloudinaryResponse);
+//     const cloudinaryResponse = await cloudinary.uploader.destroy(decodedPublicId);
+//     console.log('Cloudinary delete result:', cloudinaryResponse);
 
-    const result = await executeQuery(
-      'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
-      { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
-    );
+//     const result = await executeQuery(
+//       'DELETE FROM SupplierDocuments WHERE PublicId = @PublicId',
+//       { PublicId: { type: sql.NVarChar, value: decodedPublicId } }
+//     );
 
-    if (result.rowsAffected[0] === 0) {
-      return res.status(500).json({ message: 'Delete failed in DB' });
-    }
+//     if (result.rowsAffected[0] === 0) {
+//       return res.status(500).json({ message: 'Delete failed in DB' });
+//     }
 
-    res.status(200).json({ message: 'Document deleted successfully' });
-  } catch (err) {
-    console.error('Error deleting document:', err);
-    next(err);
-  }
-});
+//     res.status(200).json({ message: 'Document deleted successfully' });
+//   } catch (err) {
+//     console.error('Error deleting document:', err);
+//     next(err);
+//   }
+// });
 
 router.delete('/documents/local/:publicId', async (req, res, next) => {
   try {
