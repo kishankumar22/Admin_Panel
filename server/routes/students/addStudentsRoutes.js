@@ -464,26 +464,22 @@ const validDocTypes = new Set([
   'Income'
 ]);
 
-router.delete('/students/:studentId/documents/:docType', async (req, res) => {
+router.delete('/students/:studentId/documents/:docType', async (req, res, next) => {
   const { studentId, docType } = req.params;
   const startTime = Date.now();
-  
-  console.log(`[DELETE] Starting deletion for studentId: ${studentId}, docType: ${docType}`);
 
   try {
     // Validate inputs
     if (!studentId || !Number.isInteger(Number(studentId))) {
-      console.log('[VALIDATION] Invalid student ID');
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Valid student ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Valid student ID is required'
       });
     }
 
     if (!validDocTypes.has(docType)) {
-      console.log('[VALIDATION] Invalid document type');
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: `Invalid document type. Valid types are: ${[...validDocTypes].join(', ')}`
       });
     }
@@ -495,22 +491,20 @@ router.delete('/students/:studentId/documents/:docType', async (req, res) => {
       WHERE studentId = @studentId 
         AND documentType = @docType
     `;
-    
+
     const docResult = await executeQuery(docQuery, {
       studentId: { type: sql.Int, value: Number(studentId) },
       docType: { type: sql.NVarChar, value: docType }
     });
 
     if (docResult.recordset.length === 0) {
-      console.log('[DATABASE] Document not found');
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Document not found in database' 
+      return res.status(404).json({
+        success: false,
+        message: 'Document not found in database'
       });
     }
 
     const document = docResult.recordset[0];
-    console.log(`[DATABASE] Found document:`, document);
 
     // File deletion process
     const basePath = path.join(
@@ -527,7 +521,6 @@ router.delete('/students/:studentId/documents/:docType', async (req, res) => {
     );
 
     const filePath = path.join(basePath, document.fileName);
-    console.log(`[FILE SYSTEM] Attempting to delete: ${filePath}`);
 
     // Verify and delete file
     let fileDeleted = false;
@@ -535,33 +528,26 @@ router.delete('/students/:studentId/documents/:docType', async (req, res) => {
       await fs.access(filePath);
       await fs.unlink(filePath);
       fileDeleted = true;
-      console.log('[FILE SYSTEM] File deleted successfully');
     } catch (fileErr) {
-      if (fileErr.code === 'ENOENT') {
-        console.warn('[FILE SYSTEM] File not found, continuing with DB deletion');
-      } else {
-        console.error('[FILE SYSTEM] Deletion error:', fileErr);
+      if (fileErr.code !== 'ENOENT') {
         throw new Error(`File deletion failed: ${fileErr.message}`);
       }
     }
 
     // Database deletion
-    console.log('[DATABASE] Deleting record...');
     const deleteQuery = `
       DELETE FROM Documents
       WHERE studentId = @studentId 
         AND documentType = @docType
     `;
-    
-    const deleteResult = await executeQuery(deleteQuery, {
+
+    await executeQuery(deleteQuery, {
       studentId: { type: sql.Int, value: Number(studentId) },
       docType: { type: sql.NVarChar, value: docType }
     });
 
-    console.log('[DATABASE] Record deleted successfully');
-
     // Success response
-    const response = {
+    res.status(200).json({
       success: true,
       message: 'Document deleted successfully',
       details: {
@@ -573,23 +559,13 @@ router.delete('/students/:studentId/documents/:docType', async (req, res) => {
         dbRecordDeleted: true,
         processingTime: `${(Date.now() - startTime)}ms`
       }
-    };
-
-    console.log('[SUCCESS]', response);
-    res.status(200).json(response);
+    });
 
   } catch (err) {
-        // next(err);
-    console.error('[ERROR]', err);
-    res.status(500).json({
-      success: false,
-      message: 'Document deletion failed',
-      error: err.message,
-      studentId,
-      docType
-    });
+    next(err);  // Centralized error handling karega
   }
 });
+
 // PUT /students/:id - Update an existing student
 router.put(
   '/students/:id',
@@ -601,7 +577,7 @@ router.put(
     { name: 'Residential' },
     { name: 'Income' },
   ]),
-  async (req, res) => {
+  async (req, res, next) => {
     try {
       const studentId = parseInt(req.params.id);
       const {
@@ -916,18 +892,18 @@ router.put(
 
         await transaction.commit();
         res.status(200).json({ success: true, student: updatedStudent });
-      } catch (error) {
+      } catch (err) {
         await transaction.rollback();
-        res.status(500).json({ success: false, message: error.message });
+        return next(err);  // <-- Pass to centralized error handler
       }
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
+      return next(err);
     }
   }
 );
-// acive and inactive student
 
-// PUT toggle student status
+
+// PUT toggle student status acive and inactive student
 router.put('/students/toggle-status/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -1892,9 +1868,6 @@ router.post('/students/:studentId/promote', async (req, res, next) => {
   }
 });
 
-
-
-
 // DELETE /students/:id - Delete a student and all related records
 router.delete('/students/:id', async (req, res, next) => {
   try {
@@ -2325,11 +2298,12 @@ router.post('/studentPayment', upload.single('receipt'), async (req, res, next) 
 });
 // New GET endpoint for local files
 
-router.get('/studentPayment/:filename', (req, res) => {
+router.get('/studentPayment/:filename', (req, res, next) => {
   const { filename } = req.params;
   const filePath = path.join(__dirname, '../../public/uploads/StudentPayment', filename);
   res.sendFile(filePath, (err) => {
     if (err) {
+      next(err); // Pass
       console.error('Error serving local file:', err);
       res.status(404).json({ success: false, error: 'File not found' });
     }
@@ -2684,7 +2658,7 @@ router.get('/studentPayment/:paymentId/slip', async (req, res, next) => {
 
 
 // Check Payment Handover Route
-router.get('/paymentHandover/check/:paymentId', async (req ,res) => {
+router.get('/paymentHandover/check/:paymentId', async (req ,res, next) => {
   try {
     const { paymentId } = req.params;
 
@@ -2705,6 +2679,7 @@ router.get('/paymentHandover/check/:paymentId', async (req ,res) => {
       hasHandover: result.recordset.length > 0,
     });
   } catch (error) {
+    next(error); // Pass
     console.error('Error checking payment handover:', error);
     return res.status(500).json({ success: false, error: 'Failed to check payment handover' });
   }
@@ -3107,6 +3082,7 @@ router.post('/sendEnquiryReply', async (req, res, next) => {
 
     res.status(200).json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
+    next(err); // 
     console.error('Error sending email:', err);
     res.status(500).json({ success: false, message: 'Failed to send email', error: err.message });
   }
